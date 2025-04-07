@@ -1,5 +1,9 @@
 
 
+🔗 Part of the [ATRAPA Project](https://github.com/GEMOTT/atrapa)  
+⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa) ➡️ [Next
+paper: WP2](https://github.com/GEMOTT/osm-wp2-analysis)
+
 # Evaluating OpenStreetMap for Tracking Active Travel Infrastructure Changes: A Multi-City Validation Across Seven European Cities
 
 ## Introduction
