@@ -115,8 +115,8 @@ cities <- list(
 )
 
 # Create the data directory if it doesn't exist
-if (!dir.exists("wp1data/street-level")) {
-  dir.create("wp1data/street-level")
+if (!dir.exists("data/street-level")) {
+  dir.create("data/street-level")
 }
 
 for (english_name in names(cities)) {
@@ -155,7 +155,7 @@ for (english_name in names(cities)) {
     }
     
     # Create city-specific directory if it doesn't exist
-    city_dir <- paste0("wp1data/street-level/", tolower(english_name))
+    city_dir <- paste0("data/street-level/", tolower(english_name))
     if (!dir.exists(city_dir)) {
       dir.create(city_dir)
     }
@@ -218,7 +218,7 @@ for (english_name in names(cities)) {
   
   try({
     # Define file path for the perimeter
-    perimeter_path <- paste0("wp1data/street-level/", tolower(english_name), "/", tolower(english_name), "_perimeter.gpkg")
+    perimeter_path <- paste0("data/street-level/", tolower(english_name), "/", tolower(english_name), "_perimeter.gpkg")
     
     # Read the perimeter from GeoPackage
     if (file.exists(perimeter_path)) {
@@ -236,7 +236,7 @@ for (english_name in names(cities)) {
     }
     
     # Create city-specific directory if it doesn't exist
-    city_dir <- paste0("wp1data/street-level/", tolower(english_name))
+    city_dir <- paste0("data/street-level/", tolower(english_name))
     if (!dir.exists(city_dir)) {
       dir.create(city_dir, recursive = TRUE)
     }
@@ -300,9 +300,9 @@ map_objects_2023 <- list()
 for (city in names(cities)) {
 
   # Define file paths
-  perimeter_path <- paste0("wp1data/street-level/", tolower(city), "/", tolower(city), "_perimeter.gpkg")
-  lines_170101_path <- paste0("wp1data/street-level/", tolower(city), "/", tolower(city), "_170101_lines.gpkg")
-  lines_240101_path <- paste0("wp1data/street-level/", tolower(city), "/", tolower(city), "_240101_lines.gpkg")
+  perimeter_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_perimeter.gpkg")
+  lines_170101_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_170101_lines.gpkg")
+  lines_240101_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_240101_lines.gpkg")
 
   # Read the perimeter
   perimeter <- st_read(perimeter_path, layer = tolower(city), quiet = TRUE)
@@ -381,10 +381,10 @@ my_vectortranslate <- c(
   "-where", "highway IN ('living_street', 'pedestrian', 'cycleway', 'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link', 'service', 'track', 'bus_guideway', 'escape', 'raceway', 'busway')")
 
 ## Load perimeter and get both years infras using osmextract
-barcelona_perimeter <- st_read("wp1data/street-level/barcelona/raw/0301040100_TermeMunicipal_UNITATS_ADM.shp")
+barcelona_perimeter <- st_read("data/street-level/barcelona/raw/0301040100_TermeMunicipal_UNITATS_ADM.shp")
 
 # Define the file path to the downloaded .osm.pbf file
-# local_osm_file <- "wp1data/street-level/milan/nord-ovest-170101.osm.pbf"  # Replace with actual path
+# local_osm_file <- "data/street-level/milan/nord-ovest-170101.osm.pbf"  # Replace with actual path
 
 # Load the file into R
 # Load the file into R
@@ -407,9 +407,9 @@ barcelona_240101lines = oe_get("Cataluña", version = "230101", vectortranslate_
 barcelona_240101lines$geometry
 
 # Save data
-st_write(barcelona_160101_lines, "wp1data/street-level/barcelona/barcelona_160101_lines.gpkg", append=TRUE)
-st_write(barcelona_200101_lines, "wp1data/street-level/barcelona/barcelona_200101_lines.gpkg", append=TRUE)
-st_write(barcelona_lines_240101, "wp1data/street-level/barcelona/barcelona_240101_lines.gpkg", append=TRUE)
+st_write(barcelona_160101_lines, "data/street-level/barcelona/barcelona_160101_lines.gpkg", append=TRUE)
+st_write(barcelona_200101_lines, "data/street-level/barcelona/barcelona_200101_lines.gpkg", append=TRUE)
+st_write(barcelona_lines_240101, "data/street-level/barcelona/barcelona_240101_lines.gpkg", append=TRUE)
 ```
 
 #### Road network by type
@@ -424,10 +424,10 @@ st_write(barcelona_lines_240101, "wp1data/street-level/barcelona/barcelona_24010
 
 # Define file paths for Barcelona
 city <- "barcelona"
-perimeter_path <- paste0("wp1data/street-level/", city, "/", city, "_perimeter.gpkg")
-lines_160101_path <- paste0("wp1data/street-level/", city, "/", city, "_160101_lines.gpkg")
-lines_200101_path <- paste0("wp1data/street-level/", city, "/", city, "_200101_lines.gpkg")
-lines_240101_path <- paste0("wp1data/street-level/", city, "/", city, "_240101_lines.gpkg")
+perimeter_path <- paste0("data/street-level/", city, "/", city, "_perimeter.gpkg")
+lines_160101_path <- paste0("data/street-level/", city, "/", city, "_160101_lines.gpkg")
+lines_200101_path <- paste0("data/street-level/", city, "/", city, "_200101_lines.gpkg")
+lines_240101_path <- paste0("data/street-level/", city, "/", city, "_240101_lines.gpkg")
 
 # Read the perimeter
 perimeter <- st_read(perimeter_path, layer = city, quiet = TRUE)
@@ -552,11 +552,11 @@ knitr::include_graphics("figs/barcelona_network_all.png")
 # Get the indicators
 
 # Read in the census tracts (polygon data) and line network for both years
-barcelona_tracts <- st_read("wp1data/street-level/barcelona/barcelona_census_tracts.gpkg", quiet = TRUE)
+barcelona_tracts <- st_read("data/street-level/barcelona/barcelona_census_tracts.gpkg", quiet = TRUE)
 
-barcelona_network_2015 <- st_read("wp1data/street-level/barcelona/barcelona_160101_lines.gpkg", quiet = TRUE)
-barcelona_network_2019 <- st_read("wp1data/street-level/barcelona/barcelona_200101_lines.gpkg", quiet = TRUE)
-barcelona_network_2023 <- st_read("wp1data/street-level/barcelona/barcelona_240101_lines.gpkg", quiet = TRUE)
+barcelona_network_2015 <- st_read("data/street-level/barcelona/barcelona_160101_lines.gpkg", quiet = TRUE)
+barcelona_network_2019 <- st_read("data/street-level/barcelona/barcelona_200101_lines.gpkg", quiet = TRUE)
+barcelona_network_2023 <- st_read("data/street-level/barcelona/barcelona_240101_lines.gpkg", quiet = TRUE)
 
 # Ensure both datasets are in the same coordinate reference system (CRS)
 barcelona_network_2015 <- st_transform(barcelona_network_2015, st_crs(barcelona_tracts))
@@ -977,7 +977,7 @@ barcelona_tracts_with_all_ratios <- barcelona_tracts_with_cycleway_ratios |>  # 
   left_join(barcelona_tracts_with_pedestrian_ratios, by = "census_tract_id")  
 
 # Save the data
-st_write(barcelona_tracts_with_all_ratios, "wp1data/area-level/barcelona/barcelona_indicators.gpkg", append = FALSE)
+st_write(barcelona_tracts_with_all_ratios, "data/area-level/barcelona/barcelona_indicators.gpkg", append = FALSE)
 ```
 
 \newpage
