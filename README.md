@@ -11,79 +11,110 @@ paper: WP2](https://github.com/GEMOTT/osm-wp2-analysis)
 The relationship between the built environment and travel behaviour has
 been widely studied, with many studies identifying associations between
 environmental characteristics and travel patterns (Cerin et al. 2017;
-Ding et al. 2011; Y. Zhang et al. 2022). However, most research relies
-on cross-sectional data, which cannot establish causality (McCormack and
+Ding et al. 2011; Zhang et al. 2022). However, most research relies on
+cross-sectional data, which cannot establish causality (McCormack and
 Shiell 2011; P. van de Coevering, and Wee 2015). In contrast, studies
 that track changes in both travel behaviour and the built
 environment—such as longitudinal studies and natural experiments—offer
 stronger causal insights but remain relatively scarce (Kärmeniemi et al.
 2018; Smith et al. 2017; Tcymbal et al. 2020).
 
-A key barrier to expanding this type of research is the limited
-availability of consistent, time-series data on the built environment.
-While historical travel behaviour data can sometimes be sourced from
-municipal surveys or crowdsourced platforms (e.g., Strava, travel
-diaries), equivalent records of past urban infrastructure are far less
-accessible. Some national databases, such as the Nationaal Wegenbestand
-(NWB) in the Netherlands (P. V. D. Coevering et al. 2016), offer partial
-solutions but lack the scope for large-scale, cross-city, or
-international comparisons. Manually creating in-house datasets is
-another option, but it is costly and typically results in small samples.
+One of the main challenges in expanding this area of research is the
+limited availability of consistent, time-series data on the built
+environment. While historical data on travel behavior is often more
+accessible—thanks to municipal surveys and crowdsourced platforms like
+Strava or travel diaries—comparable records of past urban infrastructure
+are much harder to obtain. Some national databases, such as the
+Netherlands’ Nationaal Wegenbestand (NWB) (P. V. D. Coevering et al.
+2016), provide road network data going back over two decades, but these
+are rare and typically limited to a single country or region, hindering
+broader or international comparisons. An alternative is to develop
+in-house datasets, though this process is resource-intensive and
+generally results in limited sample sizes.
 
-The increasing availability of big data sources presents new
-opportunities to overcome these challenges (Aldred 2019). OpenStreetMap
-(OSM), in particular, holds great potential for tracking urban
-transformations over time. Historical OSM data, available from sources
-such as Geofabrik, provides snapshots of past infrastructure (dating
-back to at least 2015), enabling estimation of built environment changes
-over time. However, despite OSM’s growing coverage and reliability, its
-use as an indicator of urban transformation requires validation. The
-timing of updates may not always reflect actual changes, and data
-accuracy, completeness, and consistency vary across locations and
-feature types.
+The increasing availability of volunteered geographic information offers
+new opportunities to address these challenges. In particular,
+OpenStreetMap (OSM) provides open and historical data on various types
+of infrastructure, making it a promising source for analyzing urban
+transformations. However, its use in this context requires careful
+validation due to known limitations in accuracy, completeness, and
+consistency across time and place.
 
-Previous studies have shown that OSM’s temporal data can capture
-meaningful urban change when validated against external sources. For
-example, L. Zhang and Pfoser (2019) compared OSM point-of-interest data
-with Foursquare to track changes in coffee shop locations, finding that
-OSM’s historical edits can reflect real-world trends despite variability
-in quality.
-
-This study aims to evaluate the extent to which historical OpenStreetMap
-(OSM) data can reliably capture urban transformations in active travel
+While OSM has been widely used to assess infrastructure coverage and
+routing potential, its reliability for capturing historical
+transformations—especially in pedestrian-oriented infrastructure—remains
+unclear. This study aims to evaluate the extent to which historical OSM
+data can reliably capture urban transformations in active travel
 infrastructure—such as bike lanes, pedestrian streets, and living
-streets—across different cities, and to develop a semi-automated method
-for its validation. Drawing on OSM historical snapshots from 2015 to
-2023, we assess changes across two defined intervals: 2015–2019 and
-2019–2023. Reported transformations in OSM during each interval are
-compared against external reference sources, including Google Street
-View (GSV), satellite imagery, and official municipal records. The
-validation process involves stratified random spatial sampling of
-small-area units, accounting for socio-demographic and geographic
-variation (e.g., city centers versus peripheries). Our analysis focuses
-on seven European cities—Barcelona, Milan, Ljubljana, Paris, Malmö,
-Utrecht, and Warsaw—selected for their relevance to a broader research
-initiative. While the present study focuses on these cases, the approach
-can be adapted to additional cities, offering a scalable framework for
-assessing OSM’s reliability in longitudinal and natural experiment
-studies on urban transformation. The method also has practical value for
-planners and policymakers seeking low-cost tools for infrastructure
-monitoring.
+streets—across multiple European cities. We develop and apply a
+semi-automated validation method that compares reported changes in OSM
+to external reference sources, including street-level and satellite
+imagery as well as official records. The analysis focuses on seven
+cities selected for their relevance to a broader research initiative and
+uses stratified sampling to reflect socio-demographic and spatial
+diversity. While the present study is limited to these cases, the
+framework is designed to be scalable and transferable, offering a
+practical tool for researchers and planners seeking to monitor
+infrastructure change over time.
 
-# Data and Method
+This study builds on recent efforts to assess OSM’s data quality and
+potential for infrastructure analysis, with particular attention to its
+capacity to represent change over time.
 
-## Data sources
+## Literature review
 
-- OSM
-- GSV
-- Satellite
-- Official
+OSM is often used to study transport infrastructure—especially cycling
+networks—but few studies examine how these networks change over time. A
+countrywide assessment in Denmark found that neither OSM nor the
+official GeoDanmark dataset alone provided complete coverage;
+feature-level conflation was necessary to improve reliability,
+especially in rural areas (Vierø, Vybornova, and Szell 2025). Viero et
+al. also introduced BikeDNA, an open-source tool that validates OSM
+cycling data with attention to network topology, local completeness, and
+spatial variation (Vierø, Vybornova, and Szell 2024). Similarly, Ferster
+et al. compared OSM with municipal datasets in six Canadian cities and
+found high agreement in total network length, though accuracy varied by
+infrastructure type—especially for newer or inconsistently tagged
+features (Ferster et al. 2023). These studies underscore both the
+promise and the limitations of OSM for cycling infrastructure research.
 
-## Method
+In contrast, pedestrian networks—especially pedestrianized and living
+streets—have received significantly less attention in OSM validation
+studies. While some efforts have focused on sidewalks or routing
+networks (e.g. Zielstra and Hochmair (2012);
+https://wiki.openstreetmap.org/wiki/OpenSidewalks), few have assessed
+whether OSM reliably represents pedestrianized streets (e.g.,
+highway=pedestrian) or living streets (highway=living_street), or
+whether these features accurately reflect real-world transformations
+over time. These types of infrastructure are increasingly relevant for
+sustainable mobility but pose unique challenges for mapping and
+validation due to tagging ambiguity and definitional variation across
+contexts (National Technical University of Athens, Greece 2022; Omar et
+al. 2022).
 
+Taken together, these studies demonstrate that OSM is a promising yet
+uneven source for analyzing changes in the built environment. However,
+most existing research focuses on static comparisons, routing
+applications, or cycling-specific infrastructure—often within single
+cities or countries. Very few studies assess OSM’s ability to capture
+infrastructure transformations over time, particularly for
+underrepresented networks like pedestrian and living streets. Our study
+addresses this gap by developing a validation framework that compares
+reported OSM transformations to multiple external sources—Google Street
+View, satellite imagery, and official municipal records—across seven
+European cities. In doing so, we assess the temporal completeness,
+spatial variation, and overall reliability of OSM as a longitudinal
+dataset for tracking changes in active travel infrastructure.
+
+<!-- # Data and Method -->
+<!-- ## Data sources -->
+<!-- -   OSM -->
+<!-- -   GSV -->
+<!-- -   Satellite -->
+<!-- -   Official -->
+<!-- ## Method -->
 <!-- Similar studies: -->
 <!-- Using OpenStreetMap Point-of-Interest Data to Model Urban Change—A Feasibility Study: DOI: 10.1371/journal.pone.0212606 -->
-<!-- Analysis of Cycling Network Evolution in OpenStreetMap Through a Data Quality Prism: DOI: 10.5194/agile-giss-4-3-2023 -->
 <!-- Using OpenStreetMap to Inventory Bicycle Infrastructure: A Comparison with Open Data from Cities: DOI: 10.1080/15568318.2018.1519746 -->
 <!-- How Good Is Open Bicycle Infrastructure Data? A Countrywide Case Study of Denmark: DOI: 10.1111/gean.12400 -->
 <!-- BikeDNA: A Tool for Bicycle Infrastructure Data & Network Assessment: DOI: 10.1177/23998083231184471 -->
@@ -152,15 +183,6 @@ style="width:100.0%" />
 <div id="refs" class="references csl-bib-body hanging-indent"
 entry-spacing="0">
 
-<div id="ref-aldred_built_2019" class="csl-entry">
-
-Aldred, Rachel. 2019. “Built Environment Interventions to Increase
-Active Travel: A Critical Review and Discussion.” *Current Environmental
-Health Reports* 6 (4): 309–15.
-<https://doi.org/10.1007/s40572-019-00254-4>.
-
-</div>
-
 <div id="ref-cerin_neighbourhood_2017" class="csl-entry">
 
 Cerin, Ester, Andrea Nathan, Jelle van Cauwenberg, David W. Barnett,
@@ -201,6 +223,16 @@ Youth.” *American Journal of Preventive Medicine* 41 (4): 442–55.
 
 </div>
 
+<div id="ref-ferster_developing_2023" class="csl-entry">
+
+Ferster, Colin, Trisalyn Nelson, Kevin Manaugh, Jeneva Beairsto, Karen
+Laberee, and Meghan Winters. 2023. “Developing a National Dataset of
+Bicycle Infrastructure for Canada Using Open Data Sources.” *Environment
+and Planning B: Urban Analytics and City Science* 50 (9): 2543–59.
+<https://doi.org/10.1177/23998083231159905>.
+
+</div>
+
 <div id="ref-karmeniemi_built_2018" class="csl-entry">
 
 Kärmeniemi, Mikko, Tiina Lankila, Tiina Ikäheimo, Heli
@@ -218,6 +250,25 @@ Systematic Review of the Relationship Between the Built Environment and
 Physical Activity Among Adults.” *International Journal of Behavioral
 Nutrition and Physical Activity* 8 (1): 125.
 <https://doi.org/10.1186/1479-5868-8-125>.
+
+</div>
+
+<div id="ref-national_technical_university_of_athens_greece_utilizing_2022"
+class="csl-entry">
+
+National Technical University of Athens, Greece. 2022. “Utilizing
+OpenStreetMap Data to Measure and Compare Pedestrian Street Lengths in
+992 Cities Around the World.” *European Journal of Geography* 13 (2):
+127–41. <https://doi.org/10.48088/ejg.a.bar.13.2.127.138>.
+
+</div>
+
+<div id="ref-omar_crowdsourcing_2022" class="csl-entry">
+
+Omar, Kazi Shahrukh, Gustavo Moreira, Daniel Hodczak, Maryam Hosseini,
+and Fabio Miranda. 2022. “Crowdsourcing and Sidewalk Data: A Preliminary
+Study on the Trustworthiness of OpenStreetMap Data in the US.” arXiv.
+<https://doi.org/10.48550/arXiv.2210.02350>.
 
 </div>
 
@@ -243,11 +294,20 @@ Review of Longitudinal Studies Taking Sex/Gender into Account.”
 
 </div>
 
-<div id="ref-zhang_using_2019" class="csl-entry">
+<div id="ref-viero_bikedna_2024" class="csl-entry">
 
-Zhang, Liming, and Dieter Pfoser. 2019. “Using OpenStreetMap
-Point-of-Interest Data to Model Urban Change—a Feasibility Study.” *PLoS
-ONE* 14 (2): e0212606. <https://doi.org/10.1371/journal.pone.0212606>.
+Vierø, Ane Rahbek, Anastassia Vybornova, and Michael Szell. 2024.
+“BikeDNA: A Tool for Bicycle Infrastructure Data & Network Assessment.”
+*Environment and Planning B: Urban Analytics and City Science* 51 (2):
+512–28. <https://doi.org/10.1177/23998083231184471>.
+
+</div>
+
+<div id="ref-viero_how_2025" class="csl-entry">
+
+———. 2025. “How Good Is Open Bicycle Network Data? A Countrywide Case
+Study of Denmark.” *Geographical Analysis* 57 (1): 52–87.
+<https://doi.org/10.1111/gean.12400>.
 
 </div>
 
@@ -259,6 +319,15 @@ Impact of Interventions in the Built Environment on Physical Activity
 Levels: A Systematic Umbrella Review.” *International Journal of
 Behavioral Nutrition and Physical Activity* 19 (1): 156.
 <https://doi.org/10.1186/s12966-022-01399-6>.
+
+</div>
+
+<div id="ref-zielstra_using_2012" class="csl-entry">
+
+Zielstra, Dennis, and Hartwig H. Hochmair. 2012. “Using Free and
+Proprietary Data to Compare Shortest-Path Lengths for Effective
+Pedestrian Routing in Street Networks.” *Transportation Research Record*
+2299 (1): 41–47. <https://doi.org/10.3141/2299-05>.
 
 </div>
 

@@ -5,10 +5,8 @@ editor: visual
 bibliography: atrapa.bib
 ---
 
-🔗 Part of the [ATRAPA Project](https://github.com/GEMOTT/atrapa)  
-⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa)
-➡️ [Next paper: WP2](https://github.com/GEMOTT/osm-wp2-analysis)
-
+🔗 Part of the [ATRAPA Project](https://github.com/GEMOTT/atrapa)\
+⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa) ➡️ [Next paper: WP2](https://github.com/GEMOTT/osm-wp2-analysis)
 
 # Evaluating OpenStreetMap for Tracking Active Travel Infrastructure Changes: A Multi-City Validation Across Seven European Cities
 
@@ -16,30 +14,36 @@ bibliography: atrapa.bib
 
 The relationship between the built environment and travel behaviour has been widely studied, with many studies identifying associations between environmental characteristics and travel patterns [@cerin_neighbourhood_2017; @ding_neighborhood_2011; @zhang_impact_2022]. However, most research relies on cross-sectional data, which cannot establish causality [@mccormack_search_2011; @van_de_coevering_multi-period_2015]. In contrast, studies that track changes in both travel behaviour and the built environment—such as longitudinal studies and natural experiments—offer stronger causal insights but remain relatively scarce [@karmeniemi_built_2018; @smith_systematic_2017; @tcymbal_effects_2020].
 
-A key barrier to expanding this type of research is the limited availability of consistent, time-series data on the built environment. While historical travel behaviour data can sometimes be sourced from municipal surveys or crowdsourced platforms (e.g., Strava, travel diaries), equivalent records of past urban infrastructure are far less accessible. Some national databases, such as the Nationaal Wegenbestand (NWB) in the Netherlands [@coevering_causal_2016], offer partial solutions but lack the scope for large-scale, cross-city, or international comparisons. Manually creating in-house datasets is another option, but it is costly and typically results in small samples.
+One of the main challenges in expanding this area of research is the limited availability of consistent, time-series data on the built environment. While historical data on travel behavior is often more accessible—thanks to municipal surveys and crowdsourced platforms like Strava or travel diaries—comparable records of past urban infrastructure are much harder to obtain. Some national databases, such as the Netherlands' Nationaal Wegenbestand (NWB) [@coevering_causal_2016], provide road network data going back over two decades, but these are rare and typically limited to a single country or region, hindering broader or international comparisons. An alternative is to develop in-house datasets, though this process is resource-intensive and generally results in limited sample sizes.
 
-The increasing availability of big data sources presents new opportunities to overcome these challenges [@aldred_built_2019]. OpenStreetMap (OSM), in particular, holds great potential for tracking urban transformations over time. Historical OSM data, available from sources such as Geofabrik, provides snapshots of past infrastructure (dating back to at least 2015), enabling estimation of built environment changes over time. However, despite OSM’s growing coverage and reliability, its use as an indicator of urban transformation requires validation. The timing of updates may not always reflect actual changes, and data accuracy, completeness, and consistency vary across locations and feature types.
+The increasing availability of volunteered geographic information offers new opportunities to address these challenges. In particular, OpenStreetMap (OSM) provides open and historical data on various types of infrastructure, making it a promising source for analyzing urban transformations. However, its use in this context requires careful validation due to known limitations in accuracy, completeness, and consistency across time and place.
 
-Previous studies have shown that OSM’s temporal data can capture meaningful urban change when validated against external sources. For example, @zhang_using_2019 compared OSM point-of-interest data with Foursquare to track changes in coffee shop locations, finding that OSM’s historical edits can reflect real-world trends despite variability in quality.
+While OSM has been widely used to assess infrastructure coverage and routing potential, its reliability for capturing historical transformations—especially in pedestrian-oriented infrastructure—remains unclear. This study aims to evaluate the extent to which historical OSM data can reliably capture urban transformations in active travel infrastructure—such as bike lanes, pedestrian streets, and living streets—across multiple European cities. We develop and apply a semi-automated validation method that compares reported changes in OSM to external reference sources, including street-level and satellite imagery as well as official records. The analysis focuses on seven cities selected for their relevance to a broader research initiative and uses stratified sampling to reflect socio-demographic and spatial diversity. While the present study is limited to these cases, the framework is designed to be scalable and transferable, offering a practical tool for researchers and planners seeking to monitor infrastructure change over time.
 
-This study aims to evaluate the extent to which historical OpenStreetMap (OSM) data can reliably capture urban transformations in active travel infrastructure—such as bike lanes, pedestrian streets, and living streets—across different cities, and to develop a semi-automated method for its validation. Drawing on OSM historical snapshots from 2015 to 2023, we assess changes across two defined intervals: 2015–2019 and 2019–2023. Reported transformations in OSM during each interval are compared against external reference sources, including Google Street View (GSV), satellite imagery, and official municipal records. The validation process involves stratified random spatial sampling of small-area units, accounting for socio-demographic and geographic variation (e.g., city centers versus peripheries). Our analysis focuses on seven European cities—Barcelona, Milan, Ljubljana, Paris, Malmö, Utrecht, and Warsaw—selected for their relevance to a broader research initiative. While the present study focuses on these cases, the approach can be adapted to additional cities, offering a scalable framework for assessing OSM’s reliability in longitudinal and natural experiment studies on urban transformation. The method also has practical value for planners and policymakers seeking low-cost tools for infrastructure monitoring.
+This study builds on recent efforts to assess OSM’s data quality and potential for infrastructure analysis, with particular attention to its capacity to represent change over time.
 
-# Data and Method
+## Literature review
 
-## Data sources
+OSM is often used to study transport infrastructure—especially cycling networks—but few studies examine how these networks change over time. A countrywide assessment in Denmark found that neither OSM nor the official GeoDanmark dataset alone provided complete coverage; feature-level conflation was necessary to improve reliability, especially in rural areas [@viero_how_2025]. Viero et al. also introduced BikeDNA, an open-source tool that validates OSM cycling data with attention to network topology, local completeness, and spatial variation [@viero_bikedna_2024]. Similarly, Ferster et al. compared OSM with municipal datasets in six Canadian cities and found high agreement in total network length, though accuracy varied by infrastructure type—especially for newer or inconsistently tagged features [@ferster_developing_2023]. These studies underscore both the promise and the limitations of OSM for cycling infrastructure research.
 
--   OSM
--   GSV
--   Satellite
--   Official
+In contrast, pedestrian networks—especially pedestrianized and living streets—have received significantly less attention in OSM validation studies. While some efforts have focused on sidewalks or routing networks (e.g. @zielstra_using_2012; https://wiki.openstreetmap.org/wiki/OpenSidewalks), few have assessed whether OSM reliably represents pedestrianized streets (e.g., highway=pedestrian) or living streets (highway=living_street), or whether these features accurately reflect real-world transformations over time. These types of infrastructure are increasingly relevant for sustainable mobility but pose unique challenges for mapping and validation due to tagging ambiguity and definitional variation across contexts [@national_technical_university_of_athens_greece_utilizing_2022; @omar_crowdsourcing_2022].
 
-## Method
+Taken together, these studies demonstrate that OSM is a promising yet uneven source for analyzing changes in the built environment. However, most existing research focuses on static comparisons, routing applications, or cycling-specific infrastructure—often within single cities or countries. Very few studies assess OSM’s ability to capture infrastructure transformations over time, particularly for underrepresented networks like pedestrian and living streets. Our study addresses this gap by developing a validation framework that compares reported OSM transformations to multiple external sources—Google Street View, satellite imagery, and official municipal records—across seven European cities. In doing so, we assess the temporal completeness, spatial variation, and overall reliability of OSM as a longitudinal dataset for tracking changes in active travel infrastructure.
+
+<!-- # Data and Method -->
+
+<!-- ## Data sources -->
+
+<!-- -   OSM -->
+<!-- -   GSV -->
+<!-- -   Satellite -->
+<!-- -   Official -->
+
+<!-- ## Method -->
 
 <!-- Similar studies: -->
 
 <!-- Using OpenStreetMap Point-of-Interest Data to Model Urban Change—A Feasibility Study: DOI: 10.1371/journal.pone.0212606 -->
-
-<!-- Analysis of Cycling Network Evolution in OpenStreetMap Through a Data Quality Prism: DOI: 10.5194/agile-giss-4-3-2023 -->
 
 <!-- Using OpenStreetMap to Inventory Bicycle Infrastructure: A Comparison with Open Data from Cities: DOI: 10.1080/15568318.2018.1519746 -->
 
