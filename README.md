@@ -22,23 +22,26 @@ stronger causal insights but remain relatively scarce (Kärmeniemi et al.
 One of the main challenges in expanding this area of research is the
 limited availability of consistent, time-series data on the built
 environment. While historical data on travel behavior is often more
-accessible—thanks to municipal surveys and crowdsourced platforms like
-Strava or travel diaries—comparable records of past urban infrastructure
-are much harder to obtain. Some national databases, such as the
-Netherlands’ Nationaal Wegenbestand (NWB) (P. V. D. Coevering et al.
-2016), provide road network data going back over two decades, but these
+accessible—through sources like censuses, surveys, and increasingly,
+crowdsourced platforms like Strava—comparable records of past urban
+infrastructure are much harder to obtain. Some national databases, such
+as the Netherlands’ Nationaal Wegenbestand (NWB) (P. V. D. Coevering et
+al. 2016), provide road network data going back over decades, but these
 are rare and typically limited to a single country or region, hindering
-broader or international comparisons. An alternative is to develop
-in-house datasets, though this process is resource-intensive and
-generally results in limited sample sizes.
+broader or international comparisons. An alternative is to reconstruct
+historical built environment data manually using maps, satellite
+imagery, and planning records, but this process is highly
+resource-intensive and typically limited in scale.
 
-The increasing availability of volunteered geographic information offers
-new opportunities to address these challenges. In particular,
-OpenStreetMap (OSM) provides open and historical data on various types
-of infrastructure, making it a promising source for analyzing urban
-transformations. However, its use in this context requires careful
-validation due to known limitations in accuracy, completeness, and
-consistency across time and place.
+The growing availability of Volunteered Geographic Information (VGI)
+presents new opportunities to overcome data limitations in built
+environment research. Among these sources, OpenStreetMap (OSM) stands
+out for providing open, editable, and historical data on various types
+of infrastructure, making it a promising tool for analysing urban
+transformations over time. However, its application in this context
+requires careful validation due to well-documented limitations in
+accuracy, completeness, and temporal consistency (Barron, Neis, and Zipf
+2014; Zielstra and Zipf, n.d.).
 
 While OSM has been widely used to assess infrastructure coverage and
 routing potential, its reliability for capturing historical
@@ -62,6 +65,8 @@ potential for infrastructure analysis, with particular attention to its
 capacity to represent change over time.
 
 ## Literature review
+
+<!-- Perhaps the important is not studies analysing historical OSM but completeness per network -->
 
 OSM is often used to study transport infrastructure—especially cycling
 networks—but few studies examine how these networks change over time. A
@@ -106,13 +111,94 @@ European cities. In doing so, we assess the temporal completeness,
 spatial variation, and overall reliability of OSM as a longitudinal
 dataset for tracking changes in active travel infrastructure.
 
-<!-- # Data and Method -->
-<!-- ## Data sources -->
-<!-- -   OSM -->
-<!-- -   GSV -->
-<!-- -   Satellite -->
-<!-- -   Official -->
-<!-- ## Method -->
+## Data and Method
+
+### Data Sources
+
+- OpenStreetMap (OSM) historical snapshots (2015–2023)  
+- Google Street View (GSV) imagery  
+- Satellite imagery (e.g., Google Earth Pro, Sentinel-2)  
+- Official municipal records
+
+### Validation Approach
+
+#### 1. Sampling Strategy
+
+- **Stratified Random Spatial Sampling**: Each city will be divided into
+  small-area units (e.g., neighborhoods, electoral wards, or blocks).
+- **Stratification** based on:
+  - Geographic characteristics (city center, suburban, peripheral)
+  - Socio-demographic factors (income level, population density)
+- Randomly select small-area units from each stratum to ensure unbiased
+  and representative validation.
+
+#### 2. Transformation Validation
+
+For each selected small-area unit:
+
+- Extract infrastructure data from OSM snapshots for two intervals:
+  - 2015–2019
+  - 2019–2023
+- Identify transformations reported by OSM within each interval.
+- Independently verify these transformations using external reference
+  data:
+  - Google Street View (GSV) for visual confirmation
+  - Satellite imagery for cross-validation
+  - Official municipal records as authoritative validation sources
+
+#### 3. Metrics and Analysis
+
+Compute three core metrics for each city, each interval, each
+infrastructure type, and each small area:
+
+- **Completeness of transformations**:
+
+  $$
+  \text{Completeness} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total actual transformations from validation sources}}
+  $$
+
+- **Accuracy of transformations**:
+
+  $$
+  \text{Accuracy} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total transformations reported by OSM}}
+  $$
+
+- **Spatial Completeness Index (SCI)**:  
+  Measures the spatial variability of completeness across small areas
+  within each city (e.g., standard deviation or range of completeness).
+
+### City Inclusion Criteria
+
+Cities and intervals will be included in the analysis only if the
+majority of small areas meet **two thresholds**:
+
+- **Overall Completeness**: ≥ 80%  
+- **SCI (Spatial Variation)**: ≤ 15%
+
+These thresholds are grounded in prior research and established best
+practices:
+
+- 80% completeness threshold:  
+  Used in prior OSM validation studies (Hochmair et al., 2014; Zielstra
+  & Zipf, 2010; Barron et al., 2014)
+- ≤15% spatial variation threshold:  
+  Based on geospatial sampling practices ensuring representative
+  distribution (Elwood & Goodchild, 2013)
+
+#### Example Evaluation Table by Interval and Infrastructure Type
+
+| City      | Interval  | Type           | Completeness | SCI    | Accuracy | Decision       |
+|-----------|-----------|----------------|--------------|--------|----------|----------------|
+| Barcelona | 2015–2019 | Bike Lanes     | 88% ✅       | 9% ✅  | 91% ✅   | ✅ Include     |
+| Barcelona | 2015–2019 | Pedestrian     | 84% ✅       | 12% ✅ | 87% ✅   | ✅ Include     |
+| Barcelona | 2015–2019 | Living Streets | 72% ❌       | 18% ❌ | 78% ❌   | ❌ Exclude     |
+| Paris     | 2019–2023 | Bike Lanes     | 78% ❌       | 14% ✅ | 82% ✅   | ⚠️ Conditional |
+| Paris     | 2019–2023 | Pedestrian     | 83% ✅       | 17% ❌ | 85% ✅   | ⚠️ Conditional |
+| Warsaw    | 2015–2019 | Bike Lanes     | 70% ❌       | 10% ✅ | 75% ❌   | ❌ Exclude     |
+| Milan     | 2019–2023 | Bike Lanes     | 90% ✅       | 11% ✅ | 89% ✅   | ✅ Include     |
+
+## Results
+
 <!-- Similar studies: -->
 <!-- Using OpenStreetMap Point-of-Interest Data to Model Urban Change—A Feasibility Study: DOI: 10.1371/journal.pone.0212606 -->
 <!-- Using OpenStreetMap to Inventory Bicycle Infrastructure: A Comparison with Open Data from Cities: DOI: 10.1080/15568318.2018.1519746 -->
@@ -182,6 +268,15 @@ style="width:100.0%" />
 
 <div id="refs" class="references csl-bib-body hanging-indent"
 entry-spacing="0">
+
+<div id="ref-barron_comprehensive_2014" class="csl-entry">
+
+Barron, Christopher, Pascal Neis, and Alexander Zipf. 2014. “A
+Comprehensive Framework for Intrinsic OpenStreetMap Quality Analysis.”
+*Transactions in GIS* 18 (6): 877–95.
+<https://doi.org/10.1111/tgis.12073>.
+
+</div>
 
 <div id="ref-cerin_neighbourhood_2017" class="csl-entry">
 
@@ -328,6 +423,13 @@ Zielstra, Dennis, and Hartwig H. Hochmair. 2012. “Using Free and
 Proprietary Data to Compare Shortest-Path Lengths for Effective
 Pedestrian Routing in Street Networks.” *Transportation Research Record*
 2299 (1): 41–47. <https://doi.org/10.3141/2299-05>.
+
+</div>
+
+<div id="ref-zielstra_comparative_nodate" class="csl-entry">
+
+Zielstra, Dennis, and Alexander Zipf. n.d. “A Comparative Study of
+Proprietary Geodata and Volunteered Geographic Information for Germany.”
 
 </div>
 
