@@ -5,8 +5,9 @@ editor: visual
 bibliography: atrapa.bib
 ---
 
-🔗 Part of the [ATRAPA Project](https://github.com/GEMOTT/atrapa)\
-⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa) ➡️ [Next paper: WP2](https://github.com/GEMOTT/osm-wp2-analysis)
+🔗 Part of the [ATRAPA database project](https://github.com/GEMOTT/atrapa_database)\
+⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data)
+
 
 # Evaluating OpenStreetMap for Tracking Active Travel Infrastructure Changes: A Multi-City Validation Across Seven European Cities
 
@@ -16,7 +17,7 @@ The relationship between the built environment and travel behaviour has been wid
 
 One of the main challenges in expanding this area of research is the limited availability of consistent, time-series data on the built environment. While historical data on travel behavior is often more accessible—through sources like censuses, surveys, and increasingly, crowdsourced platforms like Strava—comparable records of past urban infrastructure are much harder to obtain. Some national databases, such as the Netherlands' Nationaal Wegenbestand (NWB) [@coevering_causal_2016], provide road network data going back over decades, but these are rare and typically limited to a single country or region, hindering broader or international comparisons. An alternative is to reconstruct historical built environment data manually using maps, satellite imagery, and planning records, but this process is highly resource-intensive and typically limited in scale.
 
-The growing availability of Volunteered Geographic Information (VGI) presents new opportunities to overcome data limitations in built environment research. Among these sources, OpenStreetMap (OSM) stands out for providing open, editable, and historical data on various types of infrastructure, making it a promising tool for analysing urban transformations over time. However, its application in this context requires careful validation due to well-documented limitations in accuracy, completeness, and temporal consistency [@barron_comprehensive_2014; @zielstra_comparative_nodate]. 
+The growing availability of Volunteered Geographic Information (VGI) presents new opportunities to overcome data limitations in built environment research. Among these sources, OpenStreetMap (OSM) stands out for providing open, editable, and historical data on various types of infrastructure, making it a promising tool for analysing urban transformations over time. However, its application in this context requires careful validation due to well-documented limitations in accuracy, completeness, and temporal consistency [@barron_comprehensive_2014; @zielstra_comparative_nodate].
 
 While OSM has been widely used to assess infrastructure coverage and routing potential, its reliability for capturing historical transformations—especially in pedestrian-oriented infrastructure—remains unclear. This study aims to evaluate the extent to which historical OSM data can reliably capture urban transformations in active travel infrastructure—such as bike lanes, pedestrian streets, and living streets—across multiple European cities. We develop and apply a semi-automated validation method that compares reported changes in OSM to external reference sources, including street-level and satellite imagery as well as official records. The analysis focuses on seven cities selected for their relevance to a broader research initiative and uses stratified sampling to reflect socio-demographic and spatial diversity. While the present study is limited to these cases, the framework is designed to be scalable and transferable, offering a practical tool for researchers and planners seeking to monitor infrastructure change over time.
 
@@ -36,79 +37,78 @@ Taken together, these studies demonstrate that OSM is a promising yet uneven sou
 
 ### Data Sources
 
-- OpenStreetMap (OSM) historical snapshots (2015–2023)  
-- Google Street View (GSV) imagery  
-- Satellite imagery (e.g., Google Earth Pro, Sentinel-2)  
-- Official municipal records  
+-   OpenStreetMap (OSM) historical snapshots (2015–2023)\
+-   Google Street View (GSV) imagery\
+-   Satellite imagery (e.g., Google Earth Pro, Sentinel-2)\
+-   Official municipal records
 
 ### Validation Approach
 
 #### 1. Sampling Strategy
 
-- **Stratified Random Spatial Sampling**: Each city will be divided into small-area units (e.g., neighborhoods, electoral wards, or blocks).
-- **Stratification** based on:
-  - Geographic characteristics (city center, suburban, peripheral)
-  - Socio-demographic factors (income level, population density)
-- Randomly select small-area units from each stratum to ensure unbiased and representative validation.
+-   **Stratified Random Spatial Sampling**: Each city will be divided into small-area units (e.g., neighborhoods, electoral wards, or blocks).
+-   **Stratification** based on:
+    -   Geographic characteristics (city center, suburban, peripheral)
+    -   Socio-demographic factors (income level, population density)
+-   Randomly select small-area units from each stratum to ensure unbiased and representative validation.
 
 #### 2. Transformation Validation
 
 For each selected small-area unit:
 
-- Extract infrastructure data from OSM snapshots for two intervals:
-  - 2015–2019
-  - 2019–2023
-- Identify transformations reported by OSM within each interval.
-- Independently verify these transformations using external reference data:
-  - Google Street View (GSV) for visual confirmation
-  - Satellite imagery for cross-validation
-  - Official municipal records as authoritative validation sources
+-   Extract infrastructure data from OSM snapshots for two intervals:
+    -   2015–2019
+    -   2019–2023
+-   Identify transformations reported by OSM within each interval.
+-   Independently verify these transformations using external reference data:
+    -   Google Street View (GSV) for visual confirmation
+    -   Satellite imagery for cross-validation
+    -   Official municipal records as authoritative validation sources
 
 #### 3. Metrics and Analysis
 
 Compute three core metrics for each city, each interval, each infrastructure type, and each small area:
 
-- **Completeness of transformations**:
+-   **Completeness of transformations**:
 
-  $$
-  \text{Completeness} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total actual transformations from validation sources}}
-  $$
+    $$
+    \text{Completeness} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total actual transformations from validation sources}}
+    $$
 
-- **Accuracy of transformations**:
+-   **Accuracy of transformations**:
 
-  $$
-  \text{Accuracy} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total transformations reported by OSM}}
-  $$
+    $$
+    \text{Accuracy} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total transformations reported by OSM}}
+    $$
 
-- **Spatial Completeness Index (SCI)**:  
-  Measures the spatial variability of completeness across small areas within each city (e.g., standard deviation or range of completeness).
+-   **Spatial Completeness Index (SCI)**:\
+    Measures the spatial variability of completeness across small areas within each city (e.g., standard deviation or range of completeness).
 
 ### City Inclusion Criteria
 
 Cities and intervals will be included in the analysis only if the majority of small areas meet **two thresholds**:
 
-- **Overall Completeness**: ≥ 80%  
-- **SCI (Spatial Variation)**: ≤ 15%
+-   **Overall Completeness**: ≥ 80%\
+-   **SCI (Spatial Variation)**: ≤ 15%
 
 These thresholds are grounded in prior research and established best practices:
 
-- 80% completeness threshold:  
-  Used in prior OSM validation studies (Hochmair et al., 2014; Zielstra & Zipf, 2010; Barron et al., 2014)
-- ≤15% spatial variation threshold:  
-  Based on geospatial sampling practices ensuring representative distribution (Elwood & Goodchild, 2013)
+-   80% completeness threshold:\
+    Used in prior OSM validation studies (Hochmair et al., 2014; Zielstra & Zipf, 2010; Barron et al., 2014)
+-   ≤15% spatial variation threshold:\
+    Based on geospatial sampling practices ensuring representative distribution (Elwood & Goodchild, 2013)
 
 #### Example Evaluation Table by Interval and Infrastructure Type
 
-| City       | Interval     | Type           | Completeness | SCI   | Accuracy | Decision     |
-|------------|--------------|----------------|--------------|-------|----------|--------------|
-| Barcelona  | 2015–2019    | Bike Lanes     | 88% ✅        | 9% ✅  | 91% ✅   | ✅ Include    |
-| Barcelona  | 2015–2019    | Pedestrian     | 84% ✅        | 12% ✅ | 87% ✅   | ✅ Include    |
-| Barcelona  | 2015–2019    | Living Streets | 72% ❌        | 18% ❌ | 78% ❌   | ❌ Exclude    |
-| Paris      | 2019–2023    | Bike Lanes     | 78% ❌        | 14% ✅ | 82% ✅   | ⚠️ Conditional |
-| Paris      | 2019–2023    | Pedestrian     | 83% ✅        | 17% ❌ | 85% ✅   | ⚠️ Conditional |
-| Warsaw     | 2015–2019    | Bike Lanes     | 70% ❌        | 10% ✅ | 75% ❌   | ❌ Exclude    |
-| Milan      | 2019–2023    | Bike Lanes     | 90% ✅        | 11% ✅ | 89% ✅   | ✅ Include    |
-
+| City      | Interval  | Type           | Completeness | SCI    | Accuracy | Decision       |
+|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
+| Barcelona | 2015–2019 | Bike Lanes     | 88% ✅       | 9% ✅  | 91% ✅   | ✅ Include     |
+| Barcelona | 2015–2019 | Pedestrian     | 84% ✅       | 12% ✅ | 87% ✅   | ✅ Include     |
+| Barcelona | 2015–2019 | Living Streets | 72% ❌       | 18% ❌ | 78% ❌   | ❌ Exclude     |
+| Paris     | 2019–2023 | Bike Lanes     | 78% ❌       | 14% ✅ | 82% ✅   | ⚠️ Conditional |
+| Paris     | 2019–2023 | Pedestrian     | 83% ✅       | 17% ❌ | 85% ✅   | ⚠️ Conditional |
+| Warsaw    | 2015–2019 | Bike Lanes     | 70% ❌       | 10% ✅ | 75% ❌   | ❌ Exclude     |
+| Milan     | 2019–2023 | Bike Lanes     | 90% ✅       | 11% ✅ | 89% ✅   | ✅ Include     |
 
 ## Results
 

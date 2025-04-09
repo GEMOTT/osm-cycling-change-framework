@@ -1,8 +1,11 @@
 
 
-🔗 Part of the [ATRAPA Project](https://github.com/GEMOTT/atrapa)  
-⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa) ➡️ [Next
-paper: WP2](https://github.com/GEMOTT/osm-wp2-analysis)
+🔗 Part of the [ATRAPA database
+project](https://github.com/GEMOTT/atrapa_database)  
+⬅️ [Back to project
+overview](https://github.com/GEMOTT/atrapa%20database) ➡️ [Next repo
+related: Electoral and socioeconomic
+data](https://github.com/GEMOTT/electoral-socioeconomic-data)
 
 # Evaluating OpenStreetMap for Tracking Active Travel Infrastructure Changes: A Multi-City Validation Across Seven European Cities
 
