@@ -151,22 +151,14 @@ For each selected small-area unit:
 
 #### 3. Metrics and Analysis
 
-Test
-
 Compute three core metrics for each city, each interval, each
 infrastructure type, and each small area:
 
-- **Completeness of transformations**:
+- **Completeness of transformations**:  
+  `Completeness = (Number of transformations correctly identified in OSM) / (Total actual transformations from validation sources)`
 
-  $$
-  \text{Completeness} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total actual transformations from validation sources}}
-  $$
-
-- **Accuracy of transformations**:
-
-  $$ 
-  \text{Accuracy} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total transformations reported by OSM}}
-  $$
+- **Accuracy of transformations**:  
+  `Accuracy = (Number of transformations correctly identified in OSM) / (Total transformations reported by OSM)`
 
 - **Spatial Completeness Index (SCI)**:  
   Measures the spatial variability of completeness across small areas
