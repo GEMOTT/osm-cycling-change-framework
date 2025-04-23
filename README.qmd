@@ -70,15 +70,20 @@ Compute three core metrics for each city, each interval, each infrastructure typ
 
 -   **Completeness of transformations**:
 
+
     $$
     \text{Completeness} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total actual transformations from validation sources}}
     $$
 
+
 -   **Accuracy of transformations**:
+
+test
 
     $$
     \text{Accuracy} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total transformations reported by OSM}}
     $$
+
 
 -   **Spatial Completeness Index (SCI)**:\
     Measures the spatial variability of completeness across small areas within each city (e.g., standard deviation or range of completeness).
