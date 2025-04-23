@@ -6,8 +6,7 @@ bibliography: atrapa.bib
 ---
 
 🔗 Part of the [ATRAPA database project](https://github.com/GEMOTT/atrapa_database)\
-⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data)
-
+⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa%20database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data)
 
 # Evaluating OpenStreetMap for Tracking Active Travel Infrastructure Changes: A Multi-City Validation Across Seven European Cities
 
@@ -101,7 +100,7 @@ These thresholds are grounded in prior research and established best practices:
 #### Example Evaluation Table by Interval and Infrastructure Type
 
 | City      | Interval  | Type           | Completeness | SCI    | Accuracy | Decision       |
-|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
+|-----------|-----------|----------------|--------------|--------|----------|----------------|
 | Barcelona | 2015–2019 | Bike Lanes     | 88% ✅       | 9% ✅  | 91% ✅   | ✅ Include     |
 | Barcelona | 2015–2019 | Pedestrian     | 84% ✅       | 12% ✅ | 87% ✅   | ✅ Include     |
 | Barcelona | 2015–2019 | Living Streets | 72% ❌       | 18% ❌ | 78% ❌   | ❌ Exclude     |
