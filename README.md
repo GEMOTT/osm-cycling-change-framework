@@ -151,6 +151,8 @@ For each selected small-area unit:
 
 #### 3. Metrics and Analysis
 
+Test
+
 Compute three core metrics for each city, each interval, each
 infrastructure type, and each small area:
 
@@ -162,7 +164,7 @@ infrastructure type, and each small area:
 
 - **Accuracy of transformations**:
 
-  $$
+  $$ 
   \text{Accuracy} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total transformations reported by OSM}}
   $$
 

@@ -66,6 +66,8 @@ For each selected small-area unit:
 
 #### 3. Metrics and Analysis
 
+Test
+
 Compute three core metrics for each city, each interval, each infrastructure type, and each small area:
 
 -   **Completeness of transformations**:
@@ -78,9 +80,7 @@ Compute three core metrics for each city, each interval, each infrastructure typ
 
 -   **Accuracy of transformations**:
 
-test
-
-    $$
+    $$ 
     \text{Accuracy} = \frac{\text{Number of transformations correctly identified in OSM}}{\text{Total transformations reported by OSM}}
     $$
 
