@@ -22,15 +22,13 @@ While OSM has been widely used to assess infrastructure coverage and routing pot
 
 This study builds on recent efforts to assess OSM’s data quality and potential for infrastructure analysis, with particular attention to its capacity to represent change over time.
 
-## Literature review
+<!-- ## Literature review -->
 
-<!-- Perhaps the important is not studies analysing historical OSM but completeness per network -->
+<!-- OSM is often used to study transport infrastructure—especially cycling networks—but few studies examine how these networks change over time. A countrywide assessment in Denmark found that neither OSM nor the official GeoDanmark dataset alone provided complete coverage; feature-level conflation was necessary to improve reliability, especially in rural areas [@viero_how_2025]. Viero et al. also introduced BikeDNA, an open-source tool that validates OSM cycling data with attention to network topology, local completeness, and spatial variation [@viero_bikedna_2024]. Similarly, Ferster et al. compared OSM with municipal datasets in six Canadian cities and found high agreement in total network length, though accuracy varied by infrastructure type—especially for newer or inconsistently tagged features [@ferster_developing_2023]. These studies underscore both the promise and the limitations of OSM for cycling infrastructure research. -->
 
-OSM is often used to study transport infrastructure—especially cycling networks—but few studies examine how these networks change over time. A countrywide assessment in Denmark found that neither OSM nor the official GeoDanmark dataset alone provided complete coverage; feature-level conflation was necessary to improve reliability, especially in rural areas [@viero_how_2025]. Viero et al. also introduced BikeDNA, an open-source tool that validates OSM cycling data with attention to network topology, local completeness, and spatial variation [@viero_bikedna_2024]. Similarly, Ferster et al. compared OSM with municipal datasets in six Canadian cities and found high agreement in total network length, though accuracy varied by infrastructure type—especially for newer or inconsistently tagged features [@ferster_developing_2023]. These studies underscore both the promise and the limitations of OSM for cycling infrastructure research.
+<!-- In contrast, pedestrian networks—especially pedestrianized and living streets—have received significantly less attention in OSM validation studies. While some efforts have focused on sidewalks or routing networks (e.g. @zielstra_using_2012; https://wiki.openstreetmap.org/wiki/OpenSidewalks), few have assessed whether OSM reliably represents pedestrianized streets (e.g., highway=pedestrian) or living streets (highway=living_street), or whether these features accurately reflect real-world transformations over time. These types of infrastructure are increasingly relevant for sustainable mobility but pose unique challenges for mapping and validation due to tagging ambiguity and definitional variation across contexts [@national_technical_university_of_athens_greece_utilizing_2022; @omar_crowdsourcing_2022]. -->
 
-In contrast, pedestrian networks—especially pedestrianized and living streets—have received significantly less attention in OSM validation studies. While some efforts have focused on sidewalks or routing networks (e.g. @zielstra_using_2012; https://wiki.openstreetmap.org/wiki/OpenSidewalks), few have assessed whether OSM reliably represents pedestrianized streets (e.g., highway=pedestrian) or living streets (highway=living_street), or whether these features accurately reflect real-world transformations over time. These types of infrastructure are increasingly relevant for sustainable mobility but pose unique challenges for mapping and validation due to tagging ambiguity and definitional variation across contexts [@national_technical_university_of_athens_greece_utilizing_2022; @omar_crowdsourcing_2022].
-
-Taken together, these studies demonstrate that OSM is a promising yet uneven source for analyzing changes in the built environment. However, most existing research focuses on static comparisons, routing applications, or cycling-specific infrastructure—often within single cities or countries. Very few studies assess OSM’s ability to capture infrastructure transformations over time, particularly for underrepresented networks like pedestrian and living streets. Our study addresses this gap by developing a validation framework that compares reported OSM transformations to multiple external sources—Google Street View, and satellite imagery—across seven European cities. In doing so, we assess the temporal completeness, spatial variation, and overall reliability of OSM as a longitudinal dataset for tracking changes in active travel infrastructure.
+<!-- Taken together, these studies demonstrate that OSM is a promising yet uneven source for analyzing changes in the built environment. However, most existing research focuses on static comparisons, routing applications, or cycling-specific infrastructure—often within single cities or countries. Very few studies assess OSM’s ability to capture infrastructure transformations over time, particularly for underrepresented networks like pedestrian and living streets. Our study addresses this gap by developing a validation framework that compares reported OSM transformations to multiple external sources—Google Street View, and satellite imagery—across seven European cities. In doing so, we assess the temporal completeness, spatial variation, and overall reliability of OSM as a longitudinal dataset for tracking changes in active travel infrastructure. -->
 
 ## Data and Method
 
@@ -601,7 +599,7 @@ tmap_save(barcelona_network_all, filename = "figs/barcelona_network_all.png", dp
 knitr::include_graphics("figs/barcelona_network_all.png")
 ```
 
-#### Indicators at the census tract level
+<!-- #### Indicators at the census tract level -->
 
 <!-- To assess the impact of sustainable travel interventions, we will calculate the following indicators: -->
 
@@ -613,7 +611,7 @@ knitr::include_graphics("figs/barcelona_network_all.png")
 
 <!-- These indicators will provide valuable insights into the distribution and availability of infrastructure designed to promote sustainable travel within urban areas. -->
 
--   Cycleway Proportion of Total Network
+<!-- -   Cycleway Proportion of Total Network -->
 
 ```{r}
 #| eval: false
@@ -774,7 +772,8 @@ tmap_save(barcelona_cycleway_ratios_15_19_23, "figs/barcelona_cycleway_ratios_15
 ```
 
 ```{r}
-#| echo: false
+#| eval: false
+#| include: false
 #| out-width: 100%
 # plot the image
 knitr::include_graphics("figs/barcelona_cycleway_ratios_15_19_23.png")
@@ -782,7 +781,7 @@ knitr::include_graphics("figs/barcelona_cycleway_ratios_15_19_23.png")
 
 \newpage
 
--   Living Street Proportion of Total Network
+<!-- -   Living Street Proportion of Total Network -->
 
 ```{r}
 #| eval: false
@@ -904,7 +903,8 @@ tmap_save(barcelona_livingstreet_ratios_15_19_23, "figs/barcelona_livingstreet_r
 ```
 
 ```{r}
-#| echo: false
+#| eval: false
+#| include: false
 #| out-width: 100%
 # plot the image
 knitr::include_graphics("figs/barcelona_livingstreet_ratios_15_19_23.png")
@@ -912,7 +912,7 @@ knitr::include_graphics("figs/barcelona_livingstreet_ratios_15_19_23.png")
 
 \newpage
 
--   Pedestrian Street Proportion of Total Network
+<!-- -   Pedestrian Street Proportion of Total Network -->
 
 ```{r}
 #| eval: false
@@ -1035,7 +1035,8 @@ tmap_save(barcelona_pedestrian_ratios_15_19_23, "figs/barcelona_pedestrian_ratio
 ```
 
 ```{r}
-#| echo: false
+#| eval: false
+#| include: false
 #| out-width: 100%
 # plot the image
 knitr::include_graphics("figs/barcelona_pedestrian_ratios_15_19_23.png")
