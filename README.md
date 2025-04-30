@@ -16,25 +16,25 @@ been widely studied, with many studies identifying associations between
 environmental characteristics and travel patterns (Cerin et al. 2017;
 Ding et al. 2011; Zhang et al. 2022). However, most research relies on
 cross-sectional data, which cannot establish causality (McCormack and
-Shiell 2011; P. van de Coevering, and Wee 2015). In contrast, studies
-that track changes in both travel behaviour and the built
-environment—such as longitudinal studies and natural experiments—offer
-stronger causal insights but remain relatively scarce (Kärmeniemi et al.
-2018; Smith et al. 2017; Tcymbal et al. 2020).
+Shiell 2011; Coevering, and Wee 2015). In contrast, studies that track
+changes in both travel behaviour and the built environment—such as
+longitudinal studies and natural experiments—offer stronger causal
+insights but remain relatively scarce (Kärmeniemi et al. 2018; Smith et
+al. 2017; Tcymbal et al. 2020).
 
 One of the main challenges in expanding this area of research is the
 limited availability of consistent, time-series data on the built
-environment. While historical data on travel behavior is often more
+environment. While historical data on travel behaviour is often more
 accessible—through sources like censuses, surveys, and increasingly,
 crowdsourced platforms like Strava—comparable records of past urban
-infrastructure are much harder to obtain. Some national databases, such
-as the Netherlands’ Nationaal Wegenbestand (NWB) (P. V. D. Coevering et
-al. 2016), provide road network data going back over decades, but these
-are rare and typically limited to a single country or region, hindering
-broader or international comparisons. An alternative is to reconstruct
-historical built environment data manually using maps, satellite
-imagery, and planning records, but this process is highly
-resource-intensive and typically limited in scale.
+infrastructure are much harder to obtain. Some national road
+datasets—such as those in Sweden, the Netherlands, Finland, Denmark, and
+Norway—include long-term records of active travel networks, though
+consistent and accessible historical data remains limited and varies
+across countries, which hinders broader or international comparisons. An
+alternative is to reconstruct historical built environment data manually
+using maps, satellite imagery, and planning records, but this process is
+highly resource-intensive and typically limited in scale.
 
 The growing availability of Volunteered Geographic Information (VGI)
 presents new opportunities to overcome data limitations in built
@@ -109,78 +109,74 @@ infrastructure transformations over time, particularly for
 underrepresented networks like pedestrian and living streets. Our study
 addresses this gap by developing a validation framework that compares
 reported OSM transformations to multiple external sources—Google Street
-View, satellite imagery, and official municipal records—across seven
-European cities. In doing so, we assess the temporal completeness,
-spatial variation, and overall reliability of OSM as a longitudinal
-dataset for tracking changes in active travel infrastructure.
+View, and satellite imagery—across seven European cities. In doing so,
+we assess the temporal completeness, spatial variation, and overall
+reliability of OSM as a longitudinal dataset for tracking changes in
+active travel infrastructure.
 
 ## Data and Method
 
 ### Data Sources
 
-- OpenStreetMap (OSM) historical snapshots (2015–2023)  
-- Google Street View (GSV) imagery  
-- Satellite imagery (e.g., Google Earth Pro, Sentinel-2)  
-- Official municipal records
+- OpenStreetMap (OSM) snapshots: 2015, 2019, 2023
+- Google Street View (GSV) imagery
+- Satellite imagery
 
-### Validation Approach
+### Sampling Strategy
 
-#### 1. Sampling Strategy
+- Unit: census tracts (~60 per city)
+- Sampling: stratified random
+- Stratification based on:
+- Urban form: center, middle, periphery
+- Socio-demographics: income level or population density
 
-- **Stratified Random Spatial Sampling**: Each city will be divided into
-  small-area units (e.g., neighborhoods, electoral wards, or blocks).
-- **Stratification** based on:
-  - Geographic characteristics (city center, suburban, peripheral)
-  - Socio-demographic factors (income level, population density)
-- Randomly select small-area units from each stratum to ensure unbiased
-  and representative validation.
+### Change Detection in OSM
 
-#### 2. Transformation Validation
+- Extract infrastructure from OSM for 2015, 2019, 2023
+- Focus tags: highway=cycleway, cycleway=\*, highway=pedestrian,
+  highway=living_street
+- Compare time periods:
+  - Period 1: 2015–2019
+  - Period 2: 2019–2023
+- Identify changes:
+  - Additions
+  - Removals
+  - Reclassifications
 
-For each selected small-area unit:
+### Validation Strategy
 
-- Extract infrastructure data from OSM snapshots for two intervals:
-  - 2015–2019
-  - 2019–2023
-- Identify transformations reported by OSM within each interval.
-- Independently verify these transformations using external reference
-  data:
-  - Google Street View (GSV) for visual confirmation
-  - Satellite imagery for cross-validation
-  - Official municipal records as authoritative validation sources
+#### OSM-Reported Changes (False Positives)
 
-#### 3. Metrics and Analysis
+- Validate all reported changes using:
+  - GSV for visual confirmation
+  - Satellite imagery for layout verification
+- Label each as:
+  - ✅ Confirmed
+  - ❌ False Positive +❓ Uncertain
 
-Compute three core metrics for each city, each interval, each
-infrastructure type, and each small area:
+#### Missed Changes (False Negatives)
 
-- **Completeness of transformations**:  
-  `Completeness = (Number of transformations correctly identified in OSM) / (Total actual transformations from validation sources)`
+- Sample ~100 street segments per city from within census tract sample
+- For each segment, check imagery to see if:
+  - Infrastructure exists in reality
+  - But is missing from OSM
+- Use findings to estimate completeness
 
-- **Accuracy of transformations**:  
-  `Accuracy = (Number of transformations correctly identified in OSM) / (Total transformations reported by OSM)`
+### Evaluation Metrics
 
-- **Spatial Completeness Index (SCI)**:  
-  Measures the spatial variability of completeness across small areas
-  within each city (e.g., standard deviation or range of completeness).
+- Accuracy = Confirmed OSM changes / All OSM-reported changes
+- Completeness = Confirmed OSM changes / (Confirmed + Missed changes)
+- SCI = Variation in completeness across tracts (e.g., standard
+  deviation)
 
-### City Inclusion Criteria
+### Inclusion Criteria
 
-Cities and intervals will be included in the analysis only if the
-majority of small areas meet **two thresholds**:
-
-- **Overall Completeness**: ≥ 80%  
-- **SCI (Spatial Variation)**: ≤ 15%
-
-These thresholds are grounded in prior research and established best
-practices:
-
-- 80% completeness threshold:  
-  Used in prior OSM validation studies (Hochmair et al., 2014; Zielstra
-  & Zipf, 2010; Barron et al., 2014)
-- ≤15% spatial variation threshold:  
-  Based on geospatial sampling practices ensuring representative
-  distribution (Elwood & Goodchild, 2013)
+- Include city/period/type only if:
+  - Completeness ≥ 80%
+  - SCI ≤ 15%
+- Based on prior studies:
+  - Hochmair et al. (2014), Barron et al. (2014), Elwood & Goodchild
+    (2013)
 
 #### Example Evaluation Table by Interval and Infrastructure Type
 
@@ -284,16 +280,6 @@ Neighbourhood Physical Environment and Active Travel in Older Adults: A
 Systematic Review and Meta-Analysis.” *International Journal of
 Behavioral Nutrition and Physical Activity* 14 (1): 15.
 <https://doi.org/10.1186/s12966-017-0471-5>.
-
-</div>
-
-<div id="ref-coevering_causal_2016" class="csl-entry">
-
-Coevering, Paul Van De, Kees Maat, Maarten Kroesen, and Bert Van Wee.
-2016. “Causal Effects of Built Environment Characteristics on Travel
-Behaviour: A Longitudinal Approach.” *European Journal of Transport and
-Infrastructure Research*.
-<https://doi.org/10.18757/EJTIR.2016.16.4.3165>.
 
 </div>
 

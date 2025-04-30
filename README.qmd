@@ -14,7 +14,7 @@ bibliography: atrapa.bib
 
 The relationship between the built environment and travel behaviour has been widely studied, with many studies identifying associations between environmental characteristics and travel patterns [@cerin_neighbourhood_2017; @ding_neighborhood_2011; @zhang_impact_2022]. However, most research relies on cross-sectional data, which cannot establish causality [@mccormack_search_2011; @van_de_coevering_multi-period_2015]. In contrast, studies that track changes in both travel behaviour and the built environment—such as longitudinal studies and natural experiments—offer stronger causal insights but remain relatively scarce [@karmeniemi_built_2018; @smith_systematic_2017; @tcymbal_effects_2020].
 
-One of the main challenges in expanding this area of research is the limited availability of consistent, time-series data on the built environment. While historical data on travel behavior is often more accessible—through sources like censuses, surveys, and increasingly, crowdsourced platforms like Strava—comparable records of past urban infrastructure are much harder to obtain. Some national databases, such as the Netherlands' Nationaal Wegenbestand (NWB) [@coevering_causal_2016], provide road network data going back over decades, but these are rare and typically limited to a single country or region, hindering broader or international comparisons. An alternative is to reconstruct historical built environment data manually using maps, satellite imagery, and planning records, but this process is highly resource-intensive and typically limited in scale.
+One of the main challenges in expanding this area of research is the limited availability of consistent, time-series data on the built environment. While historical data on travel behaviour is often more accessible—through sources like censuses, surveys, and increasingly, crowdsourced platforms like Strava—comparable records of past urban infrastructure are much harder to obtain. Some national road datasets—such as those in Sweden, the Netherlands, Finland, Denmark, and Norway—include long-term records of active travel networks, though consistent and accessible historical data remains limited and varies across countries, which hinders broader or international comparisons. An alternative is to reconstruct historical built environment data manually using maps, satellite imagery, and planning records, but this process is highly resource-intensive and typically limited in scale.
 
 The growing availability of Volunteered Geographic Information (VGI) presents new opportunities to overcome data limitations in built environment research. Among these sources, OpenStreetMap (OSM) stands out for providing open, editable, and historical data on various types of infrastructure, making it a promising tool for analysing urban transformations over time. However, its application in this context requires careful validation due to well-documented limitations in accuracy, completeness, and temporal consistency [@barron_comprehensive_2014; @zielstra_comparative_nodate].
 
@@ -30,67 +30,66 @@ OSM is often used to study transport infrastructure—especially cycling network
 
 In contrast, pedestrian networks—especially pedestrianized and living streets—have received significantly less attention in OSM validation studies. While some efforts have focused on sidewalks or routing networks (e.g. @zielstra_using_2012; https://wiki.openstreetmap.org/wiki/OpenSidewalks), few have assessed whether OSM reliably represents pedestrianized streets (e.g., highway=pedestrian) or living streets (highway=living_street), or whether these features accurately reflect real-world transformations over time. These types of infrastructure are increasingly relevant for sustainable mobility but pose unique challenges for mapping and validation due to tagging ambiguity and definitional variation across contexts [@national_technical_university_of_athens_greece_utilizing_2022; @omar_crowdsourcing_2022].
 
-Taken together, these studies demonstrate that OSM is a promising yet uneven source for analyzing changes in the built environment. However, most existing research focuses on static comparisons, routing applications, or cycling-specific infrastructure—often within single cities or countries. Very few studies assess OSM’s ability to capture infrastructure transformations over time, particularly for underrepresented networks like pedestrian and living streets. Our study addresses this gap by developing a validation framework that compares reported OSM transformations to multiple external sources—Google Street View, satellite imagery, and official municipal records—across seven European cities. In doing so, we assess the temporal completeness, spatial variation, and overall reliability of OSM as a longitudinal dataset for tracking changes in active travel infrastructure.
+Taken together, these studies demonstrate that OSM is a promising yet uneven source for analyzing changes in the built environment. However, most existing research focuses on static comparisons, routing applications, or cycling-specific infrastructure—often within single cities or countries. Very few studies assess OSM’s ability to capture infrastructure transformations over time, particularly for underrepresented networks like pedestrian and living streets. Our study addresses this gap by developing a validation framework that compares reported OSM transformations to multiple external sources—Google Street View, and satellite imagery—across seven European cities. In doing so, we assess the temporal completeness, spatial variation, and overall reliability of OSM as a longitudinal dataset for tracking changes in active travel infrastructure.
 
 ## Data and Method
 
 ### Data Sources
 
--   OpenStreetMap (OSM) historical snapshots (2015–2023)\
--   Google Street View (GSV) imagery\
--   Satellite imagery (e.g., Google Earth Pro, Sentinel-2)\
--   Official municipal records
+-   OpenStreetMap (OSM) snapshots: 2015, 2019, 2023
+-   Google Street View (GSV) imagery
+-   Satellite imagery
 
-### Validation Approach
+### Sampling Strategy
 
-#### 1. Sampling Strategy
+- Unit: census tracts (~60 per city)
+- Sampling: stratified random
+- Stratification based on:
+- Urban form: center, middle, periphery
+- Socio-demographics: income level or population density
 
--   **Stratified Random Spatial Sampling**: Each city will be divided into small-area units (e.g., neighborhoods, electoral wards, or blocks).
--   **Stratification** based on:
-    -   Geographic characteristics (city center, suburban, peripheral)
-    -   Socio-demographic factors (income level, population density)
--   Randomly select small-area units from each stratum to ensure unbiased and representative validation.
+### Change Detection in OSM
 
-#### 2. Transformation Validation
+- Extract infrastructure from OSM for 2015, 2019, 2023
+- Focus tags: highway=cycleway, cycleway=*, highway=pedestrian, highway=living_street
+- Compare time periods:
+  + Period 1: 2015–2019
+  + Period 2: 2019–2023
+- Identify changes:
+  + Additions
+  + Removals
+  + Reclassifications
+  
+### Validation Strategy
+#### OSM-Reported Changes (False Positives)
+- Validate all reported changes using:
+  + GSV for visual confirmation
+  + Satellite imagery for layout verification
+- Label each as:
+  + ✅ Confirmed
+  + ❌ False Positive
+  +❓ Uncertain
 
-For each selected small-area unit:
+#### Missed Changes (False Negatives)
+- Sample ~100 street segments per city from within census tract sample
+- For each segment, check imagery to see if:
+  + Infrastructure exists in reality
+  + But is missing from OSM
+- Use findings to estimate completeness
 
--   Extract infrastructure data from OSM snapshots for two intervals:
-    -   2015–2019
-    -   2019–2023
--   Identify transformations reported by OSM within each interval.
--   Independently verify these transformations using external reference data:
-    -   Google Street View (GSV) for visual confirmation
-    -   Satellite imagery for cross-validation
-    -   Official municipal records as authoritative validation sources
+### Evaluation Metrics
 
-#### 3. Metrics and Analysis
+- Accuracy = Confirmed OSM changes / All OSM-reported changes
+- Completeness = Confirmed OSM changes / (Confirmed + Missed changes)
+- SCI (Spatial Completeness Index) = Variation in completeness across tracts (e.g., standard deviation)
 
-Compute three core metrics for each city, each interval, each infrastructure type, and each small area:
+### Inclusion Criteria
 
-- **Completeness of transformations**:  
-  `Completeness = (Number of transformations correctly identified in OSM) / (Total actual transformations from validation sources)`
-
-- **Accuracy of transformations**:  
-  `Accuracy = (Number of transformations correctly identified in OSM) / (Total transformations reported by OSM)`
-
-
--   **Spatial Completeness Index (SCI)**:\
-    Measures the spatial variability of completeness across small areas within each city (e.g., standard deviation or range of completeness).
-
-### City Inclusion Criteria
-
-Cities and intervals will be included in the analysis only if the majority of small areas meet **two thresholds**:
-
--   **Overall Completeness**: ≥ 80%\
--   **SCI (Spatial Variation)**: ≤ 15%
-
-These thresholds are grounded in prior research and established best practices:
-
--   80% completeness threshold:\
-    Used in prior OSM validation studies (Hochmair et al., 2014; Zielstra & Zipf, 2010; Barron et al., 2014)
--   ≤15% spatial variation threshold:\
-    Based on geospatial sampling practices ensuring representative distribution (Elwood & Goodchild, 2013)
+- Include city/period/type only if:
+  + Completeness ≥ 80%
+  + SCI ≤ 15%
+- Based on prior studies:
+  + Hochmair et al. (2014), Barron et al. (2014), Elwood & Goodchild (2013)
 
 #### Example Evaluation Table by Interval and Infrastructure Type
 
