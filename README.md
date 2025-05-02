@@ -83,16 +83,15 @@ capacity to represent change over time.
 ### Sampling Strategy
 
 - Unit: census tracts (~60 per city)
-- Sampling: stratified random
-- Stratification based on:
-- Urban form: center, middle, periphery
-- Socio-demographics: income level or population density
+- Sampling: stratified random based on:
+  - Urban form: center, middle, periphery
+  - Socio-demographics: income level or population density
 
 ### Change Detection in OSM
 
 - Extract infrastructure from OSM for 2015, 2019, 2023
-- Focus tags: highway=cycleway, cycleway=\*, highway=pedestrian,
-  highway=living_street
+  - Focus tags: highway=cycleway, cycleway=\*, highway=pedestrian,
+    highway=living_street
 - Compare time periods:
   - Period 1: 2015–2019
   - Period 2: 2019–2023
@@ -118,7 +117,6 @@ capacity to represent change over time.
 - For each segment, check imagery to see if:
   - Infrastructure exists in reality
   - But is missing from OSM
-- Use findings to estimate completeness
 
 ### Evaluation Metrics
 
