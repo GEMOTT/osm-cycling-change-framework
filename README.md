@@ -7,7 +7,7 @@ overview](https://github.com/GEMOTT/atrapa%20database) ➡️ [Next repo
 related: Electoral and socioeconomic
 data](https://github.com/GEMOTT/electoral-socioeconomic-data)
 
-# Evaluating OpenStreetMap for Tracking Active Travel Infrastructure Changes: A Multi-City Validation Across Seven European Cities
+# Can OpenStreetMap Reliably Track Changes in Active Travel Infrastructure? A Multi-City Validation Across Seven European Cities
 
 ## Introduction
 
