@@ -30,6 +30,9 @@ This study builds on recent efforts to assess OSM’s data quality and potential
 
 <!-- Taken together, these studies demonstrate that OSM is a promising yet uneven source for analyzing changes in the built environment. However, most existing research focuses on static comparisons, routing applications, or cycling-specific infrastructure—often within single cities or countries. Very few studies assess OSM’s ability to capture infrastructure transformations over time, particularly for underrepresented networks like pedestrian and living streets. Our study addresses this gap by developing a validation framework that compares reported OSM transformations to multiple external sources—Google Street View, and satellite imagery—across seven European cities. In doing so, we assess the temporal completeness, spatial variation, and overall reliability of OSM as a longitudinal dataset for tracking changes in active travel infrastructure. -->
 
+[@viero_how_2025]
+
+[@brovelli_towards_2017; @ferster_using_2020; @mordechai_how_nodate]
 ## Data and Method
 
 ### Data Sources
@@ -538,19 +541,21 @@ highway_colors <- c("cycleway" = "red",
                     "rest" = "gray")
 
 # Plot for 2015
-map_2015 <- tm_shape(perimeter) +
-            tm_borders() +
-            tm_shape(lines_160101) +
-            tm_lines(col = "highway_type",
-                     col.scale = tm_scale(values = highway_colors), 
-                     lwd = 0.3,
-                     col.legend = tm_legend(title = "",
-                                            frame = FALSE)) +
-            tm_layout(frame = FALSE) +
-            tm_title("2015", 
-                     fontface = "bold",
-                     size = 1,
-                     position = tm_pos_in("center", "top"))
+map_2015 <- tm_shape(perimeter) +      # Add the perimeter shape (e.g., city boundary)
+            tm_borders() +             # Draw borders around the perimeter
+
+            tm_shape(lines_160101) +   # Add the line data (e.g., roads) for Jan 1, 2016 (as proxy for 2015)
+            tm_lines(col = "highway_type",                  # Color lines by the 'highway_type' attribute
+                     col.scale = tm_scale(values = highway_colors), # Use predefined color mapping
+                     lwd = 0.3,                             # Set line width to 0.3
+                     col.legend = tm_legend(title = "",     # No title for legend
+                                            frame = FALSE)) # No frame around legend
+
+            tm_layout(frame = FALSE) +  # Remove frame around the whole map
+            tm_title("2015",            # Add title "2015"
+                     fontface = "bold", # Make title bold
+                     size = 1,          # Set title font size
+                     position = tm_pos_in("center", "top")) # Position title at the top center
 
 
 # Plot for 2019
@@ -1050,6 +1055,64 @@ barcelona_tracts_with_all_ratios <- barcelona_tracts_with_cycleway_ratios |>  # 
 
 # Save the data
 st_write(barcelona_tracts_with_all_ratios, "data/area-level/barcelona/barcelona_indicators.gpkg", append = FALSE)
+```
+
+```{r}
+#| eval: false
+#| include: false
+# Full R Code for Stratified Sampling by Density and Centrality
+
+library(sf)
+library(dplyr)
+library(units)
+
+# ---- Load shapefile ----
+shapefile_path <- "unitats_censals_2024.shp"
+secciones <- st_read(shapefile_path, quiet = TRUE) %>%
+  st_transform(25831)  # UTM projection for accurate distance/area
+
+# ---- Compute population density ----
+secciones <- secciones %>%
+  mutate(area_km2 = set_units(st_area(.), "km^2"),
+         density = POBLACIO / as.numeric(area_km2))
+
+# ---- Define city center (adjust if needed) ----
+# Example: Plaça Catalunya, Barcelona (in EPSG:25831)
+centroide_centro <- st_sfc(st_point(c(431870, 4581450)), crs = 25831)
+
+# ---- Compute distance to city center ----
+secciones <- secciones %>%
+  mutate(dist_centro_m = as.numeric(st_distance(st_centroid(geometry), centroide_centro)))
+
+# ---- Classify into strata ----
+
+# Population density strata (quartiles)
+secciones <- secciones %>%
+  mutate(stratum_density = ntile(density, 4))
+
+# Centrality strata (e.g., near: Q1, mid: Q2–Q3, far: Q4)
+secciones <- secciones %>%
+  mutate(stratum_centrality = ntile(dist_centro_m, 4))
+
+# Combine into joint stratum
+secciones <- secciones %>%
+  mutate(stratum_combined = paste0("D", stratum_density, "_C", stratum_centrality))
+
+# ---- Stratified sampling ----
+set.seed(123)
+n_per_stratum <- 5  # adjust
+
+sampled <- secciones %>%
+  group_by(stratum_combined) %>%
+  sample_n(size = min(n_per_stratum, n()), replace = FALSE) %>%
+  ungroup()
+
+# ---- Summary ----
+table(sampled$stratum_combined)
+
+# ---- Optional: Save for use in later scripts ----
+st_write(sampled, "secciones_stratified_sample.geojson", delete_dsn = TRUE)
+
 ```
 
 \newpage
