@@ -76,8 +76,9 @@ capacity to represent change over time.
 
 (Vierø, Vybornova, and Szell 2025)
 
-(Brovelli et al. 2017; Ferster et al. 2020; Mordechai, n.d.) \## Data
-and Method
+(Brovelli et al. 2017; Ferster et al. 2020; Mordechai, n.d.)
+
+## Data and Method
 
 ### Data Sources
 
@@ -153,57 +154,15 @@ and Method
 
 ## Results
 
-<!-- Similar studies: -->
-<!-- Using OpenStreetMap Point-of-Interest Data to Model Urban Change—A Feasibility Study: DOI: 10.1371/journal.pone.0212606 -->
-<!-- Using OpenStreetMap to Inventory Bicycle Infrastructure: A Comparison with Open Data from Cities: DOI: 10.1080/15568318.2018.1519746 -->
-<!-- How Good Is Open Bicycle Infrastructure Data? A Countrywide Case Study of Denmark: DOI: 10.1111/gean.12400 -->
-<!-- BikeDNA: A Tool for Bicycle Infrastructure Data & Network Assessment: DOI: 10.1177/23998083231184471 -->
-<!-- By addressing these aspects, we aim to help researchers and practitioners effectively use OSM while critically assessing its suitability for tracking infrastructure changes over time [@koukoletsos_assessing_2012]. -->
-<!-- -   Aim: Develop a dataset capturing changes in the built environment that support active travel in Barcelona, Milan, Ljubljana, Warsaw, Utrecht, Malmö, and Paris. -->
-<!-- -   Key Elements: -->
-<!--     -   Cycleways -->
-<!--     -   Pedestrian & living streets -->
-<!--     -   Pavement widenings/extensions (more challenging to track) -->
-<!-- -   Data Sources: Official Open Data and OpenStreetMap (OSM). -->
-<!-- | Aspect | Official Open Data | OSM | -->
-<!-- |-----------------------|-----------------------|--------------------------| -->
-<!-- | **Accessibility** | Harder to obtain (data often not preserved) | Easy access with `osmextract` | -->
-<!-- | **Data Completeness** | More complete, validated | Potential gaps | -->
-<!-- | **Geographical Consistency** | Consistent within cities | More uniform across countries | -->
-<!-- ## Data Collection Process -->
-<!-- -   Official Open Data: -->
-<!--     -   Limited progress in obtaining historical data so far. -->
-<!--     -   Cycle lanes in Barcelona and pedestrian streets in Paris and Milan. -->
-<!--     -   Potential access to historical backups in Barcelona. -->
-<!-- -   OSM Data Extraction: -->
-<!--     -   Collected data on cycleways, pedestrian streets, and living streets from 2015 onwards. -->
-<!--     -   We aim to cross-validate the data with official data from Barcelona. -->
-<!-- ## Preliminary Visuals -->
-<!-- #### OSM Cycling Networks Across 7 ATRAPA Cities (2016–2023) -->
+### Descriptive analyses
 
 
-
-### OSM data Barcelona
 
 #### Road network by type
 
 <img src="figs/barcelona_network_all.png" style="width:100.0%" />
 
-<!-- #### Indicators at the census tract level -->
-<!-- To assess the impact of sustainable travel interventions, we will calculate the following indicators: -->
-<!-- -   Length of cycleways / Total Road Network Length -->
-<!-- -   Length of pedestrian and living streets / Total Road Network Length -->
-<!-- -   Length of pavement extensions / Total Road Network Length -->
-<!-- These indicators will provide valuable insights into the distribution and availability of infrastructure designed to promote sustainable travel within urban areas. -->
-<!-- -   Cycleway Proportion of Total Network -->
-
-
-
-<!-- -   Living Street Proportion of Total Network -->
-
-
-
-<!-- -   Pedestrian Street Proportion of Total Network -->
+![](README_files/figure-commonmark/unnamed-chunk-6-1.png)
 
 
 
@@ -243,8 +202,8 @@ London and the Rest of England.”
 <div id="ref-viero_how_2025" class="csl-entry">
 
 Vierø, Ane Rahbek, Anastassia Vybornova, and Michael Szell. 2025. “How
-Good Is Open Bicycle Infrastructure Data? A Countrywide Case Study of
-Denmark.” *Geographical Analysis* 57 (1): 52–87.
+Good Is Open Bicycle Network Data? A Countrywide Case Study of Denmark.”
+*Geographical Analysis* 57 (1): 52–87.
 <https://doi.org/10.1111/gean.12400>.
 
 </div>

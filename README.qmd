@@ -33,6 +33,7 @@ This study builds on recent efforts to assess OSM’s data quality and potential
 [@viero_how_2025]
 
 [@brovelli_towards_2017; @ferster_using_2020; @mordechai_how_nodate]
+
 ## Data and Method
 
 ### Data Sources
@@ -104,59 +105,7 @@ This study builds on recent efforts to assess OSM’s data quality and potential
 
 ## Results
 
-<!-- Similar studies: -->
-
-<!-- Using OpenStreetMap Point-of-Interest Data to Model Urban Change—A Feasibility Study: DOI: 10.1371/journal.pone.0212606 -->
-
-<!-- Using OpenStreetMap to Inventory Bicycle Infrastructure: A Comparison with Open Data from Cities: DOI: 10.1080/15568318.2018.1519746 -->
-
-<!-- How Good Is Open Bicycle Infrastructure Data? A Countrywide Case Study of Denmark: DOI: 10.1111/gean.12400 -->
-
-<!-- BikeDNA: A Tool for Bicycle Infrastructure Data & Network Assessment: DOI: 10.1177/23998083231184471 -->
-
-<!-- By addressing these aspects, we aim to help researchers and practitioners effectively use OSM while critically assessing its suitability for tracking infrastructure changes over time [@koukoletsos_assessing_2012]. -->
-
-<!-- -   Aim: Develop a dataset capturing changes in the built environment that support active travel in Barcelona, Milan, Ljubljana, Warsaw, Utrecht, Malmö, and Paris. -->
-
-<!-- -   Key Elements: -->
-
-<!--     -   Cycleways -->
-
-<!--     -   Pedestrian & living streets -->
-
-<!--     -   Pavement widenings/extensions (more challenging to track) -->
-
-<!-- -   Data Sources: Official Open Data and OpenStreetMap (OSM). -->
-
-<!-- | Aspect | Official Open Data | OSM | -->
-
-<!-- |-----------------------|-----------------------|--------------------------| -->
-
-<!-- | **Accessibility** | Harder to obtain (data often not preserved) | Easy access with `osmextract` | -->
-
-<!-- | **Data Completeness** | More complete, validated | Potential gaps | -->
-
-<!-- | **Geographical Consistency** | Consistent within cities | More uniform across countries | -->
-
-<!-- ## Data Collection Process -->
-
-<!-- -   Official Open Data: -->
-
-<!--     -   Limited progress in obtaining historical data so far. -->
-
-<!--     -   Cycle lanes in Barcelona and pedestrian streets in Paris and Milan. -->
-
-<!--     -   Potential access to historical backups in Barcelona. -->
-
-<!-- -   OSM Data Extraction: -->
-
-<!--     -   Collected data on cycleways, pedestrian streets, and living streets from 2015 onwards. -->
-
-<!--     -   We aim to cross-validate the data with official data from Barcelona. -->
-
-<!-- ## Preliminary Visuals -->
-
-<!-- #### OSM Cycling Networks Across 7 ATRAPA Cities (2016–2023) -->
+### Descriptive analyses
 
 ```{r include=FALSE}
 #remotes::install_github("ropensci/osmextract")
@@ -439,8 +388,6 @@ knitr::include_graphics("figs/cyc_all.png")
 
 \newpage
 
-### OSM data Barcelona
-
 ```{r include=FALSE}
 #| eval: false
 #| include: false
@@ -492,7 +439,6 @@ st_write(barcelona_lines_240101, "data/street-level/barcelona/barcelona_240101_l
 #| warning: false
 
 # Plot the OSM networks
-
 
 # Define file paths for Barcelona
 city <- "barcelona"
@@ -549,7 +495,7 @@ map_2015 <- tm_shape(perimeter) +      # Add the perimeter shape (e.g., city bou
                      col.scale = tm_scale(values = highway_colors), # Use predefined color mapping
                      lwd = 0.3,                             # Set line width to 0.3
                      col.legend = tm_legend(title = "",     # No title for legend
-                                            frame = FALSE)) # No frame around legend
+                                            frame = FALSE)) + # No frame around legend 
 
             tm_layout(frame = FALSE) +  # Remove frame around the whole map
             tm_title("2015",            # Add title "2015"
@@ -602,519 +548,154 @@ tmap_save(barcelona_network_all, filename = "figs/barcelona_network_all.png", dp
 knitr::include_graphics("figs/barcelona_network_all.png")
 ```
 
-<!-- #### Indicators at the census tract level -->
-
-<!-- To assess the impact of sustainable travel interventions, we will calculate the following indicators: -->
-
-<!-- -   Length of cycleways / Total Road Network Length -->
-
-<!-- -   Length of pedestrian and living streets / Total Road Network Length -->
-
-<!-- -   Length of pavement extensions / Total Road Network Length -->
-
-<!-- These indicators will provide valuable insights into the distribution and availability of infrastructure designed to promote sustainable travel within urban areas. -->
-
-<!-- -   Cycleway Proportion of Total Network -->
-
 ```{r}
-#| eval: false
+#| echo: false
 #| message: false
 #| warning: false
-#| include: false
 #| paged-print: false
 
-# Get the indicators
-
-# Read in the census tracts (polygon data) and line network for both years
-barcelona_tracts <- st_read("data/street-level/barcelona/barcelona_census_tracts.gpkg", quiet = TRUE)
-
-barcelona_network_2015 <- st_read("data/street-level/barcelona/barcelona_160101_lines.gpkg", quiet = TRUE)
-barcelona_network_2019 <- st_read("data/street-level/barcelona/barcelona_200101_lines.gpkg", quiet = TRUE)
-barcelona_network_2023 <- st_read("data/street-level/barcelona/barcelona_240101_lines.gpkg", quiet = TRUE)
-
-# Ensure both datasets are in the same coordinate reference system (CRS)
-barcelona_network_2015 <- st_transform(barcelona_network_2015, st_crs(barcelona_tracts))
-barcelona_network_2019 <- st_transform(barcelona_network_2019, st_crs(barcelona_tracts))
-barcelona_network_2023 <- st_transform(barcelona_network_2023, st_crs(barcelona_tracts))
-
-calculate_cycleway_ratios <- function(barcelona_tracts, barcelona_network) {
-  # Filter the network to select only cycle lanes
-  cycleway_network <- barcelona_network |>
-    filter(highway == "cycleway")
-
-  # Aggregate cycle lanes length per census tract
-  cycleway_aggregated <- cycleway_network |>
-    st_join(barcelona_tracts, join = st_intersects) |>
-    group_by(SEC_CENS) |>
-    summarise(cycleway_length = sum(as.numeric(st_length(geom))), .groups = "drop") |>  # Convert to numeric
-    st_drop_geometry()
-
-  # Aggregate total network length per census tract
-  network_aggregated <- barcelona_network |>
-    st_join(barcelona_tracts, join = st_intersects) |>
-    group_by(SEC_CENS) |>
-    summarise(total_length = sum(as.numeric(st_length(geom))), .groups = "drop") |>  # Convert to numeric
-    st_drop_geometry()
-
-  # Compute cycleway ratio
-  indicator_data <- left_join(cycleway_aggregated, network_aggregated, by = "SEC_CENS") |>
-    mutate(cycleway_ratio = cycleway_length / total_length)
-
-  # Join the data back to the original census tracts
-  tracts_with_indicator <- left_join(barcelona_tracts, indicator_data, by = "SEC_CENS") |>
-    mutate(cycleway_ratio = replace_na(cycleway_ratio, 0))  # Replace NA with 0 safely
-
-  # Compute spatial neighbors (Queen contiguity)
-  nb <- poly2nb(tracts_with_indicator, queen = TRUE)
-  listw <- nb2listw(nb, style = "W")  # Row-standardized weights
-
-  # Compute spatially lagged cycle lanes ratio
-  tracts_with_indicator <- tracts_with_indicator |>
-    mutate(cycleway_ratio_smooth = lag.listw(listw, cycleway_ratio, NAOK = TRUE))
-
-  return(tracts_with_indicator)
-}
-
-# Compute the cycle lanes ratio for each year and rename columns
-barcelona_tracts_with_ratios_2015_sf <- calculate_cycleway_ratios(barcelona_tracts, barcelona_network_2015) 
-
-barcelona_tracts_with_ratios_2019_sf <- calculate_cycleway_ratios(barcelona_tracts, barcelona_network_2019) 
-
-barcelona_tracts_with_ratios_2023_sf <- calculate_cycleway_ratios(barcelona_tracts, barcelona_network_2023) 
-
-# Drop the geometry column
-barcelona_tracts_with_ratios_2015 <- barcelona_tracts_with_ratios_2015_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, cycleway_length, total_length, cycleway_ratio, cycleway_ratio_smooth) |> 
-  rename(cycleway_length_2015 = cycleway_length, total_length_2015 = total_length, cycleway_ratio_2015 = cycleway_ratio, cycleway_ratio_smooth_2015 = cycleway_ratio_smooth)
-
-barcelona_tracts_with_ratios_2019 <- barcelona_tracts_with_ratios_2019_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, cycleway_length, total_length, cycleway_ratio, cycleway_ratio_smooth) |> 
-  rename(cycleway_length_2019 = cycleway_length, total_length_2019 = total_length, cycleway_ratio_2019 = cycleway_ratio, cycleway_ratio_smooth_2019 = cycleway_ratio_smooth)
-
-barcelona_tracts_with_ratios_2023 <- barcelona_tracts_with_ratios_2023_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, cycleway_length, total_length, cycleway_ratio, cycleway_ratio_smooth) |> 
-  rename(cycleway_length_2023 = cycleway_length, total_length_2023 = total_length, cycleway_ratio_2023 = cycleway_ratio, cycleway_ratio_smooth_2023 = cycleway_ratio_smooth)
-
-barcelona_tracts_with_cycleway_ratios <- barcelona_tracts_with_ratios_2015 |>  # Start with 2015 data
-  left_join(barcelona_tracts_with_ratios_2019, by = "census_tract_id") |>  # Join 2019 data by SEC_CENS
-  left_join(barcelona_tracts_with_ratios_2023, by = "census_tract_id")  # Join 2023 data by SEC_CENS
-
-# Function to create a map
-create_map <- function(data, year) {
-  tm_shape(data) +
-     tm_polygons(
-    lwd = 0.01,
-    col = "white",
-    fill = "cycleway_ratio_smooth",
-    fill.scale = tm_scale_continuous(
-      values = "brewer.yl_gn_bu", 
-      limits = c(0, 0.7)
-    ),
-    fill.legend = tm_legend(
-      title = "",
-      orientation = "landscape",
-      frame = FALSE,
-      width = 15,
-      height = 15,
-      position = tm_pos_out("center", "bottom")
-    )
-  ) +  
-  tm_layout(
-    frame = FALSE, 
-    component.autoscale = FALSE
-  ) + 
-  tm_title(
-    year, 
-    fontface = "bold",
-    size = 1,
-    position = tm_pos_in("center", "top"))
-}
-
-# Create maps for 2019 and 2023
-map_2015 <- create_map(barcelona_tracts_with_ratios_2015_sf, "2015")
-map_2019 <- create_map(barcelona_tracts_with_ratios_2019_sf, "2019")
-map_2023 <- create_map(barcelona_tracts_with_ratios_2023_sf, "2023")
-# 
-# map_diff <- tm_shape(barcelona_tracts_smoothed_diff) +
-#   tm_polygons(
-#     lwd = 0.01,
-#     col = "white",
-#     fill = "diff_cycleway_ratio",
-#     fill.scale = tm_scale_continuous(
-#       values = "brewer.rd_bu", 
-#       limits = c(-0.45,0.45),
-#       midpoint = NA),
-#       fill.legend = tm_legend(title = "",
-#         orientation = "landscape",
-#         frame = FALSE,
-#         width = 15,
-#         height = 15,
-#         position = tm_pos_in("center")
-#     )
-#   ) +   
-#   tm_layout(
-#     frame = FALSE, 
-#     component.autoscale = FALSE
-#   ) + 
-#   tm_title(
-#     "Difference", 
-#     fontface = "bold"
-#   )
-
-# Arrange all three maps side by side
-barcelona_cycleway_ratios_15_19_23 = tmap_arrange(map_2015, map_2019, map_2023, ncol = 3)
-
-# Save the layout as a PNG file
-tmap_save(barcelona_cycleway_ratios_15_19_23, "figs/barcelona_cycleway_ratios_15_19_23.png", dpi = 300)
-```
-
-```{r}
-#| eval: false
-#| include: false
-#| out-width: 100%
-# plot the image
-knitr::include_graphics("figs/barcelona_cycleway_ratios_15_19_23.png")
-```
-
-\newpage
-
-<!-- -   Living Street Proportion of Total Network -->
-
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-#| include: false
-#| paged-print: false
-
-# Get the indicators
-calculate_livingstreet_ratios <- function(barcelona_tracts, barcelona_network) {
-  # Filter the network to select only cycle lanes
-  livingstreet_network <- barcelona_network |>
-    filter(highway == "living_street")
-
-  # Aggregate cycle lanes length per census tract
-  livingstreet_aggregated <- livingstreet_network |>
-    st_join(barcelona_tracts, join = st_intersects) |>
-    group_by(SEC_CENS) |>
-    summarise(livingstreet_length = sum(as.numeric(st_length(geom))), .groups = "drop") |>  # Convert to numeric
-    st_drop_geometry()
-
-  # Aggregate total network length per census tract
-  network_aggregated <- barcelona_network |>
-    st_join(barcelona_tracts, join = st_intersects) |>
-    group_by(SEC_CENS) |>
-    summarise(total_length = sum(as.numeric(st_length(geom))), .groups = "drop") |>  # Convert to numeric
-    st_drop_geometry()
-
-  # Compute livingstreet ratio
-  indicator_data <- left_join(livingstreet_aggregated, network_aggregated, by = "SEC_CENS") |>
-    mutate(livingstreet_ratio = livingstreet_length / total_length)
-
-  # Join the data back to the original census tracts
-  tracts_with_indicator <- left_join(barcelona_tracts, indicator_data, by = "SEC_CENS") |>
-    mutate(livingstreet_ratio = replace_na(livingstreet_ratio, 0))  # Replace NA with 0 safely
-
-  # Compute spatial neighbors (Queen contiguity)
-  nb <- poly2nb(tracts_with_indicator, queen = TRUE)
-  listw <- nb2listw(nb, style = "W")  # Row-standardized weights
-
-  # Compute spatially lagged cycle lanes ratio
-  tracts_with_indicator <- tracts_with_indicator |>
-    mutate(livingstreet_ratio_smooth = lag.listw(listw, livingstreet_ratio, NAOK = TRUE))
-
-  return(tracts_with_indicator)
-}
-
-# Compute the cycle lanes ratio for each year and rename columns
-barcelona_tracts_with_ratios_2015_sf <- calculate_livingstreet_ratios(barcelona_tracts, barcelona_network_2015) 
-
-barcelona_tracts_with_ratios_2019_sf <- calculate_livingstreet_ratios(barcelona_tracts, barcelona_network_2019) 
-
-barcelona_tracts_with_ratios_2023_sf <- calculate_livingstreet_ratios(barcelona_tracts, barcelona_network_2023) 
-
-# Drop the geometry column
-barcelona_tracts_with_ratios_2015 <- barcelona_tracts_with_ratios_2015_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, livingstreet_length, livingstreet_ratio, livingstreet_ratio_smooth) |> 
-  rename(livingstreet_length_2015 = livingstreet_length, livingstreet_ratio_2015 = livingstreet_ratio, livingstreet_ratio_smooth_2015 = livingstreet_ratio_smooth)
-
-barcelona_tracts_with_ratios_2019 <- barcelona_tracts_with_ratios_2019_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, livingstreet_length, livingstreet_ratio, livingstreet_ratio_smooth) |> 
-  rename(livingstreet_length_2019 = livingstreet_length, livingstreet_ratio_2019 = livingstreet_ratio, livingstreet_ratio_smooth_2019 = livingstreet_ratio_smooth)
-
-barcelona_tracts_with_ratios_2023 <- barcelona_tracts_with_ratios_2023_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, livingstreet_length, livingstreet_ratio, livingstreet_ratio_smooth) |> 
-  rename(livingstreet_length_2023 = livingstreet_length, livingstreet_ratio_2023 = livingstreet_ratio, livingstreet_ratio_smooth_2023 = livingstreet_ratio_smooth)
-
-barcelona_tracts_with_livingstreet_ratios <- barcelona_tracts_with_ratios_2015 |>  # Start with 2015 data
-  left_join(barcelona_tracts_with_ratios_2019, by = "census_tract_id") |>  # Join 2019 data by SEC_CENS
-  left_join(barcelona_tracts_with_ratios_2023, by = "census_tract_id")  # Join 2023 data by SEC_CENS
-
-# Function to create a map
-create_map <- function(data, year) {
-  tm_shape(data) +
-     tm_polygons(
-    lwd = 0.01,
-    col = "white",
-    fill = "livingstreet_ratio_smooth",
-    fill.scale = tm_scale_continuous(
-      values = "brewer.yl_gn_bu", 
-      limits = c(0, 0.25)
-    ),
-    fill.legend = tm_legend(
-      title = "",
-      orientation = "landscape",
-      frame = FALSE,
-      width = 15,
-      height = 15,
-      position = tm_pos_out("center", "bottom")
-    )
-  ) +  
-  tm_layout(
-    frame = FALSE, 
-    component.autoscale = FALSE
-  ) + 
-  tm_title(
-    year, 
-    fontface = "bold",
-    size = 1,
-    position = tm_pos_in("center", "top"))
-}
-
-# Create maps for 2019 and 2023
-map_2015 <- create_map(barcelona_tracts_with_ratios_2015_sf, "2015")
-map_2019 <- create_map(barcelona_tracts_with_ratios_2019_sf, "2019")
-map_2023 <- create_map(barcelona_tracts_with_ratios_2023_sf, "2023")
-
-# Arrange all three maps side by side
-barcelona_livingstreet_ratios_15_19_23 <- tmap_arrange(map_2015, map_2019, map_2023, ncol = 3)
-
-# Save the layout as a PNG file
-tmap_save(barcelona_livingstreet_ratios_15_19_23, "figs/barcelona_livingstreet_ratios_15_19_23.png", dpi = 300)
-```
-
-```{r}
-#| eval: false
-#| include: false
-#| out-width: 100%
-# plot the image
-knitr::include_graphics("figs/barcelona_livingstreet_ratios_15_19_23.png")
-```
-
-\newpage
-
-<!-- -   Pedestrian Street Proportion of Total Network -->
-
-```{r}
-#| eval: false
-#| message: false
-#| warning: false
-#| include: false
-#| paged-print: false
-
-# Get the indicators
-calculate_pedestrian_ratios <- function(barcelona_tracts, barcelona_network) {
-  # Filter the network to select only cycle lanes
-  pedestrian_network <- barcelona_network |>
-    filter(highway == "pedestrian")
-
-  # Aggregate cycle lanes length per census tract
-  pedestrian_aggregated <- pedestrian_network |>
-    st_join(barcelona_tracts, join = st_intersects) |>
-    group_by(SEC_CENS) |>
-    summarise(pedestrian_length = sum(as.numeric(st_length(geom))), .groups = "drop") |>  # Convert to numeric
-    st_drop_geometry()
-
-  # Aggregate total network length per census tract
-  network_aggregated <- barcelona_network |>
-    st_join(barcelona_tracts, join = st_intersects) |>
-    group_by(SEC_CENS) |>
-    summarise(total_length = sum(as.numeric(st_length(geom))), .groups = "drop") |>  # Convert to numeric
-    st_drop_geometry()
-
-  # Compute pedestrian ratio
-  indicator_data <- left_join(pedestrian_aggregated, network_aggregated, by = "SEC_CENS") |>
-    mutate(pedestrian_ratio = pedestrian_length / total_length)
-
-  # Join the data back to the original census tracts
-  tracts_with_indicator <- left_join(barcelona_tracts, indicator_data, by = "SEC_CENS") |>
-    mutate(pedestrian_ratio = replace_na(pedestrian_ratio, 0))  # Replace NA with 0 safely
-
-  # Compute spatial neighbors (Queen contiguity)
-  nb <- poly2nb(tracts_with_indicator, queen = TRUE)
-  listw <- nb2listw(nb, style = "W")  # Row-standardized weights
-
-  # Compute spatially lagged cycle lanes ratio
-  tracts_with_indicator <- tracts_with_indicator |>
-    mutate(pedestrian_ratio_smooth = lag.listw(listw, pedestrian_ratio, NAOK = TRUE))
-
-  return(tracts_with_indicator)
-}
-
-# Compute the cycle lanes ratio for each year and rename columns
-barcelona_tracts_with_ratios_2015_sf <- calculate_pedestrian_ratios(barcelona_tracts, barcelona_network_2015) 
-
-barcelona_tracts_with_ratios_2019_sf <- calculate_pedestrian_ratios(barcelona_tracts, barcelona_network_2019) 
-
-barcelona_tracts_with_ratios_2023_sf <- calculate_pedestrian_ratios(barcelona_tracts, barcelona_network_2023) 
-
-# Drop the geometry column
-barcelona_tracts_with_ratios_2015 <- barcelona_tracts_with_ratios_2015_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, pedestrian_length, pedestrian_ratio, pedestrian_ratio_smooth) |> 
-  rename(pedestrian_length_2015 = pedestrian_length, pedestrian_ratio_2015 = pedestrian_ratio, pedestrian_ratio_smooth_2015 = pedestrian_ratio_smooth)
-
-barcelona_tracts_with_ratios_2019 <- barcelona_tracts_with_ratios_2019_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, pedestrian_length, pedestrian_ratio, pedestrian_ratio_smooth) |> 
-  rename(pedestrian_length_2019 = pedestrian_length, pedestrian_ratio_2019 = pedestrian_ratio, pedestrian_ratio_smooth_2019 = pedestrian_ratio_smooth)
-
-barcelona_tracts_with_ratios_2023 <- barcelona_tracts_with_ratios_2023_sf |> 
-  st_drop_geometry() |> 
-  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
-  select(census_tract_id, pedestrian_length, pedestrian_ratio, pedestrian_ratio_smooth) |> 
-  rename(pedestrian_length_2023 = pedestrian_length, pedestrian_ratio_2023 = pedestrian_ratio, pedestrian_ratio_smooth_2023 = pedestrian_ratio_smooth)
-
-barcelona_tracts_with_pedestrian_ratios <- barcelona_tracts_with_ratios_2015 |>  # Start with 2015 data
-  left_join(barcelona_tracts_with_ratios_2019, by = "census_tract_id") |>  # Join 2019 data by SEC_CENS
-  left_join(barcelona_tracts_with_ratios_2023, by = "census_tract_id")  # Join 2023 data by SEC_CENS
-
-
-# Function to create a map
-create_map <- function(data, year) {
-  tm_shape(data) +
-     tm_polygons(
-    lwd = 0.01,
-    col = "white",
-    fill = "pedestrian_ratio_smooth",
-    fill.scale = tm_scale_continuous(
-      values = "brewer.yl_gn_bu", 
-      limits = c(0, 0.2)
-    ),
-    fill.legend = tm_legend(
-      title = "",
-      orientation = "landscape",
-      frame = FALSE,
-      width = 15,
-      height = 15,
-      position = tm_pos_out("center", "bottom")
-    )
-  ) +  
-  tm_layout(
-    frame = FALSE, 
-    component.autoscale = FALSE
-  ) + 
-  tm_title(
-    year, 
-    fontface = "bold",
-    size = 1,
-    position = tm_pos_in("center", "top"))
-}
-
-# Create maps for 2019 and 2023
-map_2015 <- create_map(barcelona_tracts_with_ratios_2015_sf, "2015")
-map_2019 <- create_map(barcelona_tracts_with_ratios_2019_sf, "2019")
-map_2023 <- create_map(barcelona_tracts_with_ratios_2023_sf, "2023")
-
-# Arrange all three maps side by side
-barcelona_pedestrian_ratios_15_19_23 <- tmap_arrange(map_2015, map_2019, map_2023, ncol = 3)
-
-# Save the layout as a PNG file
-tmap_save(barcelona_pedestrian_ratios_15_19_23, "figs/barcelona_pedestrian_ratios_15_19_23.png", dpi = 300)
-```
-
-```{r}
-#| eval: false
-#| include: false
-#| out-width: 100%
-# plot the image
-knitr::include_graphics("figs/barcelona_pedestrian_ratios_15_19_23.png")
-```
-
-```{r}
-#| eval: false
-#| include: false
-
-barcelona_tracts_with_all_ratios <- barcelona_tracts_with_cycleway_ratios |>  # Start with 2015 data
-  left_join(barcelona_tracts_with_livingstreet_ratios, by = "census_tract_id") |>  # Join 2019 data by SEC_CENS
-  left_join(barcelona_tracts_with_pedestrian_ratios, by = "census_tract_id")  
-
-# Save the data
-st_write(barcelona_tracts_with_all_ratios, "data/area-level/barcelona/barcelona_indicators.gpkg", append = FALSE)
-```
-
-```{r}
-#| eval: false
-#| include: false
-# Full R Code for Stratified Sampling by Density and Centrality
-
-library(sf)
-library(dplyr)
-library(units)
-
-# ---- Load shapefile ----
-shapefile_path <- "unitats_censals_2024.shp"
-secciones <- st_read(shapefile_path, quiet = TRUE) %>%
-  st_transform(25831)  # UTM projection for accurate distance/area
-
-# ---- Compute population density ----
-secciones <- secciones %>%
-  mutate(area_km2 = set_units(st_area(.), "km^2"),
-         density = POBLACIO / as.numeric(area_km2))
-
-# ---- Define city center (adjust if needed) ----
-# Example: Plaça Catalunya, Barcelona (in EPSG:25831)
-centroide_centro <- st_sfc(st_point(c(431870, 4581450)), crs = 25831)
-
-# ---- Compute distance to city center ----
-secciones <- secciones %>%
-  mutate(dist_centro_m = as.numeric(st_distance(st_centroid(geometry), centroide_centro)))
-
-# ---- Classify into strata ----
-
-# Population density strata (quartiles)
-secciones <- secciones %>%
-  mutate(stratum_density = ntile(density, 4))
-
-# Centrality strata (e.g., near: Q1, mid: Q2–Q3, far: Q4)
-secciones <- secciones %>%
-  mutate(stratum_centrality = ntile(dist_centro_m, 4))
-
-# Combine into joint stratum
-secciones <- secciones %>%
-  mutate(stratum_combined = paste0("D", stratum_density, "_C", stratum_centrality))
-
-# ---- Stratified sampling ----
-set.seed(123)
-n_per_stratum <- 5  # adjust
-
-sampled <- secciones %>%
-  group_by(stratum_combined) %>%
-  sample_n(size = min(n_per_stratum, n()), replace = FALSE) %>%
+# --- Load census tract geometries and population data ---
+tracts_geo  <- readRDS("data/bcn-seccio-censal/BCN_seccion_censal_2015.rds")
+tracts_pop  <- readRDS("data/pop/Population_Census_tract_2015_2022.rds")
+
+tracts_pop_wide <- tracts_pop |> 
+  filter(Year %in% c("2015", "2019","2022")) |> 
+   pivot_wider(
+    names_from = Year,
+    values_from = Population,
+    names_prefix = "pop_"
+  )
+
+# --- Join population data to geometries ---
+barcelona_tracts <- left_join(tracts_geo, tracts_pop_wide, by = c("CUSEC" = "GEOID"))
+
+# --- Reproject to UTM for accurate area and distance calculations ---
+barcelona_tracts <- st_transform(barcelona_tracts, 25831)
+
+# --- Compute area (in km²), population density, and distance to city center ---
+placa_catalunya <- st_sfc(st_point(c(431870, 4581450)), crs = 25831)
+
+barcelona_tracts <- barcelona_tracts %>%
+  mutate(
+    area_km2       = as.numeric(st_area(geometry)) / 1e6,
+    dens_2015      = pop_2015 / area_km2,
+    dens_2019      = pop_2019 / area_km2,
+    dens_2022      = pop_2022 / area_km2,
+    centroid       = st_centroid(geometry),
+    dist_centre_km = as.numeric(st_distance(centroid, placa_catalunya)) / 1000
+  )
+
+# --- Stratify into 4×4 grid: population density × centrality ---
+barcelona_tracts <- barcelona_tracts %>%
+  mutate(
+    dens_stratum = ntile(dens_2022, 4),              # 1 = lowest density
+    cent_stratum = ntile(-dist_centre_km, 4),        # 1 = most central
+    stratum_id   = paste0("D", dens_stratum, "_C", cent_stratum)
+  )
+
+# --- 2. Take a stratified random sample ---
+set.seed(123)  # for reproducibility
+
+sampled_tracts <- barcelona_tracts %>%
+  group_by(stratum_id) %>%
+  sample_n(size = min(5, n()), replace = FALSE) %>%
   ungroup()
 
-# ---- Summary ----
-table(sampled$stratum_combined)
+# plot(barcelona_tracts["dens_2022"])
+# plot(barcelona_tracts["dist_centre_km"])
+# tmap_mode("plot")  # static mode
+# 
+# # --- 3. Map: Sample by stratum ---
+# tm_shape(barcelona_tracts) +
+#   tm_polygons("stratum_id", palette = "Set3", alpha = 0.4) +
+#   tm_shape(sampled_tracts) +
+#   tm_borders(col = "black", lwd = 2) +
+#   tm_layout(title = "Stratified Sample", frame = FALSE)
 
-# ---- Optional: Save for use in later scripts ----
-st_write(sampled, "secciones_stratified_sample.geojson", delete_dsn = TRUE)
+# Trying a bivariate map
+# install.packages("sf")  # if not already installed
+# https://jakubnowosad.com/posts/2020-08-25-cbc-bp2/
+library(sf)
+library(dplyr)
+library(biscale)
+library(ggplot2)
+library(cowplot)
+
+# Step 1: Create a flipped centrality column
+barcelona_tracts <- barcelona_tracts %>%
+  mutate(centrality_flipped = -dist_centre_km)
+
+# --- 1. Classify into bivariate categories ---
+bb_bivar <- barcelona_tracts %>%
+  bi_class(
+    x = dens_2022,
+    y = centrality_flipped,
+    style = "quantile",
+    dim = 4
+  )
+
+# --- 2. Create bivariate map with better title ---
+bivar_map <- ggplot() +
+  geom_sf(
+    data = bb_bivar,
+    aes(fill = bi_class),
+    color = "white", size = 0.1, show.legend = FALSE
+  ) +
+  bi_scale_fill(pal = "DkBlue2", dim = 4) +
+  geom_sf(
+    data = sampled_tracts,
+    fill = NA, color = "black", linewidth = 0.5) +
+  labs(
+    title = "Stratified Sample: Density × Centrality"
+  ) +
+  bi_theme() +
+  theme(
+    plot.title = element_text(size = 12, hjust = 0.5)  # smaller + centered title
+  )
+
+# --- 3. Transparent bivariate legend ---
+bivar_legend <- bi_legend(
+  pal = "DkBlue2",
+  dim = 4,
+  xlab = "Higher Density",
+  ylab = "More Central",
+  size = 9
+) +
+  theme(
+    axis.title = element_text(size = 9, margin = margin(5, 5, 5, 5)),
+    axis.text = element_blank(),
+    plot.margin = margin(5, 5, 5, 5),
+    panel.background = element_blank(),
+    plot.background = element_blank()
+  )
+
+
+# --- 4. Combine map and legend ---
+final_plot <- ggdraw() +
+  draw_plot(bivar_map, 0, 0, 1, 1) +
+  draw_plot(
+    bivar_legend,
+    x = 0.73,           # bottom-right corner
+    y = 0.03,           # close to bottom
+    width = 0.26,       # make legend wider
+    height = 0.26       # make legend taller
+  )
+
+final_plot
+
+ggsave(
+  filename = "figs/stratified_sample_bivariate_map.png",
+  plot = final_plot,
+  width = 8,
+  height = 8,
+  dpi = 300
+)
 
 ```
 
-\newpage
+```{r}
+# Next step to get x points from the network of each area of the sample to download GVS images
+```
+
 
 # References
