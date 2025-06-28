@@ -44,57 +44,59 @@ This study builds on recent efforts to assess OSM’s data quality and potential
 
 ### Sampling Strategy
 
-- Unit: census tracts (~60 per city)
-- Sampling: stratified random based on:
-  + Urban form: center, middle, periphery
-  + Socio-demographics: income level or population density
+-   Unit: census tracts (\~60 per city)
+-   Sampling: stratified random based on:
+    -   Urban form: center, middle, periphery
+    -   Socio-demographics: income level or population density
 
 ### Change Detection in OSM
 
-- Extract infrastructure from OSM for 2015, 2019, 2023
-  + Focus tags: highway=cycleway, cycleway=*, highway=pedestrian, highway=living_street
-- Compare time periods:
-  + Period 1: 2015–2019
-  + Period 2: 2019–2023
-- Identify changes:
-  + Additions
-  + Removals
-  + Reclassifications
-  
+-   Extract infrastructure from OSM for 2015, 2019, 2023
+    -   Focus tags: highway=cycleway, cycleway=\*, highway=pedestrian, highway=living_street
+-   Compare time periods:
+    -   Period 1: 2015–2019
+    -   Period 2: 2019–2023
+-   Identify changes:
+    -   Additions
+    -   Removals
+    -   Reclassifications
+
 ### Validation Strategy
+
 #### OSM-Reported Changes (False Positives)
-- Validate all reported changes using:
-  + GSV for visual confirmation
-  + Satellite imagery for layout verification
-- Label each as:
-  + ✅ Confirmed
-  + ❌ False Positive
-  +❓ Uncertain
+
+-   Validate all reported changes using:
+    -   GSV for visual confirmation
+    -   Satellite imagery for layout verification
+-   Label each as:
+    -   ✅ Confirmed
+    -   ❌ False Positive +❓ Uncertain
 
 #### Missed Changes (False Negatives)
-- Sample ~100 street segments per city from within census tract sample
-- For each segment, check imagery to see if:
-  + Infrastructure exists in reality
-  + But is missing from OSM
+
+-   Sample \~100 street segments per city from within census tract sample
+-   For each segment, check imagery to see if:
+    -   Infrastructure exists in reality
+    -   But is missing from OSM
 
 ### Evaluation Metrics
 
-- Accuracy = Confirmed OSM changes / All OSM-reported changes
-- Completeness = Confirmed OSM changes / (Confirmed + Missed changes)
-- SCI (Spatial Completeness Index) = Variation in completeness across tracts (e.g., standard deviation)
+-   Accuracy = Confirmed OSM changes / All OSM-reported changes
+-   Completeness = Confirmed OSM changes / (Confirmed + Missed changes)
+-   SCI (Spatial Completeness Index) = Variation in completeness across tracts (e.g., standard deviation)
 
 ### Inclusion Criteria
 
-- Include city/period/type only if:
-  + Completeness ≥ 80%
-  + SCI ≤ 15%
-- Based on prior studies:
-  + Hochmair et al. (2014), Barron et al. (2014), Elwood & Goodchild (2013)
+-   Include city/period/type only if:
+    -   Completeness ≥ 80%
+    -   SCI ≤ 15%
+-   Based on prior studies:
+    -   Hochmair et al. (2014), Barron et al. (2014), Elwood & Goodchild (2013)
 
 #### Example Evaluation Table by Interval and Infrastructure Type
 
 | City      | Interval  | Type           | Completeness | SCI    | Accuracy | Decision       |
-|-----------|-----------|----------------|--------------|--------|----------|----------------|
+|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
 | Barcelona | 2015–2019 | Bike Lanes     | 88% ✅       | 9% ✅  | 91% ✅   | ✅ Include     |
 | Barcelona | 2015–2019 | Pedestrian     | 84% ✅       | 12% ✅ | 87% ✅   | ✅ Include     |
 | Barcelona | 2015–2019 | Living Streets | 72% ❌       | 18% ❌ | 78% ❌   | ❌ Exclude     |
@@ -107,595 +109,339 @@ This study builds on recent efforts to assess OSM’s data quality and potential
 
 ### Descriptive analyses
 
-```{r include=FALSE}
-#remotes::install_github("ropensci/osmextract")
-library(osmdata)
-library(osmextract)
+```{r}
+#| include: false
+# ================================================================
+# STRATIFIED SAMPLING AND STREET VIEW LINK GENERATION
+# ================================================================
+
+# ---- Load required libraries ----
 library(sf)
-library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(biscale)
+library(ggplot2)
+library(cowplot)
+library(osmdata)
+library(sfnetworks)
+library(tidygraph)
+library(purrr)
+library(jsonlite)
+library(httr)
 library(tmap)
-library(grid)
-library(gridExtra)
-library(spdep)
-```
-
-```{r boundaries}
-#| eval: false
-#| include: false
-# Get the boundary data for each city at the city, neighbourhood and census section levels  
-
-# Define the cities with their English names
-cities <- list(
-  "Barcelona" = "Barcelona, Spain",
-  "Milan" = "Milano, Italy",
-  "Ljubljana" = "Ljubljana, Slovenia",
-  "Warsaw" = "Warszawa, Poland",
-  "Utrecht" = "Utrecht, Netherlands",
-  "Malmo" = "Malmö, Sweden",
-  "Paris" = "Paris, France"
-)
-
-# Create the data directory if it doesn't exist
-if (!dir.exists("data/street-level")) {
-  dir.create("data/street-level")
-}
-
-for (english_name in names(cities)) {
-  city <- cities[[english_name]]
-  try({
-    # Get the bounding box
-    bbox <- getbb(city, format_out = "polygon")
-    if (is.null(bbox)) {
-      warning(paste("Bounding box for", city, "not found"))
-      next
-    }
-    
-    # Query for the city's boundary with admin_level 8
-    city_boundary <- opq(bbox = bbox) |>
-      add_osm_feature(key = "boundary", value = "administrative") |>
-      add_osm_feature(key = "name", value = gsub(",.*", "", city), value_exact = FALSE) |>
-      add_osm_feature(key = "admin_level", value = "8") |>
-      osmdata_sf()
-    
-    if (is.null(city_boundary$osm_multipolygons)) {
-      warning(paste("Boundary for", city, "not found. Query returned no results."))
-      next
-    }
-    
-    city_perimeter <- city_boundary$osm_multipolygons
-    
-    # Ensure only one observation
-    city_perimeter <- city_perimeter[1, ]
-    
-    # Convert to MULTIPOLYGON if necessary
-    city_perimeter <- st_cast(city_perimeter, "MULTIPOLYGON")
-    
-    # Check and fix invalid geometries
-    if (!all(st_is_valid(city_perimeter))) {
-      city_perimeter <- st_make_valid(city_perimeter)
-    }
-    
-    # Create city-specific directory if it doesn't exist
-    city_dir <- paste0("data/street-level/", tolower(english_name))
-    if (!dir.exists(city_dir)) {
-      dir.create(city_dir)
-    }
-    
-    # Write to GeoPackage (overwrite if exists) using the English name
-    st_write(city_perimeter, paste0(city_dir, "/", tolower(english_name), "_perimeter.gpkg"), layer = english_name, driver = "GPKG", append = FALSE)
-    
-    message(paste("Successfully wrote perimeter for", english_name))
-  }, silent = FALSE)
-}
-
-# Test boundaries
-# # Function to read and plot a city's boundary using tmap
-# plot_city_boundary_tmap <- function(city_name) {
-#   file_path <- paste0("data/", tolower(city_name), "/", tolower(city_name), "_perimeter.gpkg")
-#   
-#   if (!file.exists(file_path)) {
-#     warning(paste("File not found for", city_name))
-#     return(NULL)
-#   }
-#   
-#   city_boundary <- st_read(file_path)
-#   
-#   # Plot with tmap
-#   tm_shape(city_boundary) +
-#     tm_borders(col = "blue") +
-#     tm_fill(col = "lightblue", alpha = 0.5) +
-#     tm_layout(main.title = paste("Boundary of", city_name))
-# }
-# 
-# # Test with a single city (replace "Barcelona" with any other city)
-# plot_city_boundary_tmap("Barcelona")
-```
-
-```{r infras}
-#| eval: false
-#| include: false
-# Get the OSM infrastructture data
-# Define vectortranslate options
-my_vectortranslate <- c(
-  "-select", "osm_id,highway", 
-  "-where", "highway IN ('living_street', 'pedestrian', 'cycleway', 'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link', 'service', 'track', 'bus_guideway', 'escape', 'raceway', 'busway')")
-
-# Define a list of cities with their corresponding region and subregion
-cities <- list(
-  "Barcelona" = c("Barcelona", "Cataluña", "Spain"),
-  "Milan" = c("Milan", "Nord-Ovest", "Milan"),
-  "Ljubljana" = c("Ljubljana", "Central Slovenia", "Ljubljana"),
-  "Warsaw" = c("Warsaw", "Masovian", "Warsaw"),
-  "Utrecht" = c("Utrecht", "Utrecht", "Netherlands"),
-  "Malmo" = c("Malmo", "Skane", "Malmö"),
-  "Paris" = c("Paris", "Ile-de-France", "Paris")
-)
-
-for (english_name in names(cities)) {
-  city_info <- cities[[english_name]]
-  city <- city_info[1]
-  region <- city_info[2]
-  subregion <- city_info[3]
-  
-  try({
-    # Define file path for the perimeter
-    perimeter_path <- paste0("data/street-level/", tolower(english_name), "/", tolower(english_name), "_perimeter.gpkg")
-    
-    # Read the perimeter from GeoPackage
-    if (file.exists(perimeter_path)) {
-      city_perimeter <- st_read(perimeter_path, layer = tolower(english_name))
-      
-      # Ensure CRS is WGS 84 (EPSG:4326)
-      if (st_crs(city_perimeter) != 4326) {
-        message(paste("Transforming CRS for", english_name, "to WGS 84"))
-        city_perimeter <- st_transform(city_perimeter, 4326)
-      }
-      
-    } else {
-      warning(paste("Perimeter file for", english_name, "not found"))
-      next
-    }
-    
-    # Create city-specific directory if it doesn't exist
-    city_dir <- paste0("data/street-level/", tolower(english_name))
-    if (!dir.exists(city_dir)) {
-      dir.create(city_dir, recursive = TRUE)
-    }
-
-    # Function to fetch and crop data
-    fetch_and_crop_data <- function(area, version, perimeter, output_file) {
-      lines_data <- tryCatch({
-        oe_get(area, version = version, vectortranslate_options = my_vectortranslate, quiet = FALSE)
-      }, error = function(e) {
-        message(paste("Error fetching", version, "lines for", english_name, ":", e$message))
-        return(NULL)
-      })
-      
-      if (!is.null(lines_data) && nrow(lines_data) > 0) {
-        # Crop lines that are strictly within the perimeter
-        lines_data <- st_intersection(lines_data, perimeter)
-        
-        if (nrow(lines_data) > 0) {
-          st_write(lines_data, output_file, layer = gsub(".gpkg", "", basename(output_file)), driver = "GPKG", append = FALSE)
-        } else {
-          message(paste("No lines remaining after cropping for", english_name, "(", version, ")"))
-        }
-      } else {
-        message(paste("No data found for", english_name, "(", version, ")"))
-      }
-    }
-
-    # Fetch and crop 170101 data
-    fetch_and_crop_data(region, "170101", city_perimeter, paste0(city_dir, "/", tolower(english_name), "_170101_lines.gpkg"))
-
-    # Fetch and crop 240101 data
-    fetch_and_crop_data(subregion, "240101", city_perimeter, paste0(city_dir, "/", tolower(english_name), "_240101_lines.gpkg"))
-
-    message(paste("Successfully processed and cropped data for", english_name))
-  }, silent = FALSE)
-}
-```
-
-```{r mapcycall}
-#| eval: false
-#| include: false
-
-# Plot a figure with infras for all cities
-
-# Define the list of cities
-cities <- list(
-  "Barcelona" = "Barcelona, Spain",
-  "Milan" = "Milan, Italy",
-  "Ljubljana" = "Ljubljana, Slovenia",
-  "Warsaw" = "Warszawa, Poland",
-  "Utrecht" = "Utrecht, Netherlands",
-  "Malmo" = "Malmo, Sweden",
-  "Paris" = "Paris, France"
-)
-
-# Initialize lists to store tmap objects
-map_objects_2016 <- list()
-map_objects_2023 <- list()
-
-# Loop through each city and create maps
-for (city in names(cities)) {
-
-  # Define file paths
-  perimeter_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_perimeter.gpkg")
-  lines_170101_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_170101_lines.gpkg")
-  lines_240101_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_240101_lines.gpkg")
-
-  # Read the perimeter
-  perimeter <- st_read(perimeter_path, layer = tolower(city), quiet = TRUE)
-
-  # Read and filter cycleway lines
-  lines_170101 <- st_read(lines_170101_path, quiet = TRUE) |> filter(highway == "cycleway")
-  lines_240101 <- st_read(lines_240101_path, quiet = TRUE) |> filter(highway == "cycleway")
-
-  # Create tmap objects
-  map_objects_2016[[city]] <- tm_shape(perimeter) +
-    tm_borders() +
-    tm_shape(lines_170101) +
-    tm_lines(col = "red", col_alpha = 0.5, lwd = 0.3) +
-    tm_layout(frame = FALSE)
-
-  map_objects_2023[[city]] <- tm_shape(perimeter) +
-    tm_borders() +
-    tm_shape(lines_240101) +
-    tm_lines(col = "red", col_alpha = 0.5, lwd = 0.3) +
-    tm_layout(frame = FALSE)
-}
-
-# Convert tmap objects to grobs
-grob_maps_2016 <- lapply(map_objects_2016, tmap_grob)
-grob_maps_2023 <- lapply(map_objects_2023, tmap_grob)
-
-# Create column titles
-title_blank <- textGrob("")  # Empty space for alignment
-title_2016 <- textGrob("2016", gp = gpar(fontsize = 12, fontface = "bold"))
-title_2023 <- textGrob("2023", gp = gpar(fontsize = 12, fontface = "bold"))
-
-# Create row titles (city names)
-row_labels <- lapply(names(cities), function(city) textGrob(city, rot = 90, gp = gpar(fontsize = 8)))
-
-# Open a new plotting page to avoid clipping
-grid.newpage()
-
-# Arrange maps with column and row titles
-cyc_all <- grid.arrange(
-  title_blank, title_2016, title_2023,
-  row_labels[[1]], grob_maps_2016[[1]], grob_maps_2023[[1]],
-  row_labels[[2]], grob_maps_2016[[2]], grob_maps_2023[[2]],
-  row_labels[[3]], grob_maps_2016[[3]], grob_maps_2023[[3]],
-  row_labels[[4]], grob_maps_2016[[4]], grob_maps_2023[[4]],
-  row_labels[[5]], grob_maps_2016[[5]], grob_maps_2023[[5]],
-  row_labels[[6]], grob_maps_2016[[6]], grob_maps_2023[[6]],
-  row_labels[[7]], grob_maps_2016[[7]], grob_maps_2023[[7]],
-  nrow = 8, ncol = 3
-)
-
-# Save the layout as a PNG file
-ggsave("figs/cyc_all.png", plot = cyc_all, dpi = 600)
+library(openxlsx)
 ```
 
 ```{r}
 #| eval: false
 #| include: false
-#| out-width: 100%
-# plot the image
-knitr::include_graphics("figs/cyc_all.png")
-```
+# ================================================================
+# 1. LOAD AND PREPARE DATA
+# ================================================================
 
-\newpage
+# Load spatial and population data
+tracts_geo <- readRDS("data/bcn-seccio-censal/BCN_seccion_censal_2015.rds")
+tracts_pop <- readRDS("data/pop/Population_Census_tract_2015_2022.rds")
 
-```{r include=FALSE}
-#| eval: false
-#| include: false
+tracts_pop_wide <- tracts_pop %>%
+  filter(Year %in% c("2015", "2019", "2022")) %>%
+  pivot_wider(names_from = Year, values_from = Population, names_prefix = "pop_")
 
+# Merge geometries with population data
+barcelona_tracts <- left_join(tracts_geo, tracts_pop_wide, by = c("CUSEC" = "GEOID")) %>%
+  st_transform(25831)
 
-# Get the infras data 
-## Define vectortranslate options
-my_vectortranslate <- c(
-  "-select", "osm_id, highway", 
-  "-where", "highway IN ('living_street', 'pedestrian', 'cycleway', 'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link', 'service', 'track', 'bus_guideway', 'escape', 'raceway', 'busway')")
-
-## Load perimeter and get both years infras using osmextract
-barcelona_perimeter <- st_read("data/street-level/barcelona/raw/0301040100_TermeMunicipal_UNITATS_ADM.shp")
-
-# Define the file path to the downloaded .osm.pbf file
-# local_osm_file <- "data/street-level/milan/nord-ovest-170101.osm.pbf"  # Replace with actual path
-
-# Load the file into R
-# Load the file into R
-# milan_lines_170101 <- oe_read(
-#   file_path = local_osm_file,
-#   vectortranslate_options = my_vectortranslate,
-#   quiet = FALSE,
-#   boundary = milan_perimeter,
-#   boundary_type = "clipsrc"
-# )
-# 
-# st_write(milan_lines_170101, "data/milan/milan_lines_170101_2.gpkg", append=FALSE)
-
-barcelona_160101_lines = oe_get("Spain", version = "160101", vectortranslate_options = my_vectortranslate, quiet = FALSE, boundary = barcelona_perimeter, boundary_type = "clipsrc") 
-
-barcelona_200101_lines = oe_get("Spain", version = "200101", vectortranslate_options = my_vectortranslate, quiet = FALSE, boundary = barcelona_perimeter, boundary_type = "clipsrc")  
-  
-barcelona_240101lines = oe_get("Cataluña", version = "230101", vectortranslate_options = my_vectortranslate, quiet = FALSE, boundary = barcelona_perimeter, boundary_type = "clipsrc")
-
-barcelona_240101lines$geometry
-
-# Save data
-st_write(barcelona_160101_lines, "data/street-level/barcelona/barcelona_160101_lines.gpkg", append=TRUE)
-st_write(barcelona_200101_lines, "data/street-level/barcelona/barcelona_200101_lines.gpkg", append=TRUE)
-st_write(barcelona_lines_240101, "data/street-level/barcelona/barcelona_240101_lines.gpkg", append=TRUE)
-```
-
-#### Road network by type
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-
-# Plot the OSM networks
-
-# Define file paths for Barcelona
-city <- "barcelona"
-perimeter_path <- paste0("data/street-level/", city, "/", city, "_perimeter.gpkg")
-lines_160101_path <- paste0("data/street-level/", city, "/", city, "_160101_lines.gpkg")
-lines_200101_path <- paste0("data/street-level/", city, "/", city, "_200101_lines.gpkg")
-lines_240101_path <- paste0("data/street-level/", city, "/", city, "_240101_lines.gpkg")
-
-# Read the perimeter
-perimeter <- st_read(perimeter_path, layer = city, quiet = TRUE)
-
-# Read and filter networks for 2016
-lines_160101 <- st_read(lines_160101_path, quiet = TRUE)
-lines_160101 <- lines_160101 |>
-  mutate(highway_type = case_when(
-    highway == "cycleway" ~ "cycleway",
-    highway == "pedestrian" ~ "pedestrian",
-    highway == "living_street" ~ "living_street",
-    TRUE ~ "rest"
-  ))
-
-# Read and filter networks for 2016
-lines_200101 <- st_read(lines_200101_path, quiet = TRUE)
-lines_200101 <- lines_200101 |>
-  mutate(highway_type = case_when(
-    highway == "cycleway" ~ "cycleway",
-    highway == "pedestrian" ~ "pedestrian",
-    highway == "living_street" ~ "living_street",
-    TRUE ~ "rest"
-  ))
-
-# Read and filter networks for 2023
-lines_240101 <- st_read(lines_240101_path, quiet = TRUE)
-lines_240101 <- lines_240101 |>
-  mutate(highway_type = case_when(
-    highway == "cycleway" ~ "cycleway",
-    highway == "pedestrian" ~ "pedestrian",
-    highway == "living_street" ~ "living_street",
-    TRUE ~ "rest"
-  ))
-
-# Define a color palette
-highway_colors <- c("cycleway" = "red", 
-                    "pedestrian" = "blue", 
-                    "living_street" = "green", 
-                    "rest" = "gray")
-
-# Plot for 2015
-map_2015 <- tm_shape(perimeter) +      # Add the perimeter shape (e.g., city boundary)
-            tm_borders() +             # Draw borders around the perimeter
-
-            tm_shape(lines_160101) +   # Add the line data (e.g., roads) for Jan 1, 2016 (as proxy for 2015)
-            tm_lines(col = "highway_type",                  # Color lines by the 'highway_type' attribute
-                     col.scale = tm_scale(values = highway_colors), # Use predefined color mapping
-                     lwd = 0.3,                             # Set line width to 0.3
-                     col.legend = tm_legend(title = "",     # No title for legend
-                                            frame = FALSE)) + # No frame around legend 
-
-            tm_layout(frame = FALSE) +  # Remove frame around the whole map
-            tm_title("2015",            # Add title "2015"
-                     fontface = "bold", # Make title bold
-                     size = 1,          # Set title font size
-                     position = tm_pos_in("center", "top")) # Position title at the top center
-
-
-# Plot for 2019
-map_2019 <- tm_shape(perimeter) +
-            tm_borders() +
-            tm_shape(lines_200101) +
-            tm_lines(col = "highway_type",
-                     col.scale = tm_scale(values = highway_colors), 
-                     lwd = 0.3,
-                     col.legend = tm_legend(
-                                            title = "",
-                                            frame = FALSE)) +
-            tm_layout(frame = FALSE) +
-            tm_title("2019",  
-                     fontface = "bold",
-                     size = 1,
-                     position = tm_pos_in("center", "top"))
-
-# Plot for 2023
-map_2023 <- tm_shape(perimeter) +
-            tm_borders() +
-            tm_shape(lines_240101) +
-            tm_lines(col = "highway_type",
-                     col.scale = tm_scale(values = highway_colors), 
-                     lwd = 0.3,
-                     col.legend = tm_legend(title = "",
-                                            frame = FALSE)) +
-            tm_layout(frame = FALSE) +
-            tm_title("2023", 
-                     fontface = "bold",
-                     size = 1,
-                     position = tm_pos_in("center", "top"))
-
-# Display the maps side by side
-barcelona_network_all <- tmap_arrange(map_2015, map_2019, map_2023, ncol = 3)
-
-tmap_save(barcelona_network_all, filename = "figs/barcelona_network_all.png", dpi = 300)
-```
-
-```{r}
-#| echo: false
-#| out-width: 100%
-# plot the image
-knitr::include_graphics("figs/barcelona_network_all.png")
-```
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| paged-print: false
-
-# --- Load census tract geometries and population data ---
-tracts_geo  <- readRDS("data/bcn-seccio-censal/BCN_seccion_censal_2015.rds")
-tracts_pop  <- readRDS("data/pop/Population_Census_tract_2015_2022.rds")
-
-tracts_pop_wide <- tracts_pop |> 
-  filter(Year %in% c("2015", "2019","2022")) |> 
-   pivot_wider(
-    names_from = Year,
-    values_from = Population,
-    names_prefix = "pop_"
-  )
-
-# --- Join population data to geometries ---
-barcelona_tracts <- left_join(tracts_geo, tracts_pop_wide, by = c("CUSEC" = "GEOID"))
-
-# --- Reproject to UTM for accurate area and distance calculations ---
-barcelona_tracts <- st_transform(barcelona_tracts, 25831)
-
-# --- Compute area (in km²), population density, and distance to city center ---
+# Compute area, population density, and distance to city center
 placa_catalunya <- st_sfc(st_point(c(431870, 4581450)), crs = 25831)
 
 barcelona_tracts <- barcelona_tracts %>%
   mutate(
-    area_km2       = as.numeric(st_area(geometry)) / 1e6,
-    dens_2015      = pop_2015 / area_km2,
-    dens_2019      = pop_2019 / area_km2,
-    dens_2022      = pop_2022 / area_km2,
-    centroid       = st_centroid(geometry),
+    area_km2 = as.numeric(st_area(geometry)) / 1e6,
+    dens_2015 = pop_2015 / area_km2,
+    dens_2019 = pop_2019 / area_km2,
+    dens_2022 = pop_2022 / area_km2,
+    centroid = st_centroid(geometry),
     dist_centre_km = as.numeric(st_distance(centroid, placa_catalunya)) / 1000
   )
+```
 
-# --- Stratify into 4×4 grid: population density × centrality ---
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+#| include: false
+#| paged-print: false
+
+# ================================================================
+# 2. STRATIFIED SAMPLING
+# ================================================================
+
 barcelona_tracts <- barcelona_tracts %>%
   mutate(
-    dens_stratum = ntile(dens_2022, 4),              # 1 = lowest density
-    cent_stratum = ntile(-dist_centre_km, 4),        # 1 = most central
-    stratum_id   = paste0("D", dens_stratum, "_C", cent_stratum)
+    dens_stratum = ntile(dens_2022, 4),
+    cent_stratum = ntile(-dist_centre_km, 4),
+    stratum_id = paste0("D", dens_stratum, "_C", cent_stratum)
   )
 
-# --- 2. Take a stratified random sample ---
-set.seed(123)  # for reproducibility
-
+set.seed(123)
 sampled_tracts <- barcelona_tracts %>%
   group_by(stratum_id) %>%
-  sample_n(size = min(5, n()), replace = FALSE) %>%
+  sample_n(size = min(5, n())) %>%
   ungroup()
-
-# plot(barcelona_tracts["dens_2022"])
-# plot(barcelona_tracts["dist_centre_km"])
-# tmap_mode("plot")  # static mode
-# 
-# # --- 3. Map: Sample by stratum ---
-# tm_shape(barcelona_tracts) +
-#   tm_polygons("stratum_id", palette = "Set3", alpha = 0.4) +
-#   tm_shape(sampled_tracts) +
-#   tm_borders(col = "black", lwd = 2) +
-#   tm_layout(title = "Stratified Sample", frame = FALSE)
-
-# Trying a bivariate map
-# install.packages("sf")  # if not already installed
-# https://jakubnowosad.com/posts/2020-08-25-cbc-bp2/
-library(sf)
-library(dplyr)
-library(biscale)
-library(ggplot2)
-library(cowplot)
-
-# Step 1: Create a flipped centrality column
-barcelona_tracts <- barcelona_tracts %>%
-  mutate(centrality_flipped = -dist_centre_km)
-
-# --- 1. Classify into bivariate categories ---
-bb_bivar <- barcelona_tracts %>%
-  bi_class(
-    x = dens_2022,
-    y = centrality_flipped,
-    style = "quantile",
-    dim = 4
-  )
-
-# --- 2. Create bivariate map with better title ---
-bivar_map <- ggplot() +
-  geom_sf(
-    data = bb_bivar,
-    aes(fill = bi_class),
-    color = "white", size = 0.1, show.legend = FALSE
-  ) +
-  bi_scale_fill(pal = "DkBlue2", dim = 4) +
-  geom_sf(
-    data = sampled_tracts,
-    fill = NA, color = "black", linewidth = 0.5) +
-  labs(
-    title = "Stratified Sample: Density × Centrality"
-  ) +
-  bi_theme() +
-  theme(
-    plot.title = element_text(size = 12, hjust = 0.5)  # smaller + centered title
-  )
-
-# --- 3. Transparent bivariate legend ---
-bivar_legend <- bi_legend(
-  pal = "DkBlue2",
-  dim = 4,
-  xlab = "Higher Density",
-  ylab = "More Central",
-  size = 9
-) +
-  theme(
-    axis.title = element_text(size = 9, margin = margin(5, 5, 5, 5)),
-    axis.text = element_blank(),
-    plot.margin = margin(5, 5, 5, 5),
-    panel.background = element_blank(),
-    plot.background = element_blank()
-  )
-
-
-# --- 4. Combine map and legend ---
-final_plot <- ggdraw() +
-  draw_plot(bivar_map, 0, 0, 1, 1) +
-  draw_plot(
-    bivar_legend,
-    x = 0.73,           # bottom-right corner
-    y = 0.03,           # close to bottom
-    width = 0.26,       # make legend wider
-    height = 0.26       # make legend taller
-  )
-
-final_plot
-
-ggsave(
-  filename = "figs/stratified_sample_bivariate_map.png",
-  plot = final_plot,
-  width = 8,
-  height = 8,
-  dpi = 300
-)
-
 ```
 
 ```{r}
-# Next step to get x points from the network of each area of the sample to download GVS images
+#| eval: false
+#| message: false
+#| warning: false
+#| include: false
+#| paged-print: false
+
+# ================================================================
+# 3. BIVARIATE MAPPING
+# ================================================================
+
+barcelona_tracts <- barcelona_tracts %>% mutate(centrality_flipped = -dist_centre_km)
+
+bb_bivar <- bi_class(barcelona_tracts, x = dens_2022, y = centrality_flipped, style = "quantile", dim = 4)
+
+bivar_map <- ggplot() +
+  geom_sf(data = bb_bivar, aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
+  bi_scale_fill(pal = "DkBlue2", dim = 4) +
+  geom_sf(data = sampled_tracts, fill = NA, color = "black", linewidth = 0.5) +
+  labs(title = "Stratified Sample: Density × Centrality") +
+  bi_theme() +
+  theme(plot.title = element_text(size = 12, hjust = 0.5))
+
+bivar_legend <- bi_legend(pal = "DkBlue2", dim = 4, xlab = "Higher Density", ylab = "More Central", size = 9) +
+  theme(axis.title = element_text(size = 9), axis.text = element_blank(),
+        plot.margin = margin(5, 5, 5, 5), panel.background = element_blank(), plot.background = element_blank())
+
+final_plot <- ggdraw() +
+  draw_plot(bivar_map, 0, 0, 1, 1) +
+  draw_plot(bivar_legend, x = 0.73, y = 0.03, width = 0.26, height = 0.26)
+
+ggsave("figs/stratified_sample_bivariate_map.png", final_plot, width = 8, height = 8, dpi = 300)
 ```
 
+```{r}
+#| echo: false
+#| out-width: 100%
+# plot the image
+knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
+```
+
+```{r}
+#| eval: false
+#| include: false
+# ================================================================
+# 4. NETWORK POINT SAMPLING FROM OSM (MIDPOINT-BASED)
+# ================================================================
+
+x_fp <- 3  # points per tract from cycleways
+x_fn <- 3  # points per tract from general road network
+gsv_api_key <- "[REDACTED_GOOGLE_API_KEY]"  # replace with your actual API key
+
+sampled_tracts <- st_transform(sampled_tracts, 25831)
+
+# 1. Load and filter OSM data
+osm_streets <- opq("Barcelona") %>%
+  add_osm_feature(key = "highway") %>%
+  osmdata_sf()
+
+streets <- st_transform(osm_streets$osm_lines, 25831)
+
+# 2. Classify infrastructure vs general road lines
+required_cols <- c("cycleway", "cycleway:left", "cycleway:right", "bicycle", "route")
+missing_cols <- setdiff(required_cols, names(streets))
+streets[missing_cols] <- NA
+
+cycleway_lines <- streets %>%
+  filter(
+    highway == "cycleway" |
+    cycleway %in% c("lane", "track", "separate", "opposite", "opposite_lane", "opposite_track") |
+    `cycleway:left` %in% c("lane", "track", "separate") |
+    `cycleway:right` %in% c("lane", "track", "separate") |
+    bicycle %in% c("designated", "yes") |
+    (highway %in% c("path", "pedestrian") & bicycle %in% c("designated", "yes")) |
+    (route == "bicycle" & !is.na(highway))
+  )
+
+general_lines <- streets %>%
+  filter(highway %in% c("primary", "secondary", "tertiary",
+                        "unclassified", "residential", "living_street", "service"))
+
+# 3. Sample offset points (0.33, 0.5, 0.66) from all lines, then pick exactly N
+sampled_tracts <- mutate(sampled_tracts, tract_id = row_number())
+
+sample_points_from_lines <- function(lines, tract_geom, tract_id, n_points, source_label) {
+  # Step 1: Get all lines that touch the tract
+  lines_in <- lines[st_intersects(lines, tract_geom, sparse = FALSE), ]
+  if (nrow(lines_in) == 0) {
+    return(st_sf(geometry = st_sfc(), tract_id = integer(0), source = character(0), crs = st_crs(lines)))
+  }
+
+  # Step 2: Filter to lines long enough to sample away from intersections
+  lines_in <- lines_in %>%
+    mutate(len = st_length(geometry)) %>%
+    filter(as.numeric(len) > 25)
+
+  if (nrow(lines_in) == 0) {
+    return(st_sf(geometry = st_sfc(), tract_id = integer(0), source = character(0), crs = st_crs(lines)))
+  }
+
+  # Step 3: Sample offset points per line (0.4 and 0.6) to avoid endpoints
+  candidate_points <- purrr::map_dfr(1:nrow(lines_in), function(i) {
+    pts <- st_line_sample(lines_in[i, ], sample = c(0.4, 0.6))
+    if (length(pts) == 0) return(NULL)
+    st_sf(geometry = st_cast(pts, "POINT"))
+  })
+
+  if (nrow(candidate_points) == 0) {
+    return(st_sf(geometry = st_sfc(), tract_id = integer(0), source = character(0), crs = st_crs(lines)))
+  }
+
+  # Step 4: Randomly choose exactly n_points from candidate points
+  selected_points <- candidate_points %>%
+    sample_n(size = min(n_points, nrow(candidate_points))) %>%
+    mutate(tract_id = tract_id, source = source_label)
+
+  return(selected_points)
+}
+
+
+samples_all <- purrr::map_dfr(1:nrow(sampled_tracts), function(i) {
+  tract <- sampled_tracts[i, ]
+  bind_rows(
+    sample_points_from_lines(cycleway_lines, tract$geometry, tract$tract_id, x_fp, "osm_cycleway"),
+    sample_points_from_lines(general_lines,  tract$geometry, tract$tract_id, x_fn, "osm_general")
+  )
+}) %>%
+  st_transform(25831) %>%
+  mutate(photo_id = row_number()) %>%
+  filter(st_within(geometry, st_union(sampled_tracts), sparse = FALSE))
+
+
+# ---- FILTER NODES TO ONLY THOSE WITH GSV (2024+) ----
+get_gsv_year <- function(lat, lon, key) {
+  url <- paste0(
+    "https://maps.googleapis.com/maps/api/streetview/metadata?",
+    "location=", lat, ",", lon, "&key=", key
+  )
+  tryCatch({
+    res <- jsonlite::fromJSON(url)
+    if (!is.null(res$date)) {
+      year <- as.integer(substr(res$date, 1, 4))
+      if (!is.na(year) && year >= 2024) return(TRUE)
+    }
+    FALSE
+  }, error = function(e) FALSE)
+}
+
+filter_nodes_with_gsv <- function(nodes_sf, key) {
+  nodes_wgs <- st_transform(nodes_sf, 4326)
+  coords <- st_coordinates(nodes_wgs)
+
+  message("🔍 Checking GSV availability for ", nrow(nodes_sf), " points...")
+
+  gsv_available <- purrr::map_lgl(seq_len(nrow(nodes_sf)), function(i) {
+    lat <- coords[i, 2]
+    lon <- coords[i, 1]
+    get_gsv_year(lat, lon, key)
+  })
+
+  st_transform(nodes_wgs[gsv_available, ], 25831)
+}
+
+samples_all <- filter_nodes_with_gsv(samples_all, gsv_api_key) %>%
+  filter(st_within(geometry, st_union(sampled_tracts), sparse = FALSE))
+```
+
+```{r}
+#| eval: false
+#| include: false
+# ================================================================
+# 5. ADD GSV DATE + GENERATE LINK
+# ================================================================
+samples_all_wgs <- st_transform(samples_all, 4326)
+
+get_gsv_date <- function(lat, lon, key) {
+  url <- paste0("https://maps.googleapis.com/maps/api/streetview/metadata?",
+                "location=", lat, ",", lon, "&key=", key)
+  tryCatch({
+    res <- fromJSON(url)
+    if (!is.null(res$date)) res$date else NA
+  }, error = function(e) NA)
+}
+
+samples_all_wgs <- samples_all_wgs %>%
+  mutate(
+    gsv_date = map_chr(seq_len(n()), function(i) {
+      coords <- st_coordinates(samples_all_wgs[i, ])
+      get_gsv_date(coords[2], coords[1], gsv_api_key)
+    }),
+    gsv_maps_url = map_chr(seq_len(n()), function(i) {
+      coords <- st_coordinates(samples_all_wgs[i, ])
+      paste0("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=", coords[2], ",", coords[1])
+    })
+  )
+```
+
+```{r}
+#| eval: false
+#| include: false
+# ================================================================
+# 6. EXPORT TO GEOJSON AND EXCEL WITH CLICKABLE LINKS
+# ================================================================
+
+st_write(samples_all_wgs, "data/validation/sample_points_with_links.geojson", delete_dsn = TRUE)
+
+samples_df <- samples_all_wgs %>%
+  st_drop_geometry() %>%
+  mutate(
+    lat = st_coordinates(samples_all_wgs)[, 2],
+    lon = st_coordinates(samples_all_wgs)[, 1],
+    clickable_url = paste0('=HYPERLINK("', gsv_maps_url, '", "View")')
+  )
+
+wb <- createWorkbook()
+addWorksheet(wb, "Sample Points")
+writeData(wb, "Sample Points", samples_df)
+link_col <- which(names(samples_df) == "clickable_url")
+writeFormula(wb, "Sample Points", samples_df$clickable_url, startCol = link_col, startRow = 2)
+saveWorkbook(wb, "data/validation/sample_points_with_links.xlsx", overwrite = TRUE)
+```
+
+```{r}
+#| eval: false
+#| include: false
+# ================================================================
+# 7. INTERACTIVE MAP
+# ================================================================
+tract_union <- st_union(sampled_tracts)
+streets_in_sample <- st_intersection(streets, tract_union)
+
+point_colors <- c("osm_cycleway" = "blue", "osm_general" = "red")
+tmap_mode("plot")
+
+final_plot <- tm_shape(streets_in_sample) +
+  tm_lines(col = "gray70", lwd = 0.6) +
+  tm_shape(sampled_tracts) +
+  tm_borders(col = "black", lwd = 1) +
+  tm_shape(samples_all_wgs) +
+  tm_dots(col = "source", palette = point_colors, size = NA, border.col = "white", title = "Validation Source") +
+  tm_text("photo_id", size = 0.6, col = "black", just = "bottom") +
+  tm_layout(title = "Validation Points with GSV URLs", legend.outside = TRUE)
+
+tmap_save(final_plot, "figs/validation_points_map.png", width = 8, height = 8, dpi = 300)
+```
+
+```{r}
+#| echo: false
+#| out-width: 100%
+# plot the image
+knitr::include_graphics("figs/validation_points_map.png")
+```
 
 # References

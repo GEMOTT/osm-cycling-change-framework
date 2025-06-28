@@ -156,15 +156,10 @@ capacity to represent change over time.
 
 ### Descriptive analyses
 
-
+<img src="figs/stratified_sample_bivariate_map.png"
+style="width:100.0%" />
 
-#### Road network by type
-
-<img src="figs/barcelona_network_all.png" style="width:100.0%" />
-
-![](README_files/figure-commonmark/unnamed-chunk-6-1.png)
-
-
+<img src="figs/validation_points_map.png" style="width:100.0%" />
 
 # References
 
