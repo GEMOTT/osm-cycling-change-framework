@@ -141,8 +141,9 @@ capacity to represent change over time.
 <img src="figs/stratified_sample_bivariate_map.png"
 style="width:100.0%" />
 
-<iframe src="figs/final_map_interactive.html" width="100%" height="600px">
-</iframe>
+![](README_files/figure-commonmark/unnamed-chunk-10-1.png)
+
+<!-- <iframe src="figs/final_map_interactive.html" width="100%" height="600px"></iframe> -->
 
 ## References
 

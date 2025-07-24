@@ -5,6 +5,8 @@ editor: visual
 bibliography: wp1.bib
 ---
 
+
+
 🔗 Part of the [ATRAPA database project](https://github.com/GEMOTT/atrapa_database)\
 ⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa%20database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data)
 
@@ -35,8 +37,8 @@ This study builds on recent efforts to assess OSM’s data quality and potential
 
 -   Unit of analysis: Census tracts (80 in total, Barcelona, 2015 boundaries)
 -   Stratification variables:
-    -   Population density (2022 estimates)
-    -   Centrality: Euclidean distance from Plaça Catalunya, the city center
+    -  Population density (2022 estimates)
+    -  Centrality: Euclidean distance from Plaça Catalunya, the city center
 
 ### Change Detection in OSM
 
@@ -82,15 +84,17 @@ This study builds on recent efforts to assess OSM’s data quality and potential
 
 #### Example Evaluation Table by Interval and Infrastructure Type
 
-| City      | Interval  | Type           | Completeness | SCI    | Accuracy | Decision   |
-|-----------|-----------|----------------|--------------|--------|----------|------------|
-| Barcelona | 2015–2019 | Bike Lanes     | 88% ✅       | 9% ✅  | 91% ✅   | ✅ Include |
-| Barcelona | 2015–2019 | Pedestrian     | 84% ✅       | 12% ✅ | 87% ✅   | ✅ Include |
-| Barcelona | 2015–2019 | Living Streets | 72% ❌       | 18% ❌ | 78% ❌   | ❌ Exclude |
+| City      | Interval  | Type           | Completeness | SCI    | Accuracy | Decision       |
+|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
+| Barcelona | 2015–2019 | Bike Lanes     | 88% ✅       | 9% ✅  | 91% ✅   | ✅ Include     |
+| Barcelona | 2015–2019 | Pedestrian     | 84% ✅       | 12% ✅ | 87% ✅   | ✅ Include     |
+| Barcelona | 2015–2019 | Living Streets | 72% ❌       | 18% ❌ | 78% ❌   | ❌ Exclude     |
 
 ## Results
 
 ### Descriptive analyses
+
+
 
 ```{r}
 #| include: false
@@ -159,23 +163,17 @@ barcelona_tracts <- barcelona_tracts |>
 # 2. STRATIFIED SAMPLING
 # ================================================================
 
-barcelona_tracts <- barcelona_tracts |>
+barcelona_tracts <- barcelona_tracts |> 
   mutate(
-    dens_stratum = ntile(dens_2022, 3),
-    cent_stratum = ntile(-dist_centre_km, 3),
+    dens_stratum = ntile(dens_2022, 4),
+    cent_stratum = ntile(-dist_centre_km, 4),
     stratum_id = paste0("D", dens_stratum, "_C", cent_stratum)
   )
-
-# barcelona_tracts <- barcelona_tracts |> 
-#   mutate(
-#     cent_stratum = ntile(-dist_centre_km, 3),
-#     stratum_id = paste0("C", cent_stratum)
-#   )
 
 set.seed(123)
 sampled_tracts <- barcelona_tracts |> 
   group_by(stratum_id) |> 
-  sample_n(size = min(50, n())) |> 
+  sample_n(size = min(5, n())) |> 
   ungroup()
 ```
 
@@ -190,35 +188,35 @@ sampled_tracts <- barcelona_tracts |>
 # 3. BIVARIATE MAPPING
 # ================================================================
 
-# barcelona_tracts <- barcelona_tracts |> 
-# mutate(centrality_flipped = -dist_centre_km)
-# 
-# bb_bivar <- bi_class(barcelona_tracts, x = dens_2022, y = centrality_flipped, style = "quantile", dim = 4)
-# 
-# bivar_map <- ggplot() +
-#   geom_sf(data = bb_bivar, aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
-#   bi_scale_fill(pal = "DkBlue2", dim = 4) +
-#   geom_sf(data = sampled_tracts, fill = NA, color = "black", linewidth = 0.5) +
-#   labs(title = "Stratified Sample: Density × Centrality") +
-#   bi_theme() +
-#   theme(plot.title = element_text(size = 12, hjust = 0.5))
-# 
-# bivar_legend <- bi_legend(pal = "DkBlue2", dim = 4, xlab = "Higher Density", ylab = "More Central", size = 9) +
-#   theme(axis.title = element_text(size = 9), axis.text = element_blank(),
-#         plot.margin = margin(5, 5, 5, 5), panel.background = element_blank(), plot.background = element_blank())
-# 
-# final_plot <- ggdraw() +
-#   draw_plot(bivar_map, 0, 0, 1, 1) +
-#   draw_plot(bivar_legend, x = 0.73, y = 0.03, width = 0.26, height = 0.26)
-# 
-# ggsave("figs/stratified_sample_bivariate_map.png", final_plot, width = 8, height = 8, dpi = 300)
+barcelona_tracts <- barcelona_tracts |> 
+mutate(centrality_flipped = -dist_centre_km)
+
+bb_bivar <- bi_class(barcelona_tracts, x = dens_2022, y = centrality_flipped, style = "quantile", dim = 4)
+
+bivar_map <- ggplot() +
+  geom_sf(data = bb_bivar, aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
+  bi_scale_fill(pal = "DkBlue2", dim = 4) +
+  geom_sf(data = sampled_tracts, fill = NA, color = "black", linewidth = 0.5) +
+  labs(title = "Stratified Sample: Density × Centrality") +
+  bi_theme() +
+  theme(plot.title = element_text(size = 12, hjust = 0.5))
+
+bivar_legend <- bi_legend(pal = "DkBlue2", dim = 4, xlab = "Higher Density", ylab = "More Central", size = 9) +
+  theme(axis.title = element_text(size = 9), axis.text = element_blank(),
+        plot.margin = margin(5, 5, 5, 5), panel.background = element_blank(), plot.background = element_blank())
+
+final_plot <- ggdraw() +
+  draw_plot(bivar_map, 0, 0, 1, 1) +
+  draw_plot(bivar_legend, x = 0.73, y = 0.03, width = 0.26, height = 0.26)
+
+ggsave("figs/stratified_sample_bivariate_map.png", final_plot, width = 8, height = 8, dpi = 300)
 ```
 
 ```{r}
 #| echo: false
 #| out-width: 100%
 # plot the image
-# knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
+knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
 ```
 
 ```{r}
@@ -237,8 +235,9 @@ sampled_tracts <- st_transform(sampled_tracts, 25831)
 
 # Limit to 3 tracts and assign tract IDs
 sampled_tracts <- st_transform(sampled_tracts, target_crs)
-# sampled_tracts <- sampled_tracts[1:10, ]
+# sampled_tracts <- sampled_tracts[1:3, ]
 sampled_tracts$tract_id <- 1:nrow(sampled_tracts)
+
 
 # Load or read OSM data
 osm_file <- "data/osm_streets_barcelona.rds"
@@ -265,21 +264,7 @@ cycleway_lines <- streets %>% # Classify lines
   )
 
 general_lines <- streets %>%
-  filter(highway %in% c("primary", "secondary", "tertiary", "residential"))
-
-# Test which sampled tracts have general infrastructure
-sampled_tracts <- sampled_tracts %>%
-  mutate(has_general = lengths(st_intersects(., general_lines)) > 0)
-
-# Optional: inspect how many do/don't
-table(sampled_tracts$has_general)
-
-# Test which sampled tracts have general infrastructure
-sampled_tracts <- sampled_tracts %>%
-  mutate(has_cycleway = lengths(st_intersects(., cycleway_lines)) > 0)
-
-# Optional: inspect how many do/don't
-table(sampled_tracts$has_cycleway)
+  filter(highway %in% c("primary", "secondary", "tertiary", "residential", "living_street", "service"))
 
 # Sampling function (minimal and working)
 sample_points_from_lines <- function(lines, tract_geom, tract_id, n_points, source_label) {
@@ -321,14 +306,15 @@ sample_points_from_lines <- function(lines, tract_geom, tract_id, n_points, sour
   st_sf(df, geometry = sampled, crs = st_crs(tract_geom))
 }
 
+
 # Modified mapping process with better error handling
 samples_all <- purrr::map_dfr(1:nrow(sampled_tracts), function(i) {
   tract <- sampled_tracts[i, ]
   geom <- st_geometry(tract)
   
   # ⬇️ OVERSAMPLE HERE — increase from 2 to e.g., 30
-  out1 <- sample_points_from_lines(cycleway_lines, geom, tract$tract_id, 30, "osm_cycleway")
-  out2 <- sample_points_from_lines(general_lines, geom, tract$tract_id, 30, "osm_general")
+  out1 <- sample_points_from_lines(cycleway_lines, geom, tract$tract_id, 50, "osm_cycleway")
+  out2 <- sample_points_from_lines(general_lines, geom, tract$tract_id, 50, "osm_general")
   
   # Debugging output
   print(paste("Tract", tract$tract_id, 
@@ -393,86 +379,16 @@ samples_all_wgs <- samples_all_wgs %>%
     st_drop_geometry(sampled_tracts)[, c("tract_id", "stratum_id")],
     by = "tract_id"
   )
-```
 
-```{r}
 # Filter by year(s) of interest
 samples_all_recent <- samples_all_wgs %>%
   mutate(gsv_year = as.integer(substr(gsv_date, 1, 4))) %>%
   filter(gsv_year >= 2023)
 
-samples_filtered <- samples_all_recent %>%
-  filter(gsv_year >= 2023) %>%
+samples_final <- samples_all_recent %>%
   group_by(tract_id, source) %>%
-  slice_sample(n = 1) %>%
+  slice_sample(n = 2) %>%
   ungroup()
-
-samples_final_general <- samples_all_recent %>%
-  filter(source == "osm_general") %>%
-  group_by(tract_id) %>%
-  slice_sample(n = 1) %>%
-  ungroup()
-
-samples_final_cycleway <- samples_all_recent %>%
-  filter(source == "osm_cycleway") %>%
-  group_by(tract_id) %>%
-  slice_sample(n = 1) %>%
-  ungroup()
-
-samples_final_combined <- bind_rows(samples_final_general, samples_final_cycleway)
-
-# Should be max 2 rows per tract_id
-samples_final_combined %>%
-  count(tract_id, source) %>%
-  arrange(desc(n))  # You should only have n == 1
-```
-
-```{r}
-# ---- ANALYSIS: Tracts with general infra dropped due to GSV date ----
-
-# Step 1: Filter all general points from the dropped tracts and extract GSV year
-dropped_general_points <- samples_all_wgs %>%
-  filter(tract_id %in% missing_general_tracts, source == "osm_general") %>%
-  mutate(gsv_year = as.integer(substr(gsv_date, 1, 4))) %>%
-  filter(!is.na(gsv_year))  # remove NAs if present
-
-# Step 2: For each tract, compute the absolute difference to 2023
-dropped_general_points <- dropped_general_points %>%
-  mutate(diff_to_2023 = abs(gsv_year - 2023))
-
-# Step 3: For each tract, keep only the point with the smallest difference
-closest_to_2023 <- dropped_general_points %>%
-  group_by(tract_id) %>%
-  slice_min(order_by = diff_to_2023, with_ties = FALSE) %>%
-  ungroup() %>%
-  arrange(tract_id)
-
-# View the result
-print(closest_to_2023)
-
-# 1. Get metadata for all tracts with general infrastructure
-tracts_with_general_info <- sampled_tracts %>%
-  filter(tract_id %in% tracts_with_general) %>%
-  mutate(dropped = tract_id %in% missing_general_tracts)
-
-# 2. Compare density and centrality
-tracts_with_general_info %>%
-  group_by(dropped) %>%
-  summarise(
-    mean_dist = mean(dist_centre_km, na.rm = TRUE),
-    median_dist = median(dist_centre_km, na.rm = TRUE),
-    mean_dens = mean(dens_2022, na.rm = TRUE),
-    median_dens = median(dens_2022, na.rm = TRUE),
-    n = n()
-  )
-
-# T-test for centrality (distance to center)
-t_centrality <- t.test(dist_centre_km ~ dropped, data = tracts_with_general_info)
-print(t_centrality)
-
-# T-test for population density
-t_density <- t.test(dens_2022 ~ dropped, data = tracts_with_general_info)
-print(t_density)
 ```
 
 ```{r}
@@ -482,9 +398,9 @@ print(t_density)
 # 6. EXPORT TO GEOJSON AND EXCEL WITH CLICKABLE LINKS
 # ================================================================
 
-st_write(samples_final_combined, "data/validation/sample_points_with_links.geojson", delete_dsn = TRUE)
+st_write(samples_all_wgs, "data/validation/sample_points_with_links.geojson", delete_dsn = TRUE)
 
-samples_df <- samples_final_combined %>%
+samples_df <- samples_all_wgs %>%
   st_drop_geometry() %>%
   mutate(
     lat = st_coordinates(samples_all_wgs)[, 2],
@@ -522,7 +438,7 @@ final_plot <- tm_shape(streets_in_sample) +
 
 saveRDS(final_plot, file = "figs/final_map_interactive.rds")
 
-tmap_save(final_plot, filename = "figs/final_map_interactive.png")
+# tmap_save(final_plot, filename = "figs/final_map_interactive.html")
 ```
 
 ```{r}
@@ -535,7 +451,11 @@ final_plot <- readRDS("figs/final_map_interactive.rds")
 final_plot
 ```
 
+
+
 <!-- <iframe src="figs/final_map_interactive.html" width="100%" height="600px"></iframe> -->
+
+
 
 ```{r}
 samples_all_wgs <- samples_all_wgs %>%
@@ -571,4 +491,8 @@ availability_by_stratum %>%
 
 ```
 
+
+
+
 ## References
+
