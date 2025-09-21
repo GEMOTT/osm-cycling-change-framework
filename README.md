@@ -138,10 +138,80 @@ capacity to represent change over time.
 
 ### Descriptive analyses
 
-<img src="figs/stratified_sample_bivariate_map.png"
-style="width:100.0%" />
+``` r
+samples_all_wgs   <- readRDS("data/samples_all_wgs.rds")
 
-![](README_files/figure-commonmark/unnamed-chunk-10-1.png)
+#| include: false
+desired_n <- 3
+min_year  <- 2023
+
+# Ensure gsv_year exists
+samples_all_wgs <- samples_all_wgs %>%
+  mutate(gsv_year = suppressWarnings(as.integer(substr(gsv_date, 1, 4))))
+
+# 1) Up to 3 recent (≥ 2023) per group
+recent <- samples_all_wgs %>%
+  filter(!is.na(gsv_year) & gsv_year >= min_year) %>%
+  group_by(tract_id, source) %>%
+  mutate(.rand = runif(dplyr::n())) %>%
+  arrange(.by_group = TRUE, .rand) %>%
+  slice_head(n = desired_n) %>%
+  ungroup() %>%
+  select(-.rand)
+
+# 2) Groups that still need filling (make non-sf!)
+needs <- samples_all_wgs %>%
+  st_drop_geometry() %>%
+  group_by(tract_id, source) %>%
+  summarise(n_recent = sum(!is.na(gsv_year) & gsv_year >= min_year), .groups = "drop") %>%
+  mutate(to_fill = pmax(0, desired_n - n_recent)) %>%
+  filter(to_fill > 0)
+
+# 3) Back-fill with most recent < 2023 (or NA)
+fallback <- samples_all_wgs %>%
+  filter(is.na(gsv_year) | gsv_year < min_year) %>%
+  inner_join(needs, by = c("tract_id","source")) %>%
+  group_by(tract_id, source) %>%
+  arrange(desc(coalesce(gsv_year, -Inf)), .by_group = TRUE) %>%
+  mutate(.rk = row_number()) %>%
+  filter(.rk <= first(to_fill)) %>%
+  ungroup() %>%
+  select(-.rk, -n_recent, -to_fill)
+
+# 4) Final set
+samples_3each <- bind_rows(recent, fallback)
+
+# Check: ≤ 3 per (tract_id × source)
+samples_3each %>% count(tract_id, source) %>% arrange(desc(n))
+```
+
+    Simple feature collection with 74 features and 3 fields
+    Geometry type: MULTIPOINT
+    Dimension:     XY
+    Bounding box:  xmin: 2.104151 ymin: 41.37107 xmax: 2.209253 ymax: 41.45902
+    Geodetic CRS:  WGS 84
+    # A tibble: 74 × 4
+       tract_id source           n                                          geometry
+          <int> <chr>        <int>                                  <MULTIPOINT [°]>
+     1        1 osm_cycleway     3 ((2.112029 41.3909), (2.112235 41.39107), (2.112…
+     2        1 osm_general      3 ((2.107163 41.39041), (2.107965 41.38956), (2.10…
+     3        2 osm_general      3 ((2.171181 41.42685), (2.171866 41.42353), (2.17…
+     4        3 osm_cycleway     3 ((2.180506 41.45836), (2.180518 41.45843), (2.18…
+     5        3 osm_general      3 ((2.184811 41.45714), (2.180861 41.459), (2.1809…
+     6        4 osm_cycleway     3 ((2.140654 41.41358), (2.1428 41.41261), (2.1427…
+     7        4 osm_general      3 ((2.143615 41.41223), (2.143548 41.41226), (2.14…
+     8        5 osm_general      3 ((2.209253 41.42355), (2.207708 41.42275), (2.20…
+     9        6 osm_cycleway     3 ((2.134062 41.39004), (2.13214 41.38955), (2.137…
+    10        6 osm_general      3 ((2.132201 41.38956), (2.135704 41.39045), (2.13…
+    # ℹ 64 more rows
+
+``` r
+saveRDS(samples_3each,  "data/samples_3each.rds")
+```
+
+    file:////tmp/RtmpKKuZYQ/file5115b82c3684/widget5115b67ec4c9a.html screenshot completed
+
+![](README_files/figure-commonmark/unnamed-chunk-11-1.png)
 
 <!-- <iframe src="figs/final_map_interactive.html" width="100%" height="600px"></iframe> -->
 
