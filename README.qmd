@@ -5,106 +5,141 @@ editor: visual
 bibliography: wp1.bib
 ---
 
-<!-- 🔗 Part of the [ATRAPA database project](https://github.com/GEMOTT/atrapa_database)\ -->
-<!-- ⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa%20database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data) -->
+🔗 Part of the [ATRAPA database project](https://github.com/GEMOTT/atrapa_database)\
 
-<!-- # Can OpenStreetMap Reliably Track Changes in Active Travel Infrastructure? Evidence from Barcelona with GSV Validation -->
+⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa%20database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data)
 
-<!-- ## Introduction -->
+# Can OpenStreetMap Reliably Track Changes in Active Travel Infrastructure? Evidence from Barcelona with GSV Validation
 
-<!-- The relationship between the built environment and travel behaviour has been widely studied, with many studies identifying associations between environmental characteristics and travel patterns [@cerin_neighbourhood_2017; @ding_neighborhood_2011; @zhang_impact_2022]. However, most research relies on cross-sectional data, which cannot establish causality [@mccormack_search_2011; @coevering_multi-period_2015]. In contrast, studies that track changes in both travel behaviour and the built environment—such as longitudinal studies and natural experiments—offer stronger causal insights but remain relatively scarce [@karmeniemi_built_2018; @smith_systematic_2017; @tcymbal_effects_2020]. -->
+## Introduction
 
-<!-- One of the main challenges in expanding this area of research is the limited availability of consistent, time-series data on the built environment. While historical data on travel behaviour is often more accessible—through sources like censuses, surveys, and increasingly, crowdsourced platforms like Strava—comparable records of past urban infrastructure are much harder to obtain. Long-term records of active travel networks, though consistent and accessible historical data remains limited and varies across cities, which hinders broader or international comparisons. An alternative is to reconstruct historical built environment data manually using maps, satellite imagery, and planning records, but this process is highly resource-intensive and typically limited in scale. -->
+The relationship between the built environment and travel behaviour has been widely studied, with many studies identifying associations between environmental characteristics and travel patterns [@cerin_neighbourhood_2017; @ding_neighborhood_2011; @zhang_impact_2022]. However, most research relies on cross-sectional data, which cannot establish causality [@mccormack_search_2011; @coevering_multi-period_2015]. In contrast, studies that track changes in both travel behaviour and the built environment—such as longitudinal studies and natural experiments—offer stronger causal insights but remain relatively scarce [@karmeniemi_built_2018; @smith_systematic_2017; @tcymbal_effects_2020].
 
-<!-- The growing availability of Volunteered Geographic Information (VGI) presents new opportunities to overcome data limitations in built environment research. Among these sources, OpenStreetMap (OSM) stands out for providing open, editable, and historical data on various types of infrastructure, making it a promising tool for analysing urban transformations over time. However, its application in this context requires careful validation due to well-documented limitations in accuracy, completeness, and temporal consistency [@barron_comprehensive_2014]. -->
+One of the main challenges in expanding this area of research is the limited availability of consistent, time-series data on the built environment. While historical data on travel behaviour is often more accessible—through sources like censuses, surveys, and increasingly, crowdsourced platforms like Strava—comparable records of past urban infrastructure are much harder to obtain. Long-term records of active travel networks, though consistent and accessible historical data remains limited and varies across cities, which hinders broader or international comparisons. An alternative is to reconstruct historical built environment data manually using maps, satellite imagery, and planning records, but this process is highly resource-intensive and typically limited in scale.
 
-<!-- While OSM has been widely used for mapping infrastructure and supporting routing applications, its utility for analysing changes in infrastructure over time is less well established. This study seeks to evaluate how accurately historical OSM data reflects changes in active travel infrastructure—specifically bike lanes, pedestrian streets, and living streets. We propose and apply a semi-automated validation method that compares reported OSM changes against external reference sources, including street-level imagery (Google Street View), satellite imagery, and official municipal records. -->
+The growing availability of Volunteered Geographic Information (VGI) presents new opportunities to overcome data limitations in built environment research. Among these sources, OpenStreetMap (OSM) stands out for providing open, editable, and historical data on various types of infrastructure, making it a promising tool for analysing urban transformations over time. However, its application in this context requires careful validation due to well-documented limitations in accuracy, completeness, and temporal consistency [@barron_comprehensive_2014].
 
-<!-- Focusing on the city of Barcelona, our approach uses stratified sampling to ensure spatial and socio-demographic diversity. While the analysis is limited to one city, the proposed framework is designed to be scalable and transferable, offering a practical methodology for researchers and planners seeking to monitor infrastructure change over time using open data sources. -->
+While OSM has been widely used for mapping infrastructure and supporting routing applications, its utility for analysing changes in infrastructure over time is less well established. This study seeks to evaluate how accurately historical OSM data reflects changes in active travel infrastructure—specifically bike lanes, pedestrian streets, and living streets. We propose and apply a semi-automated validation method that compares reported OSM changes against external reference sources, including street-level imagery (Google Street View), satellite imagery, and official municipal records.
 
-<!-- This study builds on recent efforts to assess OSM’s data quality and potential for infrastructure analysis, with particular attention to its capacity to represent change over time. -->
+Focusing on the city of Barcelona, our approach uses stratified sampling to ensure spatial and socio-demographic diversity. While the analysis is limited to one city, the proposed framework is designed to be scalable and transferable, offering a practical methodology for researchers and planners seeking to monitor infrastructure change over time using open data sources.
 
-<!-- ## Data and Method -->
+This study builds on recent efforts to assess OSM’s data quality and potential for infrastructure analysis, with particular attention to its capacity to represent change over time.
 
-<!-- ### Data Sources -->
+## Data and Method
 
-<!-- -   OpenStreetMap (OSM) snapshots: 2015, 2019, 2023 -->
-<!-- -   Google Street View (GSV) imagery -->
+### Data Sources
 
-<!-- ### Sampling Strategy -->
+-   OpenStreetMap (OSM) snapshots: 2015, 2019, 2023
 
-<!-- -   Unit of analysis: Census tracts (80 in total, Barcelona, 2015 boundaries) -->
-<!-- -   Stratification variables: -->
-<!--     -   Population density (2022 estimates) -->
-<!--     -   Centrality: Euclidean distance from Plaça Catalunya, the city center -->
+-   Google Street View (GSV) imagery
 
-<!-- ### Change Detection in OSM -->
+### Sampling Strategy
 
-<!-- -   Extract infrastructure from OSM for 2015, 2019, 2023 -->
-<!--     -   Focus tags: highway=cycleway, cycleway=\*, highway=pedestrian, highway=living_street -->
-<!-- -   Compare time periods: -->
-<!--     -   Period 1: 2015–2019 -->
-<!--     -   Period 2: 2019–2023 -->
-<!-- -   Identify changes: -->
-<!--     -   Additions -->
-<!--     -   Removals -->
-<!--     -   Reclassifications -->
+-   Unit of analysis: Census tracts (80 in total, Barcelona, 2015 boundaries)
 
-<!-- ### Validation Strategy -->
+-   Stratification variables:
 
-<!-- #### OSM-Reported Changes (False Positives) -->
+    -   Population density (2022 estimates)
 
-<!-- -   Use GSV imagery and satellite views to verify all detected changes -->
-<!-- -   Label each as: -->
-<!--     -   ✅ Confirmed -->
-<!--     -   ❌ False Positive +❓ Uncertain -->
+    -   Centrality: Euclidean distance from Plaça Catalunya, the city center
 
-<!-- #### Missed Changes (False Negatives) -->
+### Change Detection in OSM
 
-<!-- -   Sample \~100 street segments from within census tract sample -->
-<!-- -   For each segment, check imagery to see if: -->
-<!--     -   Infrastructure exists in reality -->
-<!--     -   But is missing from OSM -->
+-   Extract infrastructure from OSM for 2015, 2019, 2023
 
-<!-- ### Evaluation Metrics -->
+    -   Focus tags: highway=cycleway, cycleway=\*, highway=pedestrian, highway=living_street
 
-<!-- -   Accuracy = Confirmed OSM changes / All OSM-reported changes -->
-<!-- -   Completeness = Confirmed OSM changes / (Confirmed + Missed changes) -->
-<!-- -   SCI (Spatial Completeness Index) = Variation in completeness across tracts (e.g., standard deviation) -->
+-   Compare time periods:
 
-<!-- ### Inclusion Criteria -->
+    -   Period 1: 2015–2019
 
-<!-- -   Include city/period/type only if: -->
-<!--     -   Completeness ≥ 80% -->
-<!--     -   SCI ≤ 15% -->
-<!-- -   Based on prior studies: -->
-<!--     -   Hochmair et al. (2014), Barron et al. (2014), Elwood & Goodchild (2013) -->
+    -   Period 2: 2019–2023
 
-<!-- #### Example Evaluation Table by Interval and Infrastructure Type -->
+-   Identify changes:
 
-<!-- | City      | Interval  | Type           | Completeness | SCI    | Accuracy | Decision   | -->
-<!-- |-----------|-----------|-----------|-----------|-----------|-----------|-----------| -->
-<!-- | Barcelona | 2015–2019 | Bike Lanes     | 88% ✅       | 9% ✅  | 91% ✅   | ✅ Include | -->
-<!-- | Barcelona | 2015–2019 | Pedestrian     | 84% ✅       | 12% ✅ | 87% ✅   | ✅ Include | -->
-<!-- | Barcelona | 2015–2019 | Living Streets | 72% ❌       | 18% ❌ | 78% ❌   | ❌ Exclude | -->
+    -   Additions
 
-<!-- ## Results -->
+    -   Removals
 
-<!-- ### Descriptive analyses -->
+    -   Reclassifications
+
+### Validation Strategy
+
+#### OSM-Reported Changes (False Positives)
+
+-   Use GSV imagery and satellite views to verify all detected changes
+
+-   Label each as:
+
+    -   ✅ Confirmed
+
+    -   ❌ False Positive +❓ Uncertain
+
+#### Missed Changes (False Negatives)
+
+-   Sample \~100 street segments from within census tract sample
+
+-   For each segment, check imagery to see if:
+
+    -   Infrastructure exists in reality
+
+    -   But is missing from OSM
+
+### Evaluation Metrics
+
+-   Accuracy = Confirmed OSM changes / All OSM-reported changes
+
+-   Completeness = Confirmed OSM changes / (Confirmed + Missed changes)
+
+-   SCI (Spatial Completeness Index) = Variation in completeness across tracts (e.g., standard deviation)
+
+### Inclusion Criteria
+
+-   Include city/period/type only if:
+
+    -   Completeness ≥ 80%
+
+    -   SCI ≤ 15%
+
+-   Based on prior studies:
+
+    -   Hochmair et al. (2014), Barron et al. (2014), Elwood & Goodchild (2013)
+
+#### Example Evaluation Table by Interval and Infrastructure Type
+
+| City \| Interval \| Type \| Completeness \| SCI \| Accuracy \| Decision \|
+
+\|-----------\|-----------\|-----------\|-----------\|-----------\|-----------\|-----------\|
+
+| Barcelona \| 2015–2019 \| Bike Lanes \| 88% ✅ \| 9% ✅ \| 91% ✅ \| ✅ Include \|
+
+| Barcelona \| 2015–2019 \| Pedestrian \| 84% ✅ \| 12% ✅ \| 87% ✅ \| ✅ Include \|
+
+| Barcelona \| 2015–2019 \| Living Streets \| 72% ❌ \| 18% ❌ \| 78% ❌ \| ❌ Exclude \|
+
+## Results
+
+### Descriptive analyses --\> <!--#
 
 ## OSM validation method
 
-### Intro 
+### Aim
 
-- Aim: validate OSM cycling infrastructure in Barcelona.
+Validate OSM cycling infrastructure across years (e.g. 2015, 2019, 2023).
 
-- Sampling: random stratified sample of census tracts, stratified by centrality × density (3×3).
+### Design
 
-- Within each sampled tract: draw random points on
-  + OSM cycleway network → detect false positives.
-  + OSM general road network → detect false negatives.
+-   Stratified random sample of census tracts (centrality × density, 3×3).
 
-- Validation: each point linked to Google Street View (GSV) + year.
+-   Five tracts per stratum (45 in total).
+
+-   Per tract and interval (2015→2019, 2019→2023):
+
+    -   3 random points on the OSM cycleway network (*if present in tract*) → check for false positives for that year.
+
+    -   3 random points on the OSM general road network → check for false negative for that year.
+
+-   Validation source: Google Street View (GSV).
 
 ```{r}
 #| include: false
@@ -190,7 +225,7 @@ sampled_tracts <- barcelona_tracts |>
 
 ### Maps
 
-- **Map A:** Stratified areas selected.
+-   **Map A:** Stratified areas selected.
 
 ```{r}
 #| echo: false
@@ -202,17 +237,17 @@ sampled_tracts <- barcelona_tracts |>
 barcelona_tracts <- barcelona_tracts |> 
 mutate(centrality_flipped = -dist_centre_km)
  
-bb_bivar <- bi_class(barcelona_tracts, x = dens_2022, y = centrality_flipped, style = "quantile", dim = 4)
+bb_bivar <- bi_class(barcelona_tracts, x = dens_2022, y = centrality_flipped, style = "quantile", dim = 3)
  
 bivar_map <- ggplot() +
    geom_sf(data = bb_bivar, aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
-   bi_scale_fill(pal = "DkBlue2", dim = 4) +
+   bi_scale_fill(pal = "DkBlue2", dim = 3) +
    geom_sf(data = sampled_tracts, fill = NA, color = "black", linewidth = 0.5) +
    labs(title = "") +
    bi_theme() +
    theme(plot.title = element_text(size = 12, hjust = 0.5))
  
- bivar_legend <- bi_legend(pal = "DkBlue2", dim = 4, xlab = "Higher Density", ylab = "More Central", size = 9) +
+ bivar_legend <- bi_legend(pal = "DkBlue2", dim = 3, xlab = "Higher Density", ylab = "More Central", size = 9) +
    theme(axis.title = element_text(size = 9), axis.text = element_blank(),
          plot.margin = margin(5, 5, 5, 5), panel.background = element_blank(), plot.background = element_blank())
  
@@ -226,6 +261,7 @@ bivar_map <- ggplot() +
 ```
 
 ```{r}
+#| eval: false
 #| include: false
 # ================================================================
 # 4. NETWORK POINT SAMPLING FROM OSM (MIDPOINT-BASED)
@@ -286,42 +322,33 @@ table(sampled_tracts$has_cycleway)
 
 # Sampling function (minimal and working)
 sample_points_from_lines <- function(lines, tract_geom, tract_id, n_points, source_label) {
-  # Slight buffer for more forgiving intersection
-  buffer_geom <- st_buffer(tract_geom, 5)
-
-  # Get lines that intersect the buffered geometry
-  lines_in <- lines[st_intersects(lines, buffer_geom, sparse = FALSE), ]
+  # Clip lines to the tract (so midpoints are guaranteed inside)
+  lines_in <- tryCatch(
+    suppressWarnings(st_intersection(lines, tract_geom)),
+    error = function(e) lines[0, ]
+  )
+  # Keep only LINESTRING/MULTILINESTRING parts
+  lines_in <- st_collection_extract(lines_in, "LINESTRING")
   if (nrow(lines_in) == 0) return(NULL)
 
-  # Keep only valid geometry types
-  valid_lines <- st_geometry(lines_in)[st_geometry_type(lines_in) %in% c("LINESTRING", "MULTILINESTRING")]
-  if (length(valid_lines) == 0) return(NULL)
-
-  # Sample many points
+  # Sample many vertices along lines, then pick n_points
+  # (use a metric CRS for stable sampling—you're already in EPSG:25831)
   sampled <- tryCatch(
-    suppressWarnings(st_line_sample(valid_lines, n = max(n_points * 10, 10), type = "random")),
+    st_line_sample(st_geometry(lines_in), n = max(n_points * 10, 10), type = "random"),
     error = function(e) st_sfc()
   )
   if (length(sampled) == 0) return(NULL)
 
   sampled <- st_cast(sampled, "POINT")
-
-  # Keep only those points that fall within the actual tract (not just buffer)
-  sampled <- sampled[st_within(sampled, tract_geom, sparse = FALSE)]
-
-  if (length(sampled) == 0) return(NULL)
-
   if (length(sampled) > n_points) {
     sampled <- sampled[sample(seq_along(sampled), n_points)]
   }
 
-  df <- data.frame(
-    tract_id = rep(tract_id, length(sampled)),
-    source = rep(source_label, length(sampled)),
-    stringsAsFactors = FALSE
+  st_sf(
+    data.frame(tract_id = tract_id, source = source_label),
+    geometry = sampled,
+    crs = st_crs(tract_geom)
   )
-
-  st_sf(df, geometry = sampled, crs = st_crs(tract_geom))
 }
 
 # Modified mapping process with better error handling
@@ -330,8 +357,8 @@ samples_all <- purrr::map_dfr(1:nrow(sampled_tracts), function(i) {
   geom <- st_geometry(tract)
   
   # ⬇️ OVERSAMPLE HERE — increase from 2 to e.g., 30
-  out1 <- sample_points_from_lines(cycleway_lines, geom, tract$tract_id, 30, "osm_cycleway")
-  out2 <- sample_points_from_lines(general_lines, geom, tract$tract_id, 30, "osm_general")
+  out1 <- sample_points_from_lines(cycleway_lines, geom, tract$tract_id, 10, "osm_cycleway")
+  out2 <- sample_points_from_lines(general_lines, geom, tract$tract_id, 10, "osm_general")
   
   # Debugging output
   print(paste("Tract", tract$tract_id, 
@@ -363,7 +390,6 @@ samples_all <- samples_all %>%
 ```
 
 ```{r}
-#| eval: false
 #| include: false
 # ================================================================
 # 5. ADD GSV DATE + GENERATE LINK
@@ -374,20 +400,32 @@ get_gsv_date <- function(lat, lon, key) {
   url <- paste0("https://maps.googleapis.com/maps/api/streetview/metadata?",
                 "location=", lat, ",", lon, "&key=", key)
   tryCatch({
-    res <- fromJSON(url)
-    if (!is.null(res$date)) res$date else NA
-  }, error = function(e) NA)
+    res <- jsonlite::fromJSON(url)
+    if (!is.null(res$date)) res$date else NA_character_
+  }, error = function(e) NA_character_)
 }
 
+# ---- Counter-based stop (add this block) ----
+counter <- 0L           # resets each run/knit
+MAX_CALLS <- 480        # keep some headroom under your 500/day quota
+
+safe_get_gsv_date <- function(lat, lon, key){
+  if (counter >= MAX_CALLS) return(NA_character_)
+  counter <<- counter + 1L   # use <<- so it updates the outer 'counter'
+  get_gsv_date(lat, lon, key)
+}
+# ---------------------------------------------
+
 samples_all_wgs <- samples_all_wgs %>%
-  mutate(
-    gsv_date = map_chr(seq_len(n()), function(i) {
-      coords <- st_coordinates(samples_all_wgs[i, ])
-      get_gsv_date(coords[2], coords[1], gsv_api_key)
+  dplyr::mutate(
+    gsv_date = purrr::map_chr(seq_len(n()), function(i) {
+      coords <- sf::st_coordinates(samples_all_wgs[i, ])
+      safe_get_gsv_date(coords[2], coords[1], gsv_api_key)   # <-- use SAFE version
     }),
-    gsv_maps_url = map_chr(seq_len(n()), function(i) {
-      coords <- st_coordinates(samples_all_wgs[i, ])
-      paste0("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=", coords[2], ",", coords[1])
+    gsv_maps_url = purrr::map_chr(seq_len(n()), function(i) {
+      coords <- sf::st_coordinates(samples_all_wgs[i, ])
+      paste0("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=",
+             coords[2], ",", coords[1])
     })
   )
 
@@ -403,6 +441,20 @@ saveRDS(samples_all_wgs, "data/samples_all_wgs.rds")
 ```{r}
 #| include: false
 # Select 3 per tract × source (pref ≥2023) (save to RDS)
+
+# If you didn't run the API chunk, create a basic file with URLs so popups work
+if (!file.exists("data/samples_all_wgs.rds")) {
+  samples_all_wgs <- st_transform(samples_all, 4326) |>
+    mutate(
+      gsv_date = NA_character_,
+      gsv_maps_url = purrr::map_chr(geometry, ~{
+        xy <- st_coordinates(.x)
+        paste0("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=", xy[2], ",", xy[1])
+      })
+    ) |>
+    left_join(st_drop_geometry(sampled_tracts)[, c("tract_id","stratum_id")], by = "tract_id")
+  saveRDS(samples_all_wgs, "data/samples_all_wgs.rds")
+}
 
 samples_all_wgs   <- readRDS("data/samples_all_wgs.rds")
 desired_n <- 3
@@ -448,9 +500,11 @@ samples_3each <- bind_rows(recent, fallback)
 samples_3each %>% count(tract_id, source) %>% arrange(desc(n))
 
 saveRDS(samples_3each,  "data/samples_3each.rds")
+
+stopifnot(exists("samples_3each"), nrow(samples_3each) > 0)
 ```
 
-- **Map B:** Interactive map with validation points + clickable GSV.
+-   **Map B:** Validation points with GSV links and image year.
 
 ```{r}
 #| echo: false
@@ -497,31 +551,21 @@ pts_gen <- pts_ll[pts_ll$source == "osm_general", ]
 pts_cyc <- pts_ll[pts_ll$source == "osm_cycleway", ]
 
 # 4) Map
-leaflet(options = leafletOptions(zoomControl = TRUE)) %>%
+m <- leaflet(options = leafletOptions(zoomControl = TRUE)) %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
-
   # streets + tracts
   addPolylines(data = streets_ll, color = "#999999", weight = 1, opacity = 0.6, group = "Streets") %>%
-  addPolygons(data = tracts_ll,
-              color = "black", weight = 1, opacity = 0.9,
+  addPolygons(data = tracts_ll, color = "black", weight = 1, opacity = 0.9,
               fill = TRUE, fillColor = "#000000", fillOpacity = 0.05,
               group = "Sampled tracts") %>%
-
-  # points (split layers)
-  addCircleMarkers(
-    data = pts_gen,
-    radius = 4, stroke = FALSE,
-    fillColor = "red", fillOpacity = 0.6,
-    popup = ~popup_html, group = "General points"
-  ) %>%
-  addCircleMarkers(
-    data = pts_cyc,
-    radius = 4, stroke = FALSE,
-    fillColor = "blue", fillOpacity = 0.6,
-    popup = ~popup_html, group = "Cycleway points"
-  ) %>%
-
-  # optional: always-visible year labels per layer
+  # points
+  addCircleMarkers(data = pts_gen, radius = 4, stroke = FALSE,
+                   fillColor = "red", fillOpacity = 0.6,
+                   popup = ~popup_html, group = "General points") %>%
+  addCircleMarkers(data = pts_cyc, radius = 4, stroke = FALSE,
+                   fillColor = "blue", fillOpacity = 0.6,
+                   popup = ~popup_html, group = "Cycleway points") %>%
+  # labels (optional)
   addLabelOnlyMarkers(
     data = pts_gen[!is.na(pts_gen$year_label), ],
     label = ~year_label,
@@ -536,33 +580,39 @@ leaflet(options = leafletOptions(zoomControl = TRUE)) %>%
                                 textOnly = TRUE, style = list("font-size" = "12px")),
     group = "Year labels (cycleway)"
   ) %>%
-
-  # layer toggles
   addLayersControl(
     overlayGroups = c("Streets", "Sampled tracts",
                       "General points", "Cycleway points",
                       "Year labels (general)", "Year labels (cycleway)"),
     options = layersControlOptions(collapsed = TRUE)
-  ) %>%
+  )
+# ^^^ stop the pipe here (NO trailing %>%)
 
-  # start with everything hidden
-  hideGroup("Streets") %>%
-  hideGroup("General points") %>%
-  hideGroup("Cycleway points") %>%
-  hideGroup("Year labels (general)") %>%
-  hideGroup("Year labels (cycleway)")
+# Auto-zoom to your points (only if there are any)
+if (nrow(pts_ll) > 0) {
+  bb <- sf::st_bbox(pts_ll)
+  # use [[ ]] or unname() so we pass plain numerics (not named vectors)
+  m <- m %>% fitBounds(bb[[1]], bb[[2]], bb[[3]], bb[[4]])
+  # equivalently: m <- m %>% fitBounds(unname(bb["xmin"]), unname(bb["ymin"]), unname(bb["xmax"]), unname(bb["ymax"]))
+}
+
+
+m
 ```
 
-### Limitations observed (after checking the validation map)
+### Main limitations and potential solutions
 
-- GSV API only delivers the most recent image → no systematic access to historical imagery.
+| Limitation | Problem / Issue | Potential solution | Feasibility |
+|-----------------|------------------|---------------------|-----------------|
+| **No historical access** – GSV API only returns the latest image. | Prevents systematic multi-year validation (e.g., 2015 or 2019 cannot be checked). | Use manual GSV time slider to select past images. | Accurate but not scalable. |
+| **Latest ≠ recent** – the “latest” image may be several years old. | Missing or outdated imagery for the most recent year. | Oversample points/tracts and filter by image year to keep enough valid ones. | Improves coverage but computationally heavy. |
 
-- Coverage not up to date → many streets still show old shots (e.g. 2015).
-
-- Ambiguity at intersections → sometimes unclear if GSV is showing the correct street/direction.
+<!-- - Ambiguity at intersections → sometimes unclear if GSV is showing the correct street/direction. -->
 
 ```{r}
 #| include: false
+library(dplyr)
+library(sf)
 
 # # ensure year column exists
 # samples_all_wgs <- samples_all_wgs %>%
@@ -658,10 +708,12 @@ leaflet(options = leafletOptions(zoomControl = TRUE)) %>%
 #   theme_minimal()
 ```
 
-### Next steps (decision points)
+### Assessment
 
-- Decide if we just abandone or try to write a demtodological paper.
+-   **Multi-year validation** (2015–2019–2023) is **not feasible using the GSV API**, since it does not give historical imagery and the “latest” image may be outdated.
 
-- Consider alternatives.
+-   **Alternative approaches** (manual time slider, oversampling and filtering) are **possible in theory** but probably too slow and resource-intensive for a multi-city project.
+
+-   **The pilot** might be useful **as a methodological case study**, showing the challenges of validating OSM infrastructure data over time with GSV, publishable?
 
 <!-- ## References -->

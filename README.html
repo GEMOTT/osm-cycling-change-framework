@@ -118,17 +118,21 @@ ul.task-list li input[type="checkbox"] {
 <!-- ### Descriptive analyses -->
 <section id="osm-validation-method" class="level2">
 <h2 class="anchored" data-anchor-id="osm-validation-method">OSM validation method</h2>
-<section id="intro" class="level3">
-<h3 class="anchored" data-anchor-id="intro">Intro</h3>
+<section id="aim" class="level3">
+<h3 class="anchored" data-anchor-id="aim">Aim</h3>
+<p>Validate OSM cycling infrastructure across years (e.g.&nbsp;2015, 2019, 2023).</p>
+</section>
+<section id="design" class="level3">
+<h3 class="anchored" data-anchor-id="design">Design</h3>
 <ul>
-<li><p>Aim: validate OSM cycling infrastructure in Barcelona.</p></li>
-<li><p>Sampling: random stratified sample of census tracts, stratified by centrality × density (3×3).</p></li>
-<li><p>Within each sampled tract: draw random points on</p>
+<li><p>Stratified random sample of census tracts (centrality × density, 3×3).</p></li>
+<li><p>Five tracts per stratum (45 in total).</p></li>
+<li><p>Per tract and interval (2015→2019, 2019→2023):</p>
 <ul>
-<li>OSM cycleway network → detect false positives.</li>
-<li>OSM general road network → detect false negatives.</li>
+<li><p>3 random points on the OSM cycleway network (<em>if present in tract</em>) → check for false positives for that year.</p></li>
+<li><p>3 random points on the OSM general road network → check for false negative for that year.</p></li>
 </ul></li>
-<li><p>Validation: each point linked to Google Street View (GSV) + year.</p></li>
+<li><p>Validation source: Google Street View (GSV).</p></li>
 </ul>
 </section>
 <section id="maps" class="level3">
@@ -146,7 +150,7 @@ ul.task-list li input[type="checkbox"] {
 </div>
 </div>
 <ul>
-<li><strong>Map B:</strong> Interactive map with validation points + clickable GSV.</li>
+<li><strong>Map B:</strong> Validation points with GSV links and image year.</li>
 </ul>
 <div class="cell">
 <div class="cell-output-display">
@@ -155,19 +159,46 @@ ul.task-list li input[type="checkbox"] {
 </div>
 </div>
 </section>
-<section id="limitations-observed-after-checking-the-validation-map" class="level3">
-<h3 class="anchored" data-anchor-id="limitations-observed-after-checking-the-validation-map">Limitations observed (after checking the validation map)</h3>
-<ul>
-<li><p>GSV API only delivers the most recent image → no systematic access to historical imagery.</p></li>
-<li><p>Coverage not up to date → many streets still show old shots (e.g.&nbsp;2015).</p></li>
-<li><p>Ambiguity at intersections → sometimes unclear if GSV is showing the correct street/direction.</p></li>
-</ul>
+<section id="main-limitations-and-potential-solutions" class="level3">
+<h3 class="anchored" data-anchor-id="main-limitations-and-potential-solutions">Main limitations and potential solutions</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 19%">
+<col style="width: 27%">
+<col style="width: 32%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Limitation</th>
+<th>Problem / Issue</th>
+<th>Potential solution</th>
+<th>Feasibility</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>No historical access</strong> – GSV API only returns the latest image.</td>
+<td>Prevents systematic multi-year validation (e.g., 2015 or 2019 cannot be checked).</td>
+<td>Use manual GSV time slider to select past images.</td>
+<td>Accurate but not scalable.</td>
+</tr>
+<tr class="even">
+<td><strong>Latest ≠ recent</strong> – the “latest” image may be several years old.</td>
+<td>Missing or outdated imagery for the most recent year.</td>
+<td>Oversample points/tracts and filter by image year to keep enough valid ones.</td>
+<td>Improves coverage but computationally heavy.</td>
+</tr>
+</tbody>
+</table>
+<!-- - Ambiguity at intersections → sometimes unclear if GSV is showing the correct street/direction. -->
 </section>
-<section id="next-steps-decision-points" class="level3">
-<h3 class="anchored" data-anchor-id="next-steps-decision-points">Next steps (decision points)</h3>
+<section id="assessment" class="level3">
+<h3 class="anchored" data-anchor-id="assessment">Assessment</h3>
 <ul>
-<li><p>Decide if we just abandone or try to write a demtodological paper.</p></li>
-<li><p>Consider alternatives.</p></li>
+<li><p><strong>Multi-year validation</strong> (2015–2019–2023) is <strong>not feasible using the GSV API</strong>, since it does not give historical imagery and the “latest” image may be outdated.</p></li>
+<li><p><strong>Alternative approaches</strong> (manual time slider, oversampling and filtering) are <strong>possible in theory</strong> but probably too slow and resource-intensive for a multi-city project.</p></li>
+<li><p><strong>The pilot</strong> might be useful <strong>as a methodological case study</strong>, showing the challenges of validating OSM infrastructure data over time with GSV, publishable?</p></li>
 </ul>
 <!-- ## References -->
 </section>
