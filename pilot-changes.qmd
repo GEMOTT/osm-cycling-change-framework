@@ -5,27 +5,33 @@ editor: visual
 bibliography: wp1.bib
 ---
 
-## OSM validation method
+# Method to Validate OSM Cycling Transformations (2019→2023)
 
-### Aim
+## Introduction
 
-Validate OSM cycling infrastructure in Barcelona across years 2019 and 2023.
+- Context: Urban transformations, such as new bike lanes and pedestrian areas, can strongly influence mobility behaviour and health. Studying these effects requires reliable historical data on when and where such changes occurred.
 
-### Design
+- Problem: Official, standardised datasets of infrastructure transformations are rarely available across cities and years. This gap makes it difficult to analyse behavioural impacts.
 
--   Stratified random sample of census tracts (centrality × density, 3×3).
+- Aim: quantify how well OSM detects cycling infrastructure (CI) changes (adds/removals) and estimate missed additions.
 
--   Five tracts per stratum (45 in total).
+- Outputs: precision for ADD/REMOVE, false-negative (FN) rate for additions, recall for additions, calibrated (error-adjusted) change estimates with CIs, by-stratum diagnostics.
 
--   Per tract and year:
+## Data and Methods 
 
-    -   3 random points on the OSM cycleway network (*if present in tract*) → check for false positives for that year.
+### Setting and period
 
-    -   3 random points on the OSM general road network → check for false negative for that year.
+- Study area: Barcelona; period: 2019→2023 (snapshot dates: 2020-01-01 for 2019 and 2024-01-01 for 2023; specify exact extracts).
 
--   Validation source: Google Street View (GSV).
+### Network data (OSM)
 
-### OSM data
+- Extraction. Download OSM linework for both years.
+
+- CI selector. Keep: highway=cycleway, bicycle-designated path/track, roads with cycleway:* tags, bicycle_road=yes, designated living_street/pedestrian.
+
+- Non-CI (general network). Base roads excluding all CI tags (strict complement).
+
+- Change detection. Build ADDED (present in 2023, absent 2019) and REMOVED (present 2019, absent 2023) layers.
 
 ```{r include=FALSE}
 #remotes::install_github("ropensci/osmextract")
@@ -39,7 +45,7 @@ library(gridExtra)
 library(spdep)
 ```
 
-```{r boundaries}
+```{r}
 #| label: boundaries
 #| eval: false
 #| include: false
@@ -69,7 +75,7 @@ st_write(perim, "data/barcelona_perimeter.gpkg",
          layer = "barcelona_perimeter", driver = "GPKG", append = FALSE)
 ```
 
-```{r infras}
+```{r}
 #| label: infras
 #| eval: false
 #| include: false
@@ -135,77 +141,283 @@ message("Done: Barcelona (files in data/)")
 ```
 
 ```{r}
-#| label: infraplot
-#| eval: false
+#| label: setup-io
+#| message: false
+#| warning: false
 #| include: false
-# --- cities to plot (match your file prefixes under data/) ---
-city_tags <- c("barcelona")      # we saved data/barcelona_*.gpkg
-versions  <- c("19","23")  # 2019 & 2023
 
-# --- palette & helpers ---
-pal <- c("cycleway"="#E41A1C","pedestrian"="#377EB8","living street"="#4DAF4A","others"="grey")
+library(sf); library(dplyr); library(stringr); library(leaflet)
 
-read_perimeter <- function(tag){
-  perim_path <- file.path("data", paste0(tag, "_perimeter.gpkg"))  # << no subfolder
-  if (!file.exists(perim_path)) return(NULL)
-  # read specific layer and ensure WGS84
-  sf::st_read(perim_path, layer = paste0(tag, "_perimeter"), quiet = TRUE) |>
-    sf::st_transform(4326)
-}
+# ---- params ----
+city_tag <- "barcelona"
+ver19    <- "19"
+ver23    <- "23"
+crs_work <- 25831
+tol_m    <- 10
+min_len  <- 30
 
-read_infra <- function(tag, ver){
-  gpkg <- file.path("data", paste0(tag, "_", ver, "_lines.gpkg"))  # << no subfolder
-  lyr  <- paste0(tag, "_", ver, "_lines")
-  if (!file.exists(gpkg)) return(NULL)
-  x <- tryCatch(sf::st_read(gpkg, layer = lyr, quiet = TRUE), error = function(e) NULL)
-  x
-}
+# ---- paths ----
+dir_city <- "data"
+gpkg19   <- file.path(dir_city, paste0(city_tag, "_", ver19, "_lines.gpkg"))
+gpkg23   <- file.path(dir_city, paste0(city_tag, "_", ver23, "_lines.gpkg"))
+lyr19    <- paste0(city_tag, "_", ver19, "_lines")
+lyr23    <- paste0(city_tag, "_", ver23, "_lines")
 
-mk_aggr <- function(x, perimeter){
-  if (is.null(x) || nrow(x) == 0) return(NULL)
-  x <- sf::st_transform(x, sf::st_crs(perimeter))
-  if (!"highway_aggr" %in% names(x)) {
-    x <- x |>
-      dplyr::mutate(highway_aggr = dplyr::case_when(
-        highway == "cycleway"      ~ "cycleway",
-        highway == "pedestrian"    ~ "pedestrian",
-        highway == "living_street" ~ "living street",
-        TRUE ~ "others"
-      ))
-  }
-  x
-}
+stopifnot(file.exists(gpkg19), file.exists(gpkg23))
 
-mk_map <- function(perimeter, x, title){
-  if (is.null(x) || nrow(x) == 0) {
-    return(tm_shape(perimeter) + tm_borders() + tm_title(paste0(title, " (no data)")))
-  }
-  tm_shape(perimeter) + tm_borders() +
-    tm_shape(x) +
-    tm_lines(col = "highway_aggr", lwd = 0.5, col_alpha = 0.6,
-             col.scale = tm_scale(values = pal)) +
-    tm_title(title)
-}
-
-make_city_panel <- function(city_tag){
-  perim <- read_perimeter(city_tag)
-  if (is.null(perim)) return(NULL)
-
-  x19 <- mk_aggr(read_infra(city_tag, "19"), perim)
-  x23 <- mk_aggr(read_infra(city_tag, "23"), perim)
-
-  m19 <- mk_map(perim, x19, "2019")   # << fixed var name
-  m23 <- mk_map(perim, x23, "2023")   # << fixed var name
-  tmap_arrange(m19, m23, nrow = 1)
-}
-
-# --- display all city panels ---
-tmap_mode("view")
-panels <- lapply(city_tags, make_city_panel)
-invisible(lapply(panels[!sapply(panels, is.null)], print))
+# ---- read ----
+l19 <- st_read(gpkg19, layer = lyr19, quiet = TRUE)
+l23 <- st_read(gpkg23, layer = lyr23, quiet = TRUE)
 ```
 
-### Tract data
+```{r}
+#| label: cycle-change-helpers
+#| message: false
+#| warning: false
+#| include: false
+
+library(sf); library(dplyr); library(stringr)
+
+# 1) STRICT cycleway picker — only clear, dedicated cycling infrastructure
+pick_cycle_strict <- function(x) {
+  stopifnot(inherits(x, "sf"))
+  if (nrow(x) == 0) return(x)
+  
+  n  <- nrow(x); nm <- names(x)
+  get_chr <- function(col) if (col %in% nm) as.character(x[[col]]) else rep(NA_character_, n)
+  get_lwr <- function(col) tolower(get_chr(col))
+  
+  highway      <- get_lwr("highway")
+  bicycle      <- get_lwr("bicycle")
+  bicycle_road <- get_lwr("bicycle_road")
+  
+  # 1) DEDICATED CYCLEWAYS (highest priority)
+  is_cycleway <- highway == "cycleway"
+  
+  # 2) CYCLE LANES/TRACKS on roads (must be physical infrastructure)
+  lane_cols <- c("cycleway", "cycleway:both", "cycleway:left", "cycleway:right")
+  lane_vals <- c("lane", "track", "opposite_lane", "opposite_track", "separate")
+  
+  has_physical_lane <- rep(FALSE, n)
+  for (col in lane_cols) {
+    if (col %in% nm) {
+      vals <- get_lwr(col)
+      has_physical_lane <- has_physical_lane | (vals %in% lane_vals)
+    }
+  }
+  
+  # 3) DESIGNATED cycling paths (must be explicitly designated for bicycles)
+  is_designated_path <- (highway %in% c("path", "footway", "track")) & 
+                        (bicycle %in% c("designated", "yes"))
+  
+  # 4) BICYCLE ROADS
+  is_bicycle_road <- bicycle_road == "yes"
+  
+  # 5) EXCLUDE these common false positives:
+  # - Shared lanes (sharrows)
+  has_sharrow <- rep(FALSE, n)
+  for (col in lane_cols) {
+    if (col %in% nm) {
+      vals <- get_lwr(col)
+      has_sharrow <- has_sharrow | (vals %in% c("shared_lane", "sharrow"))
+    }
+  }
+  
+  # - Permmissive access only (bicycle=yes but no physical infra)
+  is_permissive_only <- (bicycle == "yes") & 
+                        !is_cycleway & 
+                        !has_physical_lane & 
+                        !is_designated_path
+  
+  # - Footways/paths where bicycles are merely tolerated
+  is_tolerated_path <- (highway %in% c("footway", "path")) & 
+                       !(bicycle %in% c("designated", "yes"))
+  
+  # COMBINE: Keep only clear cycling infrastructure, exclude ambiguous cases
+  keep <- (is_cycleway | has_physical_lane | is_designated_path | is_bicycle_road) &
+          !has_sharrow & 
+          !is_permissive_only & 
+          !is_tolerated_path
+  
+  # Additional safety: exclude major roads without explicit cycling infrastructure
+  is_major_road <- highway %in% c("motorway", "motorway_link", "trunk", "trunk_link",
+                                 "primary", "primary_link", "secondary", "secondary_link")
+  keep <- keep & !(is_major_road & !has_physical_lane)
+  
+  result <- x[which(keep), , drop = FALSE]
+  
+  return(result)
+}
+
+# [Rest of your functions remain the same...]
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| paged-print: false
+# --- Minimal change mapping: 2019 vs 2023 (cycling) --------------------------
+library(dplyr)
+library(stringr)
+library(sf)
+
+# --- Revised params ---
+crs_work <- 25831      # Barcelona UTM; must be a metric CRS
+tol_m    <- 10          # REDUCED from 10m to 2m for cycling infrastructure
+min_len  <- 30         # drop slivers shorter than this (meters)
+
+# Now use the functions
+cyc19 <- l19 |> pick_cycle_strict() |> st_make_valid()
+cyc23 <- l23 |> pick_cycle_strict() |> st_make_valid()
+
+# Ensure both are in the same CRS
+cyc19 <- st_transform(cyc19, crs_work)
+cyc23 <- st_transform(cyc23, crs_work)
+
+# ==== REVISED 3) Added/Removed with improved geometry handling ====
+
+# 3.1 Improved geometry normalization with better error handling
+normalize_geoms <- function(x) {
+  x <- st_make_valid(x)
+  x <- st_cast(x, "MULTILINESTRING", warn = FALSE)
+  x <- st_line_merge(x)
+  # Extract individual linestrings more carefully
+  geoms <- st_geometry(x)
+  individual_lines <- st_cast(geoms, "LINESTRING", warn = FALSE)
+  st_set_geometry(x, individual_lines) |> st_make_valid()
+}
+
+cyc19_n <- normalize_geoms(cyc19)
+cyc23_n <- normalize_geoms(cyc23)
+
+# 3.2 Build buffers with smaller tolerance
+buf19 <- st_buffer(st_geometry(cyc19_n), tol_m) |> st_union()
+buf23 <- st_buffer(st_geometry(cyc23_n), tol_m) |> st_union()
+
+# 3.3 Calculate differences with improved handling
+added_raw <- st_difference(st_geometry(cyc23_n), buf19)
+removed_raw <- st_difference(st_geometry(cyc19_n), buf23)
+
+# 3.4 Process results with better geometry extraction
+process_difference <- function(diff_geom, crs) {
+  if (length(diff_geom) == 0) {
+    return(st_sf(geometry = st_sfc(), crs = crs))
+  }
+  
+  # Handle geometry collections properly
+  diff_geom <- st_collection_extract(diff_geom, "LINESTRING")
+  diff_geom <- st_cast(diff_geom, "LINESTRING", warn = FALSE)
+  
+  # Remove zero-length geometries
+  lengths <- st_length(diff_geom)
+  diff_geom <- diff_geom[as.numeric(lengths) > 0.1]  # > 10cm
+  
+  st_sf(geometry = diff_geom, crs = crs)
+}
+
+added_partial <- process_difference(added_raw, crs_work)
+removed_partial <- process_difference(removed_raw, crs_work)
+
+# 3.5 Length filtering function (single definition)
+len_ok <- function(x, min_len = 10){
+  if (!inherits(x, "sf") || nrow(x) == 0) return(x)
+  len_m <- as.numeric(st_length(x))
+  x <- x[len_m >= min_len, ]
+  x
+}
+
+added <- len_ok(added_partial, min_len = min_len)
+removed <- len_ok(removed_partial, min_len = min_len)
+
+# ==== 4) Debugging: Check what's happening ====
+# Check if specific 2023 segments are missing
+if (nrow(added) == 0 & nrow(cyc23_n) > 0) {
+  cat("Warning: No segments detected as added. Possible issues:\n")
+  cat("1. Tolerance too large (current:", tol_m, "m)\n")
+  cat("2. CRS mismatch\n")
+  cat("3. Geometry issues\n")
+  
+  # Test: check if buffers are covering everything
+  coverage_test <- st_covered_by(st_geometry(cyc23_n), buf19)
+  cat("2023 segments fully covered by 2019 buffer:", sum(coverage_test), "/", nrow(cyc23_n), "\n")
+}
+
+# ==== 5) Midpoints for quick validation sampling ====
+midpoint_one <- function(x) {
+  # one sample per line: midpoint
+  pts <- st_line_sample(x, sample = 0.5)
+  st_as_sf(data.frame(id = seq_along(pts)), geometry = st_cast(pts, "POINT"), crs = crs_work)
+}
+
+added_pts   <- midpoint_one(added)   |> mutate(class = "ADD")
+removed_pts <- midpoint_one(removed) |> mutate(class = "REMOVE")
+
+# put this before the map chunk (or set eval: true on your boundary chunk)
+if (!exists("city_perimeter")) {
+  city_perimeter <- sf::st_read("data/barcelona_perimeter.gpkg",
+                                layer = "barcelona_perimeter", quiet = TRUE)
+}
+city_perimeter <- sf::st_transform(city_perimeter, 4326)
+
+
+library(RColorBrewer)
+
+# Dark2 (no purple); same thickness for all lines
+pal <- brewer.pal(8, "Dark2")
+col_2019    <- pal[8]         # grey
+col_added   <- pal[2]         # orange
+col_2023    <- pal[5]         # green (optional toggle)
+col_removed <- "#FFFFFF"
+col_halo    <- "#000000"
+
+alpha_2019  <- 0.90
+alpha_added <- 0.95
+alpha_2023  <- 0.75
+alpha_halo  <- 0.18
+
+leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
+  addProviderTiles("CartoDB.Positron", group = "Positron") %>%
+  addProviderTiles("OpenStreetMap",     group = "OSM") %>%
+
+  # <<< add the boundary before other overlays
+  addPolygons(data = city_perimeter, group = "Boundary",
+              weight = 2, color = "#222222", fill = FALSE, fillOpacity = 0) %>%
+
+  # your existing layers...
+  addPolylines(data = st_transform(cyc19_n, 4326), group = "2019",
+               weight = 2, color = col_2019, opacity = alpha_2019) %>%
+  addPolylines(data = st_transform(removed, 4326), group = "Removed",
+               weight = 2.6, color = col_halo, opacity = alpha_halo) %>%
+  addPolylines(data = st_transform(removed, 4326), group = "Removed",
+               weight = 2.0, color = col_removed, opacity = 1.0) %>%
+  addPolylines(data = st_transform(added, 4326), group = "Added",
+               weight = 2, color = col_added, opacity = alpha_added) %>%
+  addPolylines(data = st_transform(cyc23_n, 4326), group = "2023",
+               weight = 2, color = col_2023, opacity = alpha_2023) %>%
+
+  addLayersControl(
+    baseGroups    = c("Positron","OSM"),
+    overlayGroups = c("Boundary","2019","Added","Removed","2023"),
+    options = layersControlOptions(collapsed = TRUE)
+  ) %>%
+  hideGroup("2023") %>%
+  addLegend(
+    position = "bottomright",
+    title = "Layers",
+    colors = c(col_2019, col_added, col_removed),
+    labels = c("2019 (baseline)", "Added (19→23)", "Removed (19→23)"),
+    opacity = 1
+  )
+```
+
+### Sampling frame and design
+
+- Stratified tracts. Pre-selected census tracts by centrality × density (3×3).
+
+- Per-tract quotas (example). ADD=2, REMOVE=1, GENERAL=2 (GENERAL = 2023 non-CI network). Length-weighted sampling within tract; one midpoint per sampled segment.
+
+- Expected N. ~ #tracts × (2+1+2), minus tracts with no candidates in a class.
 
 ```{r}
 #| include: false
@@ -322,258 +534,826 @@ bivar_map <- ggplot() +
  ggsave("figs/stratified_sample_bivariate_map.png", final_plot, width = 8, height = 8, dpi = 300)
 ```
 
-### GSV data
+### Validation source and coding
+
+- Imagery. Google Street View (GSV).
+
+- Tolerance windows. 2019 target: ±1 year; 2023 target: ±2 years (fixed across coders/cities).
+
+- Per-point fields (Excel).
+
+  + Metadata: class (ADD/REMOVE/GENERAL), tract_id, stratum, lon, lat, gsv_link (+ clickable “Open GSV”).
+
+  + Verifiability: verifiable_2019, verifiable_2023 (TRUE/FALSE).
+
+  + Presence: present_2019, present_2023 (TRUE/FALSE/NA).
+
+  + notes (obstruction, roadworks, poor angle, etc.).
+
+- Consistency rules. If verifiable_* = FALSE → set corresponding present_* = NA. If imagery exists but unclear → keep verifiable_* = TRUE, set present_* = NA.
 
 ```{r}
-#| label: setup-io
-#| message: false
-#| warning: false
+#| eval: false
 #| include: false
+# ======================= CLEAN VALIDATION PIPELINE ============================
+library(sf)
+library(dplyr)
 
-library(sf); library(dplyr); library(stringr); library(leaflet)
+# --- 0) Helpers ---------------------------------------------------------------
 
-# ---- params ----
-city_tag <- "barcelona"
-ver19    <- "19"
-ver23    <- "23"
-crs_work <- 25831
-tol_m    <- 10
-min_len  <- 30
-
-# ---- paths ----
-dir_city <- "data"
-gpkg19   <- file.path(dir_city, paste0(city_tag, "_", ver19, "_lines.gpkg"))
-gpkg23   <- file.path(dir_city, paste0(city_tag, "_", ver23, "_lines.gpkg"))
-lyr19    <- paste0(city_tag, "_", ver19, "_lines")
-lyr23    <- paste0(city_tag, "_", ver23, "_lines")
-
-stopifnot(file.exists(gpkg19), file.exists(gpkg23))
-
-# ---- read ----
-l19 <- st_read(gpkg19, layer = lyr19, quiet = TRUE)
-l23 <- st_read(gpkg23, layer = lyr23, quiet = TRUE)
-```
-
-```{r}
-#| label: cycle-change-helpers
-#| message: false
-#| warning: false
-#| include: false
-
-library(sf); library(dplyr); library(stringr)
-
-# 1) STRICT cycleway picker — only clear, dedicated cycling infrastructure
-pick_cycle_strict <- function(x) {
-  stopifnot(inherits(x, "sf"))
-  if (nrow(x) == 0) return(x)
-  
-  n  <- nrow(x); nm <- names(x)
+# Base roads WITHOUT cycle infra (strict complement of your cycle selector)
+pick_noncycle_strict <- function(x){
+  stopifnot(inherits(x,"sf"))
+  nm <- names(x); n <- nrow(x)
   get_chr <- function(col) if (col %in% nm) as.character(x[[col]]) else rep(NA_character_, n)
-  get_lwr <- function(col) tolower(get_chr(col))
-  
-  highway      <- get_lwr("highway")
-  bicycle      <- get_lwr("bicycle")
-  bicycle_road <- get_lwr("bicycle_road")
-  
-  # 1) DEDICATED CYCLEWAYS (highest priority)
-  is_cycleway <- highway == "cycleway"
-  
-  # 2) CYCLE LANES/TRACKS on roads (must be physical infrastructure)
-  lane_cols <- c("cycleway", "cycleway:both", "cycleway:left", "cycleway:right")
-  lane_vals <- c("lane", "track", "opposite_lane", "opposite_track", "separate")
-  
-  has_physical_lane <- rep(FALSE, n)
-  for (col in lane_cols) {
-    if (col %in% nm) {
-      vals <- get_lwr(col)
-      has_physical_lane <- has_physical_lane | (vals %in% lane_vals)
-    }
-  }
-  
-  # 3) DESIGNATED cycling paths (must be explicitly designated for bicycles)
-  is_designated_path <- (highway %in% c("path", "footway", "track")) & 
-                        (bicycle %in% c("designated", "yes"))
-  
-  # 4) BICYCLE ROADS
-  is_bicycle_road <- bicycle_road == "yes"
-  
-  # 5) EXCLUDE these common false positives:
-  # - Shared lanes (sharrows)
-  has_sharrow <- rep(FALSE, n)
-  for (col in lane_cols) {
-    if (col %in% nm) {
-      vals <- get_lwr(col)
-      has_sharrow <- has_sharrow | (vals %in% c("shared_lane", "sharrow"))
-    }
-  }
-  
-  # - Permmissive access only (bicycle=yes but no physical infra)
-  is_permissive_only <- (bicycle == "yes") & 
-                        !is_cycleway & 
-                        !has_physical_lane & 
-                        !is_designated_path
-  
-  # - Footways/paths where bicycles are merely tolerated
-  is_tolerated_path <- (highway %in% c("footway", "path")) & 
-                       !(bicycle %in% c("designated", "yes"))
-  
-  # COMBINE: Keep only clear cycling infrastructure, exclude ambiguous cases
-  keep <- (is_cycleway | has_physical_lane | is_designated_path | is_bicycle_road) &
-          !has_sharrow & 
-          !is_permissive_only & 
-          !is_tolerated_path
-  
-  # Additional safety: exclude major roads without explicit cycling infrastructure
-  is_major_road <- highway %in% c("motorway", "motorway_link", "trunk", "trunk_link",
-                                 "primary", "primary_link", "secondary", "secondary_link")
-  keep <- keep & !(is_major_road & !has_physical_lane)
-  
-  result <- x[which(keep), , drop = FALSE]
-  
-  # Debug output (optional)
-  cat("Strict filtering: kept", nrow(result), "of", n, "segments\n")
-  
-  return(result)
+  highway      <- get_chr("highway")
+  bicycle      <- get_chr("bicycle")
+  bicycle_road <- get_chr("bicycle_road")
+  cycols <- nm[grepl("^cycleway($|:)", nm)]
+  has_cycle_tag <- if (length(cycols) > 0) {
+    Reduce(`|`, lapply(cycols, function(cn){
+      v <- get_chr(cn); !is.na(v) & v != "" & v != "no"
+    }))
+  } else rep(FALSE, n)
+  base_roads <- highway %in% c("trunk","primary","secondary","tertiary",
+                               "unclassified","residential","service",
+                               "primary_link","secondary_link","tertiary_link")
+  keep_cycle <- highway == "cycleway" |
+    (highway %in% c("path","track") & bicycle %in% c("designated","yes","permissive")) |
+    has_cycle_tag | bicycle_road == "yes" |
+    (highway %in% c("living_street","pedestrian") & bicycle == "designated")
+  x[base_roads & !keep_cycle, , drop = FALSE]
 }
 
-# [Rest of your functions remain the same...]
+# Midpoint per line (robust to LINESTRING/MULTILINESTRING/collections)
+midpoint_one <- function(x){
+  if (!inherits(x,"sf") || nrow(x) == 0)
+    return(sf::st_sf(id = integer(0), geometry = sf::st_sfc(crs = sf::st_crs(x))))
+  g <- sf::st_geometry(x) |>
+       sf::st_make_valid() |>
+       sf::st_cast("MULTILINESTRING", warn = FALSE) |>
+       sf::st_cast("LINESTRING",      warn = FALSE)
+  if (length(g) == 0)
+    return(sf::st_sf(id = integer(0), geometry = sf::st_sfc(crs = sf::st_crs(x))))
+  pts <- sf::st_line_sample(g, sample = 0.5)
+  sf::st_as_sf(
+    data.frame(id = seq_along(pts)),
+    geometry = sf::st_cast(pts, "POINT"),
+    crs = sf::st_crs(x)
+  )
+}
+
+# Length-weighted row indices (safe on zero/NA lengths)
+w_sample_idx <- function(x, n){
+  if (!inherits(x,"sf") || nrow(x) == 0 || n <= 0) return(integer(0))
+  L <- as.numeric(sf::st_length(x)); S <- sum(L, na.rm = TRUE)
+  if (!is.finite(S) || S == 0) {
+    sample(seq_len(nrow(x)), size = min(n, nrow(x)), replace = FALSE)
+  } else {
+    sample(seq_len(nrow(x)), size = min(n, nrow(x)), replace = FALSE, prob = L/S)
+  }
+}
+
+# Points → lon/lat + GSV link (0-row safe; preserves existing columns)
+to_lonlat_tbl <- function(pts_sf){
+  stopifnot(inherits(pts_sf, "sf"))
+  n <- nrow(pts_sf)
+  if (n == 0){
+    base <- sf::st_drop_geometry(pts_sf)[0, , drop = FALSE]
+    base$lon <- numeric(0); base$lat <- numeric(0); base$gsv_link <- character(0)
+    return(base)
+  }
+  wgs    <- sf::st_transform(pts_sf, 4326)
+  coords <- sf::st_coordinates(wgs)
+  out    <- sf::st_drop_geometry(wgs)
+  out$lon <- coords[,1]; out$lat <- coords[,2]
+  out$gsv_link <- paste0("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=",
+                         out$lat, ",", out$lon)
+  out
+}
+
+# Add validation placeholders (NA logical flags + notes) — 0-row safe
+add_validation_cols <- function(df){
+  n <- nrow(df)
+  df$present_2019    <- rep(NA, n)
+  df$present_2023    <- rep(NA, n)
+  df$verifiable_2019 <- rep(NA, n)
+  df$verifiable_2023 <- rep(NA, n)
+  df$notes           <- rep(NA_character_, n)
+  df
+}
+
+# Coerce critical columns so bind_rows never complains
+coerce_for_bind <- function(df){
+  if (!"class" %in% names(df))    df$class <- character(nrow(df))
+  if (!"interval" %in% names(df)) df$interval <- character(nrow(df))
+  df$class            <- as.character(df$class)
+  df$interval         <- as.character(df$interval)
+  if ("gsv_link" %in% names(df)) df$gsv_link <- as.character(df$gsv_link)
+  if ("lon" %in% names(df))      df$lon      <- as.numeric(df$lon)
+  if ("lat" %in% names(df))      df$lat      <- as.numeric(df$lat)
+  if ("present_2019" %in% names(df))    df$present_2019    <- as.logical(df$present_2019)
+  if ("present_2023" %in% names(df))    df$present_2023    <- as.logical(df$present_2023)
+  if ("verifiable_2019" %in% names(df)) df$verifiable_2019 <- as.logical(df$verifiable_2019)
+  if ("verifiable_2023" %in% names(df)) df$verifiable_2023 <- as.logical(df$verifiable_2023)
+  if ("notes" %in% names(df))           df$notes           <- as.character(df$notes)
+  df
+}
+
+# --- 1) Sample sizes ----------------------------------------------------------
+set.seed(42)
+N_ADD <- min(120, nrow(added))
+N_REM <- min(60,  nrow(removed))
+N_GEN <- 120
+
+# --- 2) ADDED / REMOVED → midpoints ------------------------------------------
+add_idx <- w_sample_idx(added,   N_ADD)
+rem_idx <- w_sample_idx(removed, N_REM)
+
+added_pts   <- midpoint_one(added[add_idx, ])   |> dplyr::mutate(class = "ADD")
+removed_pts <- midpoint_one(removed[rem_idx, ]) |> dplyr::mutate(class = "REMOVE")
+
+# --- 3) GENERAL (2023 non-cycle) → midpoints ---------------------------------
+noncycle23 <- l23 |>
+  sf::st_transform(crs_work) |>
+  pick_noncycle_strict() |>
+  sf::st_make_valid() |>
+  sf::st_cast("MULTILINESTRING", warn = FALSE) |>
+  sf::st_cast("LINESTRING",      warn = FALSE)
+
+# Drop empties without dplyr pronouns
+noncycle23 <- noncycle23[!sf::st_is_empty(sf::st_geometry(noncycle23)), , drop = FALSE]
+
+gen_idx <- w_sample_idx(noncycle23, N_GEN)
+gen_pts <- midpoint_one(noncycle23[gen_idx, ]) |> dplyr::mutate(class = "GENERAL")
+
+# --- 4) Tables with placeholders, bind ----------------------------------------
+added_tbl   <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
+removed_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
+general_tbl <- to_lonlat_tbl(gen_pts)     |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
+
+samples_tbl <- dplyr::bind_rows(added_tbl, removed_tbl, general_tbl)
+
+# --- (optional) sanity print --------------------------------------------------
+cat("rows → ADD:", nrow(added_tbl), " REMOVE:", nrow(removed_tbl), " GENERAL:", nrow(general_tbl), "\n")
+# readr::write_csv(samples_tbl, "samples_2019_2023.csv")
+# ===================== END CLEAN VALIDATION PIPELINE ==========================
+
+
+# 5) Write Excel (3 sheets)
+# install.packages("writexl")  # run once if needed
+suppressPackageStartupMessages(requireNamespace("writexl", quietly = TRUE))
+
+# ---- Step 5: Excel export with clickable GSV links --------------------------
+# install.packages("openxlsx")  # run once if you don't have it
+library(openxlsx)
+library(dplyr)
+
+outfile <- "samples_2019_2023.xlsx"  # change path/name if you like
+
+# Make a copy with a "GSV" column where we'll write HYPERLINK() formulas
+df_xlsx <- samples_tbl %>%
+  mutate(GSV = NA_character_) %>%
+  relocate(GSV, .after = gsv_link)  # optional positioning
+
+wb <- createWorkbook()
+addWorksheet(wb, "validation_samples")
+writeData(wb, "validation_samples", df_xlsx)
+
+# Fill the GSV column with clickable hyperlinks (one per row)
+n <- nrow(samples_tbl)
+if (n > 0) {
+  link_col <- which(names(df_xlsx) == "GSV")
+  formulas <- paste0('HYPERLINK("', samples_tbl$gsv_link, '","Open GSV")')
+  writeFormula(wb, sheet = "validation_samples",
+               x = formulas, startCol = link_col, startRow = 2)
+}
+
+# Nice-to-haves
+addFilter(wb, "validation_samples", row = 1, cols = 1:ncol(df_xlsx))
+setColWidths(wb, "validation_samples", cols = 1:ncol(df_xlsx), widths = "auto")
+freezePane(wb, "validation_samples", firstActiveRow = 2, firstActiveCol = 1)
+
+saveWorkbook(wb, outfile, overwrite = TRUE)
+message("Wrote: ", normalizePath(outfile))
+
+
+# (Optional) Also write a GPKG with the sampled points for GIS inspection
+out_gpkg <- file.path("data","validation_2019_2023_points.gpkg")
+if (nrow(added_pts))   sf::st_write(added_pts,   out_gpkg, "Added_pts",   delete_layer = TRUE, quiet = TRUE)
+if (nrow(removed_pts)) sf::st_write(removed_pts, out_gpkg, "Removed_pts", delete_layer = TRUE, quiet = TRUE)
+if (nrow(gen_pts))     sf::st_write(gen_pts,     out_gpkg, "General_pts", delete_layer = TRUE, quiet = TRUE)
+cat("Wrote:", out_gpkg, "\n")
 ```
 
 ```{r}
+#| label: helpers-validation
 #| echo: false
 #| message: false
 #| warning: false
-#| paged-print: false
-# --- Minimal change mapping: 2019 vs 2023 (cycling) --------------------------
-library(dplyr)
-library(stringr)
-library(sf)
+#| eval: true
+#| include: false
 
-# --- Revised params ---
-crs_work <- 25831      # Barcelona UTM; must be a metric CRS
-tol_m    <- 10          # REDUCED from 10m to 2m for cycling infrastructure
-min_len  <- 30         # drop slivers shorter than this (meters)
+library(sf); library(dplyr)
 
-# Now use the functions
-cyc19 <- l19 |> pick_cycle_strict() |> st_make_valid()
-cyc23 <- l23 |> pick_cycle_strict() |> st_make_valid()
-
-# Ensure both are in the same CRS
-cyc19 <- st_transform(cyc19, crs_work)
-cyc23 <- st_transform(cyc23, crs_work)
-
-# ==== REVISED 3) Added/Removed with improved geometry handling ====
-
-# 3.1 Improved geometry normalization with better error handling
-normalize_geoms <- function(x) {
-  x <- st_make_valid(x)
-  x <- st_cast(x, "MULTILINESTRING", warn = FALSE)
-  x <- st_line_merge(x)
-  # Extract individual linestrings more carefully
-  geoms <- st_geometry(x)
-  individual_lines <- st_cast(geoms, "LINESTRING", warn = FALSE)
-  st_set_geometry(x, individual_lines) |> st_make_valid()
-}
-
-cyc19_n <- normalize_geoms(cyc19)
-cyc23_n <- normalize_geoms(cyc23)
-
-# 3.2 Build buffers with smaller tolerance
-buf19 <- st_buffer(st_geometry(cyc19_n), tol_m) |> st_union()
-buf23 <- st_buffer(st_geometry(cyc23_n), tol_m) |> st_union()
-
-# 3.3 Calculate differences with improved handling
-added_raw <- st_difference(st_geometry(cyc23_n), buf19)
-removed_raw <- st_difference(st_geometry(cyc19_n), buf23)
-
-# 3.4 Process results with better geometry extraction
-process_difference <- function(diff_geom, crs) {
-  if (length(diff_geom) == 0) {
-    return(st_sf(geometry = st_sfc(), crs = crs))
+# 1) One-point-per-row midpoint (no row explosion)
+if (!exists("midpoint_one")) {
+  midpoint_one <- function(x){
+    if (!inherits(x,"sf") || !nrow(x))
+      return(sf::st_sf(id=integer(0), geometry=sf::st_sfc(crs=sf::st_crs(x))))
+    g <- sf::st_geometry(x) |> sf::st_make_valid() |> suppressWarnings(sf::st_line_merge())
+    sf::st_as_sf(data.frame(id=seq_len(nrow(x))),
+                 geometry = sf::st_point_on_surface(g),
+                 crs = sf::st_crs(x))
   }
-  
-  # Handle geometry collections properly
-  diff_geom <- st_collection_extract(diff_geom, "LINESTRING")
-  diff_geom <- st_cast(diff_geom, "LINESTRING", warn = FALSE)
-  
-  # Remove zero-length geometries
-  lengths <- st_length(diff_geom)
-  diff_geom <- diff_geom[as.numeric(lengths) > 0.1]  # > 10cm
-  
-  st_sf(geometry = diff_geom, crs = crs)
 }
 
-added_partial <- process_difference(added_raw, crs_work)
-removed_partial <- process_difference(removed_raw, crs_work)
-
-# 3.5 Length filtering function (single definition)
-len_ok <- function(x, min_len = 10){
-  if (!inherits(x, "sf") || nrow(x) == 0) return(x)
-  len_m <- as.numeric(st_length(x))
-  x <- x[len_m >= min_len, ]
-  x
+# 2) Points -> lon/lat + GSV
+if (!exists("to_lonlat_tbl")) {
+  to_lonlat_tbl <- function(pts_sf){
+    stopifnot(inherits(pts_sf,"sf"))
+    n <- nrow(pts_sf)
+    if (!n) {
+      base <- sf::st_drop_geometry(pts_sf)[0,,drop=FALSE]
+      base$lon <- numeric(0); base$lat <- numeric(0); base$gsv_link <- character(0)
+      return(base)
+    }
+    wgs <- sf::st_transform(pts_sf, 4326); xy <- sf::st_coordinates(wgs)
+    out <- sf::st_drop_geometry(wgs)
+    out$lon <- xy[,1]; out$lat <- xy[,2]
+    out$gsv_link <- paste0("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=", out$lat, ",", out$lon)
+    out
+  }
 }
 
-added <- len_ok(added_partial, min_len = min_len)
-removed <- len_ok(removed_partial, min_len = min_len)
-
-# ==== 4) Debugging: Check what's happening ====
-cat("2019 segments:", nrow(cyc19_n), "\n")
-cat("2023 segments:", nrow(cyc23_n), "\n")
-cat("Added segments:", nrow(added), "\n")
-cat("Removed segments:", nrow(removed), "\n")
-
-# Check if specific 2023 segments are missing
-if (nrow(added) == 0 & nrow(cyc23_n) > 0) {
-  cat("Warning: No segments detected as added. Possible issues:\n")
-  cat("1. Tolerance too large (current:", tol_m, "m)\n")
-  cat("2. CRS mismatch\n")
-  cat("3. Geometry issues\n")
-  
-  # Test: check if buffers are covering everything
-  coverage_test <- st_covered_by(st_geometry(cyc23_n), buf19)
-  cat("2023 segments fully covered by 2019 buffer:", sum(coverage_test), "/", nrow(cyc23_n), "\n")
+# 3) Validation columns
+if (!exists("add_validation_cols")) {
+  add_validation_cols <- function(df){
+    n <- nrow(df)
+    df$present_2019    <- rep(NA, n)
+    df$present_2023    <- rep(NA, n)
+    df$verifiable_2019 <- rep(NA, n)
+    df$verifiable_2023 <- rep(NA, n)
+    df$notes           <- rep(NA_character_, n)
+    df
+  }
 }
 
-# ==== 5) Midpoints for quick validation sampling ====
-midpoint_one <- function(x) {
-  # one sample per line: midpoint
-  pts <- st_line_sample(x, sample = 0.5)
-  st_as_sf(data.frame(id = seq_along(pts)), geometry = st_cast(pts, "POINT"), crs = crs_work)
+# 4) Coerce for bind_rows
+if (!exists("coerce_for_bind")) {
+  coerce_for_bind <- function(df){
+    if (!"class" %in% names(df))    df$class <- character(nrow(df))
+    if (!"interval" %in% names(df)) df$interval <- character(nrow(df))
+    df$class    <- as.character(df$class)
+    df$interval <- as.character(df$interval)
+    if ("gsv_link" %in% names(df)) df$gsv_link <- as.character(df$gsv_link)
+    if ("lon" %in% names(df))      df$lon      <- as.numeric(df$lon)
+    if ("lat" %in% names(df))      df$lat      <- as.numeric(df$lat)
+    if ("present_2019" %in% names(df))    df$present_2019    <- as.logical(df$present_2019)
+    if ("present_2023" %in% names(df))    df$present_2023    <- as.logical(df$present_2023)
+    if ("verifiable_2019" %in% names(df)) df$verifiable_2019 <- as.logical(df$verifiable_2019)
+    if ("verifiable_2023" %in% names(df)) df$verifiable_2023 <- as.logical(df$verifiable_2023)
+    if ("notes" %in% names(df))           df$notes           <- as.character(df$notes)
+    df
+  }
 }
 
-added_pts   <- midpoint_one(added)   |> mutate(class = "ADD")
-removed_pts <- midpoint_one(removed) |> mutate(class = "REMOVE")
+# 5) Non-cycle strict (only real infra counts as cycle)
+if (!exists("pick_noncycle_strict")) {
+  pick_noncycle_strict <- function(x){
+    stopifnot(inherits(x,"sf")); if (!nrow(x)) return(x)
+    nm <- names(x); n <- nrow(x)
+    gchr <- function(col) if (col %in% nm) tolower(as.character(x[[col]])) else rep(NA_character_, n)
+    highway      <- gchr("highway")
+    bicycle      <- gchr("bicycle")
+    bicycle_road <- gchr("bicycle_road")
+    lane_cols <- c("cycleway","cycleway:both","cycleway:left","cycleway:right")
+    lane_vals <- c("lane","track","opposite_lane","opposite_track","separate")
+    has_lane <- rep(FALSE, n)
+    for (col in lane_cols) if (col %in% nm) { v <- gchr(col); has_lane <- has_lane | (v %in% lane_vals) }
+    is_cycleway <- highway == "cycleway"
+    is_path     <- (highway %in% c("path","footway","track")) & (bicycle %in% c("designated","yes"))
+    is_bike_rd  <- bicycle_road == "yes"
+    keep_cycle  <- is_cycleway | has_lane | is_path | is_bike_rd
+    base_ok <- highway %in% c("trunk","primary","secondary","tertiary",
+                              "unclassified","residential","service",
+                              "primary_link","secondary_link","tertiary_link",
+                              "living_street","pedestrian")
+    x[base_ok & !keep_cycle, , drop = FALSE]
+  }
+}
+```
 
-# ==== 6) Quick map ====
-leaflet() |>
-  addProviderTiles("CartoDB.Positron") |>
-  addPolylines(data = st_transform(cyc19_n, 4326), group = "2019",
-               weight = 3, color = "#377EB8") |>
-  addPolylines(data = st_transform(cyc23_n, 4326), group = "2023",
-               weight = 3, color = "#4DAF4A") |>
-  addPolylines(data = st_transform(removed, 4326), group = "Removed",
-               weight = 3, color = "white") |>
-  addPolylines(data = st_transform(added, 4326), group = "Added",
-               weight = 3, color = "purple") |>
-  addLayersControl(
-    overlayGroups = c("2019","2023","Removed","Added"),
-    options = layersControlOptions(collapsed = FALSE)
-  ) |>
-  addLegend(
-    position = "bottomright",
-    title = "Layers",
-    colors = c("#377EB8", "#4DAF4A", "white", "purple"),
-    labels = c("2019", "2023", "Removed", "Added"),
-    opacity = 1
-  )
 
-  
+```{r}
+#| label: validation-stratified
+#| echo: false
+#| message: false
+#| warning: false
+#| eval: true
+#| include: false
+
+# safety: define if missing
+if (!exists("pick_noncycle_strict")) {
+  pick_noncycle_strict <- function(x){
+    stopifnot(inherits(x,"sf"))
+    if (!nrow(x)) return(x)
+    nm <- names(x); n <- nrow(x)
+    gchr <- function(col) if (col %in% nm) tolower(as.character(x[[col]])) else rep(NA_character_, n)
+    highway      <- gchr("highway")
+    bicycle      <- gchr("bicycle")
+    bicycle_road <- gchr("bicycle_road")
+    lane_cols <- c("cycleway","cycleway:both","cycleway:left","cycleway:right")
+    lane_vals <- c("lane","track","opposite_lane","opposite_track","separate")
+    has_physical_lane <- rep(FALSE, n)
+    for (col in lane_cols) if (col %in% nm) {
+      v <- gchr(col); has_physical_lane <- has_physical_lane | (v %in% lane_vals)
+    }
+    is_cycleway        <- highway == "cycleway"
+    is_designated_path <- (highway %in% c("path","footway","track")) & (bicycle %in% c("designated","yes"))
+    is_bicycle_road    <- bicycle_road == "yes"
+    keep_cycle <- is_cycleway | has_physical_lane | is_designated_path | is_bicycle_road
+    base_roads <- highway %in% c("trunk","primary","secondary","tertiary",
+                                 "unclassified","residential","service",
+                                 "primary_link","secondary_link","tertiary_link",
+                                 "living_street","pedestrian")
+    x[base_roads & !keep_cycle, , drop = FALSE]
+  }
+}
+
+
+# Requires: added, removed, l23, crs_work, sampled_tracts (sf POLYGONS)
+stopifnot(exists("added"), exists("removed"), exists("l23"), exists("crs_work"))
+stopifnot(exists("sampled_tracts"))
+
+# --- Ensure sampled_tracts has a 'tract_id' ----------------------------------
+normalize_tract_id <- function(s){
+  nm  <- names(s); nml <- tolower(nm)
+  candidates <- c("tract_id","tractid","geoid","geoid10","geoid20","id","code","name","objectid","fid")
+  hit <- which(nml %in% candidates)
+  if (length(hit) > 0) {
+    s$tract_id <- as.character(s[[ nm[hit[1]] ]])
+  } else {
+    s$tract_id <- sprintf("tract_%04d", seq_len(nrow(s)))
+  }
+  s
+}
+sampled_tracts <- normalize_tract_id(sampled_tracts)
+stopifnot("tract_id" %in% names(sampled_tracts))
+
+# --- Quotas per tract (tune as needed) ---------------------------------------
+PERTRACT_ADD <- 2
+PERTRACT_REM <- 1
+PERTRACT_GEN <- 2
+FORCE_QUOTA  <- FALSE   # TRUE = allow replacement to hit quota
+
+# --- Ensure tracts are in work CRS and have 'stratum' ------------------------
+tracts <- sf::st_transform(sampled_tracts, crs_work)
+if (!"stratum" %in% names(tracts)) {
+  if (all(c("density_f","centrality_f") %in% names(tracts))) {
+    tracts$stratum <- interaction(tracts$density_f, tracts$centrality_f, sep = "×", drop = TRUE)
+  } else {
+    tracts$stratum <- factor("all")
+  }
+}
+tracts$stratum <- droplevels(as.factor(tracts$stratum))
+
+# --- Helper: sample lines within each tract (length-weighted) ----------------
+# --- Helper: sample lines within each tract (robust probs) --------------------
+sample_lines_by_tract <- function(lines_sf, tracts_sf, n_per, replace = FALSE, min_len = 0){
+  if (!inherits(lines_sf,"sf") || nrow(lines_sf) == 0) {
+    out <- lines_sf[0, , drop = FALSE]
+    out$tract_id <- character(0); out$stratum <- factor()[0]
+    return(out)
+  }
+  L <- sf::st_transform(lines_sf, sf::st_crs(tracts_sf))
+  if (min_len > 0) {
+    L <- L[as.numeric(sf::st_length(L)) >= min_len, , drop = FALSE]
+  }
+  if (!nrow(L)) {
+    out <- L; out$tract_id <- character(0); out$stratum <- factor()[0]; return(out)
+  }
+
+  hits  <- sf::st_intersects(tracts_sf, L)  # per-tract list of row indices
+  picks <- vector("list", length = nrow(tracts_sf))
+
+  for (i in seq_len(nrow(tracts_sf))) {
+    idx <- hits[[i]]
+    if (!length(idx)) next
+
+    # how many to draw for this tract
+    draw_with_replacement <- isTRUE(replace) && length(idx) < n_per
+    k <- if (draw_with_replacement) n_per else min(n_per, length(idx))
+
+    # local indices (1..length(idx)) and length weights
+    local <- seq_along(idx)
+    lens  <- as.numeric(sf::st_length(L[idx, , drop = FALSE]))
+    lens[!is.finite(lens)] <- 0
+    sprob <- sum(lens, na.rm = TRUE)
+
+    # only pass prob if valid and matching local length
+    prob <- if (sprob > 0 && length(lens) == length(local)) lens / sprob else NULL
+
+    pick_local <- sample(local, size = k, replace = draw_with_replacement, prob = prob)
+    pick_idx   <- idx[pick_local]
+
+    piece <- L[pick_idx, , drop = FALSE]
+    piece$tract_id <- tracts_sf$tract_id[i]
+    piece$stratum  <- tracts_sf$stratum[i]
+    picks[[i]] <- piece
+  }
+  dplyr::bind_rows(picks)
+}
+
+# --- GENERAL (2023 non-cycle) for FN test ------------------------------------
+# --- GENERAL pool (2023 non-cycle): tag-based, then spatial fallback if empty ---
+noncycle23 <- l23 |>
+  sf::st_transform(crs_work) |>
+  pick_noncycle_strict() |>
+  sf::st_make_valid() |>
+  sf::st_cast("MULTILINESTRING", warn = FALSE) |>
+  sf::st_cast("LINESTRING",      warn = FALSE)
+if (nrow(noncycle23)) {
+  noncycle23 <- noncycle23[!sf::st_is_empty(sf::st_geometry(noncycle23)), , drop = FALSE]
+}
+
+# Fallback if tag-based pool is empty
+if (!nrow(noncycle23)) {
+  base_roads <- c("trunk","primary","secondary","tertiary",
+                  "unclassified","residential","service",
+                  "primary_link","secondary_link","tertiary_link",
+                  "living_street","pedestrian")
+
+  # 1) Base roads (lines only)
+  base23 <- l23 |>
+    sf::st_transform(crs_work) |>
+    dplyr::filter(.data$highway %in% base_roads)
+  keep_lines <- sf::st_geometry_type(base23) %in% c("LINESTRING","MULTILINESTRING")
+  base23 <- base23[keep_lines, , drop = FALSE] |>
+            sf::st_make_valid() |>
+            suppressWarnings(sf::st_cast("LINESTRING"))
+
+  # 2) Buffer 2023 cycle network
+  cyc_geom <- NULL
+  if (exists("cyc23_n") && inherits(cyc23_n,"sf") && nrow(cyc23_n)) {
+    cyc_geom <- sf::st_buffer(sf::st_geometry(cyc23_n), tol_m) |> sf::st_union()
+  } else if (exists("cyc23") && inherits(cyc23,"sf") && nrow(cyc23)) {
+    cyc_geom <- sf::st_buffer(sf::st_geometry(sf::st_transform(cyc23, crs_work)), tol_m) |> sf::st_union()
+  }
+
+  # 3) Difference and keep only lines
+  if (!is.null(cyc_geom) && length(cyc_geom) > 0) {
+    diff_geom <- sf::st_difference(sf::st_geometry(base23), cyc_geom)
+    diff_geom <- sf::st_collection_extract(diff_geom, "LINESTRING", warn = FALSE)
+    noncycle23 <- sf::st_sf(geometry = diff_geom, crs = crs_work)
+    if (nrow(noncycle23)) {
+      noncycle23 <- noncycle23[!sf::st_is_empty(sf::st_geometry(noncycle23)), , drop = FALSE]
+    }
+  } else {
+    noncycle23 <- base23
+  }
+}
+# --- STRATIFIED PICKS (per-tract quotas) ---
+added_by_tr   <- sample_lines_by_tract(added,      tracts, PERTRACT_ADD, replace = FORCE_QUOTA)
+removed_by_tr <- sample_lines_by_tract(removed,    tracts, PERTRACT_REM, replace = FORCE_QUOTA)
+# Keep GENERAL only for tracts where we already sampled ADD or REMOVE
+# After you build added_by_tr / removed_by_tr:
+sampled_ids <- unique(added_by_tr$tract_id)  # <-- ADD-only
+
+tracts_for_general <- dplyr::filter(tracts, tract_id %in% sampled_ids)
+if (nrow(tracts_for_general) == 0) tracts_for_general <- tracts  # fallback
+
+general_by_tr <- sample_lines_by_tract(
+  noncycle23, tracts_for_general, PERTRACT_GEN, replace = FORCE_QUOTA
+)
+
+# --- Midpoints (1 point per sampled row) + metadata ---
+# If you already defined midpoint_one elsewhere, keep that; otherwise use this:
+midpoint_one <- function(x){
+  if (!inherits(x,"sf") || !nrow(x)) return(sf::st_sf(id=integer(0), geometry=sf::st_sfc(crs=sf::st_crs(x))))
+  g <- sf::st_geometry(x) |> sf::st_make_valid() |> suppressWarnings(sf::st_line_merge())
+  sf::st_as_sf(data.frame(id=seq_len(nrow(x))),
+               geometry = sf::st_point_on_surface(g),
+               crs = sf::st_crs(x))
+}
+
+added_pts <- midpoint_one(added_by_tr)   |> dplyr::mutate(class="ADD",    tract_id=added_by_tr$tract_id,   stratum=added_by_tr$stratum)
+removed_pts <- midpoint_one(removed_by_tr)|> dplyr::mutate(class="REMOVE", tract_id=removed_by_tr$tract_id, stratum=removed_by_tr$stratum)
+gen_pts   <- midpoint_one(general_by_tr) |> dplyr::mutate(class="GENERAL", tract_id=general_by_tr$tract_id, stratum=general_by_tr$stratum)
+
+# --- Tables with lon/lat + placeholders, then bind ---------------------------
+add_tbl <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
+rem_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
+gen_tbl <- to_lonlat_tbl(gen_pts)     |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
+
+samples_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, gen_tbl)
 ```
 
 ```{r}
-# Excel to check the points
+#| label: tables-export
+#| echo: false
+#| message: false
+#| warning: false
+#| eval: true
+
+stopifnot(exists("add_tbl"), exists("rem_tbl"), exists("gen_tbl"))
+
+# Where to save
+outdir  <- "outputs"
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+outfile <- file.path(outdir, paste0(city_tag, "_samples_2019_2023.xlsx"))
+
+library(openxlsx)
+library(dplyr)
+
+wb <- createWorkbook()
+
+write_one <- function(df, sheet){
+  df2 <- df %>%
+    mutate(GSV = NA_character_) %>%
+    relocate(GSV, .after = gsv_link)
+  addWorksheet(wb, sheet)
+  writeData(wb, sheet, df2)
+  if (nrow(df2) > 0) {
+    link_col <- which(names(df2) == "GSV")
+    writeFormula(
+      wb, sheet,
+      x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
+      startCol = link_col, startRow = 2
+    )
+  }
+  addFilter(wb, sheet, row = 1, cols = 1:ncol(df2))
+  setColWidths(wb, sheet, cols = 1:ncol(df2), widths = "auto")
+  freezePane(wb, sheet, firstActiveRow = 2, firstActiveCol = 1)
+}
+
+write_one(add_tbl, "ADD")
+write_one(rem_tbl, "REMOVE")
+write_one(gen_tbl, "GENERAL")
+
+saveWorkbook(wb, outfile, overwrite = TRUE)
+message("Excel written: ", normalizePath(outfile))
 ```
 
+```{r}
+#| label: validation-map-points
+#| echo: false
+#| message: false
+#| warning: false
+
+library(leaflet)
+library(sf)
+library(dplyr)
+
+# ---- helper: prep points (WGS84 + lon/lat + popup) --------------------------
+prep_pts <- function(x){
+  if (!inherits(x,"sf") || !nrow(x)) return(NULL)
+  w  <- st_transform(x, 4326)
+  xy <- st_coordinates(w)
+  good <- is.finite(xy[,1]) & is.finite(xy[,2])
+  if (!any(good)) return(NULL)
+  w   <- w[good, , drop = FALSE]
+  xy  <- xy[good, , drop = FALSE]
+  w$lon <- xy[,1]; w$lat <- xy[,2]
+  w$gsv <- sprintf("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%f,%f", xy[,2], xy[,1])
+  w$popup <- paste0(
+    "<b>", w$class, "</b>",
+    "<br/>tract: ", w$tract_id,
+    if ("stratum" %in% names(w)) paste0("<br/>stratum: ", w$stratum) else "",
+    "<br/><a href='", w$gsv, "' target='_blank'>Open GSV</a>"
+  )
+  w
+}
+
+add_wgs <- prep_pts(added_pts)
+rem_wgs <- prep_pts(removed_pts)
+gen_wgs <- prep_pts(gen_pts)
+
+# ---- bounds (prefer city_perimeter -> points -> tracts -> fallback) ----------
+if (exists("city_perimeter")) {
+  bb <- st_bbox(st_transform(city_perimeter, 4326))
+  bounds <- unname(c(bb$xmin, bb$ymin, bb$xmax, bb$ymax))
+} else {
+  bbs <- list()
+  if (!is.null(add_wgs) && nrow(add_wgs)) bbs <- c(bbs, list(st_bbox(add_wgs)))
+  if (!is.null(rem_wgs) && nrow(rem_wgs)) bbs <- c(bbs, list(st_bbox(rem_wgs)))
+  if (!is.null(gen_wgs) && nrow(gen_wgs)) bbs <- c(bbs, list(st_bbox(gen_wgs)))
+  if (!length(bbs) && exists("tracts") && nrow(tracts)) bbs <- list(st_bbox(st_transform(tracts, 4326)))
+  bounds <- if (length(bbs)) {
+    M <- do.call(rbind, lapply(bbs, function(b) unname(c(b$xmin,b$ymin,b$xmax,b$ymax))))
+    c(min(M[,1]), min(M[,2]), max(M[,3]), max(M[,4]))
+  } else c(2.05, 41.30, 2.25, 41.45)  # BCN-ish fallback
+}
+
+# ---- colours -----------------------------------------------------------------
+# points (Dark2-ish, no purple)
+col_add_pt <- "#E6AB02"  # gold
+col_rem_pt <- "#D95F02"  # orange-red
+col_gen_pt <- "#1B9E77"  # teal
+stroke     <- "#000000"
+
+# tracts
+tract_stroke <- "#66666666"
+tract_fill   <- "#888888"
+
+# networks (optional)
+col_2019_net   <- "#666666"
+col_added_net  <- "#D95F02"
+col_removedNet <- "#FFFFFF"
+col_removedHalo<- "#000000"
+col_2023_net   <- "#1B9E77"
+
+# ---- map ---------------------------------------------------------------------
+m <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
+  addProviderTiles("CartoDB.Positron", group = "Positron")
+
+# Tracts polygons (subtle)
+if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
+  m <- m %>%
+    addPolygons(data = st_transform(tracts, 4326), group = "Tracts",
+                weight = 1, color = tract_stroke,
+                fillColor = tract_fill, fillOpacity = 0.05, opacity = 0.7)
+
+  # Area labels = tract_id (small, semi-transparent)
+  tract_centers <- st_point_on_surface(st_transform(tracts, 4326))
+  m <- m %>%
+    addCircleMarkers(
+      data = tract_centers, group = "Area labels",
+      radius = 1, stroke = FALSE, fillOpacity = 0,
+      label = ~as.character(tract_id),
+      labelOptions = labelOptions(
+        noHide = TRUE, direction = "center",
+        style = list(
+          "font-weight" = "600",
+          "font-size"   = "10px",
+          "color"       = "rgba(0,0,0,0.45)",
+          "text-shadow" = "0 0 2px rgba(255,255,255,0.6)"
+        )
+      )
+    )
+}
+
+# Optional network context (added but hidden by default below)
+if (exists("cyc19_n") && inherits(cyc19_n,"sf") && nrow(cyc19_n))
+  m <- m %>% addPolylines(data = st_transform(cyc19_n, 4326), group = "2019 net",
+                          weight = 2, color = col_2019_net, opacity = 0.7)
+
+if (exists("removed") && inherits(removed,"sf") && nrow(removed)) {
+  m <- m %>% addPolylines(data = st_transform(removed, 4326), group = "Removed net",
+                          weight = 2.6, color = col_removedHalo, opacity = 0.18)
+  m <- m %>% addPolylines(data = st_transform(removed, 4326), group = "Removed net",
+                          weight = 2.0, color = col_removedNet,  opacity = 1.0)
+}
+
+if (exists("added") && inherits(added,"sf") && nrow(added))
+  m <- m %>% addPolylines(data = st_transform(added, 4326), group = "Added net",
+                          weight = 2, color = col_added_net, opacity = 0.95)
+
+if (exists("cyc23_n") && inherits(cyc23_n,"sf") && nrow(cyc23_n))
+  m <- m %>% addPolylines(data = st_transform(cyc23_n, 4326), group = "2023 net",
+                          weight = 2, color = col_2023_net, opacity = 0.6)
+
+# Points (explicit lng/lat; active by default)
+if (!is.null(add_wgs) && nrow(add_wgs) > 0)
+  m <- m %>% addCircleMarkers(data = add_wgs, lng = ~lon, lat = ~lat, group = "ADD pts",
+                              radius = 6, weight = 1.5, color = stroke,
+                              fillColor = col_add_pt, fillOpacity = 0.95,
+                              popup = ~popup)
+
+if (!is.null(rem_wgs) && nrow(rem_wgs) > 0)
+  m <- m %>% addCircleMarkers(data = rem_wgs, lng = ~lon, lat = ~lat, group = "REMOVE pts",
+                              radius = 6, weight = 1.5, color = stroke,
+                              fillColor = col_rem_pt, fillOpacity = 0.95,
+                              popup = ~popup)
+
+if (!is.null(gen_wgs) && nrow(gen_wgs) > 0)
+  m <- m %>% addCircleMarkers(data = gen_wgs, lng = ~lon, lat = ~lat, group = "GENERAL pts",
+                              radius = 6, weight = 1.5, color = stroke,
+                              fillColor = col_gen_pt, fillOpacity = 0.95,
+                              popup = ~popup)
+
+# Control + single legend
+m %>%
+  clearControls() %>%
+  addLayersControl(
+    baseGroups = c("Positron"),
+    overlayGroups = c(
+      "Tracts","Area labels",
+      "2019 net","Added net","Removed net","2023 net",
+      "ADD pts","REMOVE pts","GENERAL pts"
+    ),
+    options = layersControlOptions(collapsed = TRUE)
+  ) %>%
+  hideGroup(c("2019 net","Added net","Removed net","2023 net")) %>%  # networks start hidden
+  fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
+  addLegend(
+    position = "bottomright", title = "Validation",
+    colors = c(tract_fill, col_add_pt, col_rem_pt, col_gen_pt),
+    labels = c("Tracts (areas)", "ADD points", "REMOVE points", "GENERAL points"),
+    opacity = 1
+  )
+
+```
+
+
+### Outcomes and metrics
+
+- ADD precision:
+
+  + TP_ADD = (class=ADD & verif_2023=TRUE & present_2023=TRUE)
+
+  + FP_ADD = (class=ADD & verif_2023=TRUE & present_2023=FALSE)
+
+  + Precision_ADD = TP_ADD / (TP_ADD + FP_ADD)
+
+- REMOVE precision: analogous, with present_2023=FALSE for TP.
+
+- False negatives (GENERAL):
+
+  + Strict FN: (class=GENERAL) & verif_2019=TRUE & present_2019=FALSE & verif_2023=TRUE & present_2023=TRUE.
+
+  + FN_rate = FN_strict / N_strict, where N_strict = GENERAL rows with both years verifiable.
+
+- Recall for additions: Recall_ADD = TP_ADD / (TP_ADD + FN_strict).
+
+- Calibration of OSM km (adds):
+
+$$
+K_{\text{add, validated}}
+\approx
+K_{\text{add, OSM}}
+\times
+\frac{1 - \mathrm{FP}_{\text{ADD}}}{1 - \mathrm{FN}_{\text{ADD}}}
+$$ {#eq-kadd}
+
+(Analogous down-adjustment for removals using FP_REMOVE.)
+
+<!-- Statistical analysis -->
+
+<!-- Report proportions with 95% CIs (e.g., prop.test). -->
+
+<!-- By-stratum estimates (centrality × density); compute a weighted overall (equal weights if equal per stratum; otherwise use design weights reflecting tract/pop coverage). -->
+
+<!-- Sensitivity analyses: -->
+
+<!-- “Loose FN”: verif_2023=TRUE & present_2023=TRUE (regardless of 2019). -->
+
+<!-- Alternative tolerance windows (±0/±1 year). -->
+
+<!-- Inter-rater reliability: double-code ~10% of points; report κ. -->
+
+<!-- Reproducibility and ethics -->
+
+<!-- Provide code (R/Quarto) and exact tag list; no personal data; imagery used is publicly accessible via GSV. -->
+
+<!-- Results (template to fill once coded) -->
+
+<!-- Sample flow. Counts by class and verifiability (table). -->
+
+<!-- ADD: TP/FP counts, Precision_ADD with CI; by-stratum differences (heatmap/table). -->
+
+<!-- REMOVE: TP/FP counts, Precision_REMOVE with CI; by-stratum. -->
+
+<!-- GENERAL: FN_strict and FN_rate with CI; Recall_ADD with CI. -->
+
+<!-- Calibration. Raw OSM km vs validated km (point estimate + CI); % change after adjustment. -->
+
+<!-- Sensitivity. Changes under loose FN and alternative windows. -->
+
+<!-- Reliability. κ for double-coded subset. -->
+
+<!-- Discussion -->
+
+<!-- Principal findings. (e.g., OSM precision high for ADD, moderate for REMOVE; FN_rate non-trivial in peripheral strata; recall X%.) -->
+
+<!-- Implications. When and where OSM is dependable for monitoring CI; how to adjust OSM-based indicators. -->
+
+<!-- Biases. Systematic error by urban context (density/centrality), imagery gaps. -->
+
+<!-- Strengths & limitations. Stratified design; portable workflow; GSV timing constraints; sample size. -->
+
+<!-- Relation to prior work. How estimates compare with municipal reports / prior validations. -->
+
+<!-- Conclusions -->
+
+<!-- OSM is [adequate / limited] for detecting CI changes when [conditions]. -->
+
+<!-- Provide validated growth estimates with uncertainty; recommend routine stratified validation for cross-city comparability. -->
+
+<!-- Tables & Figures (recommended) -->
+
+<!-- T1. Sample counts by class × verifiability (and by stratum). -->
+
+<!-- T2. ADD/REMOVE precision with 95% CIs (overall + by stratum). -->
+
+<!-- T3. GENERAL FN_rate and Recall_ADD with 95% CIs (overall + by stratum). -->
+
+<!-- F1. Stratified sampling map (tracts + sampled points). -->
+
+<!-- F2. Heatmap of metrics by stratum. -->
+
+<!-- F3. Raw vs validated km (adds/removals) with CIs (bar/CI plot). -->
+
+<!-- Supp. Coding protocol examples (what counts as CI), sensitivity plots. -->
 
 <!-- ## References -->
