@@ -29,6 +29,8 @@ bibliography: wp1.bib
 
 # Validating OpenStreetMap for Detecting Cycling Infrastructure Change: A Pilot Study in Barcelona
 
+## Introduction
+
 -   **Context**: Urban transformations (e.g. new bike lanes, pedestrian areas) can reshape mobility and health, but studying their effects requires reliable historical data.
 
 -   **Problem**: Standardised datasets of infrastructure change are rarely available across cities and years.
@@ -43,19 +45,33 @@ bibliography: wp1.bib
 
 ## Data and Methods
 
-### Setting and period
+### Data
 
--   **Study area**: Barcelona; period: 2019→2023 (snapshot dates: 2020-01-01 for 2019 and 2024-01-01 for 2023).
+#### Setting and period
 
-### Network data (OSM)
+-   **Study area**: Barcelona; period: 2019→2023.
 
--   **Extraction**: Download OSM linework for both years.
+#### OpenStreetMap (OSM)
 
--   **CI selector**: `highway = cycleway`, bicycle-designated paths/tracks, roads with `cycleway:*` tags, `bicycle_road = yes`, and designated `living_street`/`pedestrian`.
+-   **Extraction**: Download OSM linework for both years (snapshot dates: 2020-01-01 for 2019 and 2024-01-01 for 2023).
+
+-   **CI selector**: 
+
+    + Keep segments with: `highway=cycleway` • `cycleway=*` or `cycleway:left/right/both=*` (lane/track/opposite/separate) • `bicycle_road=yes` • designated `path/footway/track` for bicycles.
+
+    + Normalize geometries; metric CRS; min-length filter; tolerance buffer to reduce sliver noise.
 
 -   **Non-CI (general network)**: Base roads excluding all CI tags (strict complement).
 
--   **Change detection**: Build ADDED (present in 2023, absent 2019) and REMOVED (present 2019, absent 2023) layers.
+#### Google Street View (GSV)
+- Source of independent imagery; pano dates (2019–2023 range); coverage and limitations.
+
+### Methods
+
+#### Change detection 
+- ADDED: present in 2023, absent in 2019.
+- REMOVED: present in 2019, absent in 2023.
+- Computed via buffered geometric differencing, dropping tiny fragments.
 
 ```{r include=FALSE}
 #| label: 01-setup
@@ -511,20 +527,17 @@ m %>%
   )
 ```
 
-### Sampling frame and design
+#### Sampling frame 
 
--   **Stratified tracts**: Pre-selected census tracts by centrality × density (3×3).
+- Stratified tracts: Pre-selected census tracts by centrality × density (3×3).
 
--   **Per-tract quotas (example)**: ADD=2, REMOVE=1, GENERAL=2 (GENERAL = 2023 non-CI network). Length-weighted sampling within tract; one midpoint per sampled segment.
+- In sampled tracts, draw length-weighted points for ADD, REMOVE, and GENERAL (2023 non-CI network).
 
--   **Expected N**: At most #tracts × (2+1+2), reduced where tracts have fewer or no candidates in one or more categories (ADD, REMOVE, GENERAL).
+- Validation point = midpoint of the sampled segment.
 
 ```{r}
 #| label: 10-sampling-setup-libs
 #| include: false
-# ================================================================
-# STRATIFIED SAMPLING AND STREET VIEW LINK GENERATION
-# ================================================================
 
 # ---- Load required libraries ----
 library(sf)
@@ -628,27 +641,25 @@ bivar_map <- ggplot() +
  ggsave("figs/stratified_sample_bivariate_map.png", final_plot, width = 8, height = 8, dpi = 300)
 ```
 
-### Validation source and coding
+#### Validation protocol
 
--   **Imagery**: Google Street View (GSV).
+##### Coding rules
 
--   **Tolerance windows**: 2019 target: ±1 year; 2023 target: ±2 years (fixed across coders).
+-   **Tolerance windows**: 2019 condition = 2018–2020; 2023 condition = 2021–2025.
 
--   **Per-point fields (Excel)**:
+-  Per point & year:
 
-    -   *Metadata*: class (ADD/REMOVE/GENERAL), tract_id, stratum, lon, lat, gsv_link (+ clickable “Open GSV”).
+    + Verifiability (yes/no). If not verifiable → presence = NA.
 
-    -   *Verifiability*: verifiable_2019, verifiable_2023 (TRUE/FALSE).
+    + Presence of CI (yes/no/NA).
 
-    -   *Presence*: present_2019, present_2023 (TRUE/FALSE/NA).
+    + Notes (obstruction/works/angle).
 
-    -   *Notes*: (obstruction, roadworks, poor angle, etc.).
+    + Ambiguous but visible → keep verifiable=YES, presence=NA.
 
--   **Consistency rules**:
+**Data:** [Download the validation workbook (Excel)](outputs/barcelona_samples_2019_2023.xlsx)
 
-    -   If verifiable\_\* = FALSE → set corresponding present\_\* = NA.
 
-    -   If imagery exists but unclear → keep verifiable\_\* = TRUE, set present\_\* = NA.
 
 ```{r}
 #| label: 14-nonci-network-2023
@@ -1371,6 +1382,58 @@ m %>%
   )
 ```
 
+##### Outcomes and metrics
+
+- For ADD/REMOVE:
+
+    + TP: OSM change confirmed by GSV.
+
+    + FP: OSM change not confirmed (e.g., late mapping for ADD; data clean-up for REMOVE).
+
+    + FN: true change in GENERAL missed by OSM.
+
+- Precision = TP/(TP+FP); Recall = TP/(TP+FN); F1 = 2PR/(P+R).
+
+- Overall (adds+removes): pool TP/FP/FN across classes.
+
+<!-- ### Uncertainty & stratification -->
+
+<!-- - 95% CIs for proportions: Wilson/score (prop.test(correct=FALSE)). -->
+
+<!-- - By-stratum reporting (centrality × density); if strata imbalanced, compute design-weighted overall. -->
+
+<!-- ### Sensitivity analyses -->
+
+<!-- - Loose FN (ADD): count any verifiable present_2023==TRUE in GENERAL as FN_ADD (regardless of 2019). -->
+
+<!-- - Alternative windows: tighten 2019 to calendar year; set 2023 to 2022–2024. -->
+
+<!-- ### Inter-rater reliability -->
+
+<!-- Double-code ~10–20% of points; report Cohen’s κ (+ % agreement) for presence per year. -->
+
+#### Calibration
+
+- Raw OSM change-km were scaled by the validation metrics (precision and recall) to obtain error-adjusted estimates of added and removed cycle infrastructure.
+
+- Adjustments were computed separately for ADD and REMOVE classes, then aggregated to tract and city level
+
+## Results 
+
+### Raw OSM change estimates
+
+Total km of cycle infrastructure added and removed between 2019–2023.
+
+Distribution across census tracts (map + summary stats).
+
+Example: “OSM data suggest 145 km were added and 12 km removed city-wide.”
+
+### Validation results
+
+- Sample drawn: 44 points (ADD 16, REMOVE 6, GENERAL 22), stratified by density × centrality.
+
+- Usable for metrics: 39 points (ADD 15, REMOVE 5, GENERAL 19) — verifiable in both periods.
+
 ```{r}
 #| label: 19-summary-by-stratum
 #| echo: false
@@ -1450,110 +1513,170 @@ knitr::kable(
 )
 ```
 
-### Outcomes and metrics
+```{r}
+#| label: validation-results
+#| echo: false
+#| message: false
+#| warning: false
+#| paged-print: false
+# ---- setup ----
+library(readxl); library(dplyr); library(stringr); library(tidyr)
+library(purrr); 
+FILE <- "outputs/barcelona_samples_2019_2023_test1.xlsx"
 
--   **Precision (ADD)**:
+safe_read <- function(path, sh) {
+  stopifnot(file.exists(path))
+  df <- read_xlsx(path, sheet = sh)
+  need <- c("present_2019","present_2023","verifiable_2019","verifiable_2023")
+  stopifnot(all(need %in% names(df)))
+  df %>%
+    mutate(across(all_of(need), ~ tolower(str_trim(as.character(.x)))))
+}
 
-    -   TP_ADD = points coded as ADD and verifiable in 2023, with infrastructure present.
+add <- safe_read(FILE, "ADD")
+rem <- safe_read(FILE, "REMOVE")
+gen <- safe_read(FILE, "GENERAL")
 
-    -   FP_ADD = points coded as ADD and verifiable in 2023, but infrastructure absent.
+# Helper: Wilson CI via prop.test (for Supplementary table)
+p_ci <- function(x, n){
+  if (is.na(x) || is.na(n) || n == 0) return(c(NA_real_, NA_real_))
+  ci <- suppressWarnings(prop.test(x, n, correct = FALSE)$conf.int)
+  round(ci, 2)
+}
 
-    -   Precision_ADD = TP_ADD / (TP_ADD + FP_ADD).
+# ---- confusion rules ----
+# ADD: TP if absent in 2019 & present in 2023. FP if 2023=no OR (2019=yes & 2023=yes) (late mapping)
+add_v <- add %>%
+  filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
+  mutate(
+    tp = present_2019 == "no"  & present_2023 == "yes",
+    fp = (present_2023 == "no") | (present_2019 == "yes" & present_2023 == "yes")
+  )
 
--   **Precision (REMOVE)**:
+# REMOVE: TP if present in 2019 & absent in 2023.
+# FP if (2019=no & 2023=no) (2019 was wrong) OR (2019=yes & 2023=yes) (never removed)
+rem_v <- rem %>%
+  filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
+  mutate(
+    tp = present_2019 == "yes" & present_2023 == "no",
+    fp = (present_2019 == "no" & present_2023 == "no") |
+         (present_2019 == "yes" & present_2023 == "yes")
+  )
 
-    -   Defined analogously, with present_2023 = FALSE as the true positive condition.
+# GENERAL → false negatives (missed changes)
+gen_v <- gen %>%
+  filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
+  mutate(
+    fn_add = present_2019 == "no"  & present_2023 == "yes",
+    fn_rem = present_2019 == "yes" & present_2023 == "no"
+  )
 
--   **False negatives (GENERAL)**:
+# ---- counts (with na.rm = TRUE) ----
+n_add_usable <- nrow(add_v %>% filter(!is.na(present_2019), !is.na(present_2023)))
+n_rem_usable <- nrow(rem_v %>% filter(!is.na(present_2019), !is.na(present_2023)))
+n_gen_usable <- nrow(gen_v %>% filter(!is.na(present_2019), !is.na(present_2023)))
 
-    -   Strict FN: points coded as GENERAL, verifiable in both years, absent in 2019 but present in 2023.
+TP_add <- sum(add_v$tp, na.rm = TRUE); FP_add <- sum(add_v$fp, na.rm = TRUE)
+FN_add <- sum(gen_v$fn_add, na.rm = TRUE)
 
-    -   FN_rate = FN_strict / N_strict, where N_strict = number of GENERAL points verifiable in both years.
+TP_rem <- sum(rem_v$tp, na.rm = TRUE); FP_rem <- sum(rem_v$fp, na.rm = TRUE)
+FN_rem <- sum(gen_v$fn_rem, na.rm = TRUE)
 
--   **Recall (ADD)**:
+# ---- metrics ----
+metric <- function(tp, fp, fn){
+  p <- tp / (tp + fp)
+  r <- tp / (tp + fn)
+  f1 <- ifelse((p + r) > 0, 2*p*r/(p + r), NA_real_)
+  list(precision = p, recall = r, f1 = f1)
+}
 
-    -   Recall_ADD = TP_ADD / (TP_ADD + FN_strict).
+m_add <- metric(TP_add, FP_add, FN_add)
+m_rem <- metric(TP_rem, FP_rem, FN_rem)
 
--   **Calibration of OSM km (adds)**:
+# pooled (adds + removes)
+TP_T <- TP_add + TP_rem; FP_T <- FP_add + FP_rem; FN_T <- FN_add + FN_rem
+m_tot <- metric(TP_T, FP_T, FN_T)
 
-    -   Adjustment of raw OSM-added kilometres using observed Precision_ADD and Recall_ADD.
+# ---- main Results table (clean: P/R/F1; no CIs) ----
+t_class <- tibble(
+  Class     = c("ADD","REMOVE","Pooled"),
+  `n (usable)` = c(n_add_usable, n_rem_usable, n_add_usable + n_rem_usable),
+  TP        = c(TP_add, TP_rem, TP_T),
+  FP        = c(FP_add, FP_rem, FP_T),
+  FN_note   = c("from GENERAL", "from GENERAL", "from GENERAL"),
+  Precision = sprintf("%.2f", c(m_add$precision, m_rem$precision, m_tot$precision)),
+  Recall    = sprintf("%.2f", c(m_add$recall,    m_rem$recall,    m_tot$recall)),
+  F1        = sprintf("%.2f", c(m_add$f1,        m_rem$f1,        m_tot$f1))
+)
 
-$$
-K_{\text{add, validated}}
-\approx
-K_{\text{add, OSM}}
-\times
-\frac{1 - \mathrm{FP}_{\text{ADD}}}{1 - \mathrm{FN}_{\text{ADD}}}
-$$ {#eq-kadd}
+# ---- supplementary CIs table (optional) ----
+add_prec_ci <- p_ci(TP_add, TP_add + FP_add)
+add_rec_ci  <- p_ci(TP_add, TP_add + FN_add)
+rem_prec_ci <- p_ci(TP_rem, TP_rem + FP_rem)
+rem_rec_ci  <- p_ci(TP_rem, TP_rem + FN_rem)
+tot_prec_ci <- p_ci(TP_T,   TP_T   + FP_T)
+tot_rec_ci  <- p_ci(TP_T,   TP_T   + FN_T)
 
-(Analogous down-adjustment for removals using FP_REMOVE.)
+t_ci <- tibble(
+  Class     = c("ADD","REMOVE","Pooled"),
+  `Precision (95% CI)` = c(
+    sprintf("%.2f [%0.2f–%0.2f]", m_add$precision, add_prec_ci[1], add_prec_ci[2]),
+    sprintf("%.2f [%0.2f–%0.2f]", m_rem$precision, rem_prec_ci[1], rem_prec_ci[2]),
+    sprintf("%.2f [%0.2f–%0.2f]", m_tot$precision, tot_prec_ci[1], tot_prec_ci[2])
+  ),
+  `Recall (95% CI)` = c(
+    sprintf("%.2f [%0.2f–%0.2f]", m_add$recall, add_rec_ci[1], add_rec_ci[2]),
+    sprintf("%.2f [%0.2f–%0.2f]", m_rem$recall, rem_rec_ci[1], rem_rec_ci[2]),
+    sprintf("%.2f [%0.2f–%0.2f]", m_tot$recall, tot_rec_ci[1], tot_rec_ci[2])
+  ),
+  `F1` = sprintf("%.2f", c(m_add$f1, m_rem$f1, m_tot$f1))
+)
 
-<!-- Statistical analysis -->
+# Comment this `gt()` out if you truly want CIs only in Supplementary.
+# ---- single kable table: main + CIs ----
+library(knitr)
+library(kableExtra)
 
-<!-- Report proportions with 95% CIs (e.g., prop.test). -->
+t_final <- t_class %>%
+  select(Class, `n (usable)`, TP, FP, FN_note, Precision, Recall, F1) %>%
+  left_join(
+    t_ci %>% select(Class, `Precision (95% CI)`, `Recall (95% CI)`),
+    by = "Class"
+  ) %>%
+  # Arrange CI columns next to their point estimates
+  relocate(`Precision (95% CI)`, .after = Precision) %>%
+  relocate(`Recall (95% CI)`, .after = Recall) %>%
+  # Prettify the FN source column name with a line break
+  rename(`FN<br/>(source)` = FN_note)
 
-<!-- By-stratum estimates (centrality × density); compute a weighted overall (equal weights if equal per stratum; otherwise use design weights reflecting tract/pop coverage). -->
+t_final %>%
+  kable(
+    format   = "html",
+    booktabs = TRUE,
+    escape   = FALSE,  # keep the <br/> in the header
+    caption  = "Validation performance (usable points only)"
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    position   = "center",
+    bootstrap_options = c("striped", "hover")
+  )
 
-<!-- Sensitivity analyses: -->
+```
 
-<!-- “Loose FN”: verif_2023=TRUE & present_2023=TRUE (regardless of 2019). -->
 
-<!-- Alternative tolerance windows (±0/±1 year). -->
+### Error-adjusted change estimates
 
-<!-- Inter-rater reliability: double-code ~10% of points; report κ. -->
+Calibrated totals after applying validation metrics.
 
-<!-- Reproducibility and ethics -->
+Example table contrasting Raw vs Adjusted at city level (and possibly mean per tract).
 
-<!-- Provide code (R/Quarto) and exact tag list; no personal data; imagery used is publicly accessible via GSV. -->
+Map of tracts showing adjusted changes (before vs after adjustment).
 
-<!-- Results (template to fill once coded) -->
+### Spatial patterns
 
-<!-- Sample flow. Counts by class and verifiability (table). -->
+Highlight clusters of growth or underestimation.
 
-<!-- ADD: TP/FP counts, Precision_ADD with CI; by-stratum differences (heatmap/table). -->
-
-<!-- REMOVE: TP/FP counts, Precision_REMOVE with CI; by-stratum. -->
-
-<!-- GENERAL: FN_strict and FN_rate with CI; Recall_ADD with CI. -->
-
-<!-- Calibration. Raw OSM km vs validated km (point estimate + CI); % change after adjustment. -->
-
-<!-- Sensitivity. Changes under loose FN and alternative windows. -->
-
-<!-- Reliability. κ for double-coded subset. -->
-
-<!-- Discussion -->
-
-<!-- Principal findings. (e.g., OSM precision high for ADD, moderate for REMOVE; FN_rate non-trivial in peripheral strata; recall X%.) -->
-
-<!-- Implications. When and where OSM is dependable for monitoring CI; how to adjust OSM-based indicators. -->
-
-<!-- Biases. Systematic error by urban context (density/centrality), imagery gaps. -->
-
-<!-- Strengths & limitations. Stratified design; portable workflow; GSV timing constraints; sample size. -->
-
-<!-- Relation to prior work. How estimates compare with municipal reports / prior validations. -->
-
-<!-- Conclusions -->
-
-<!-- OSM is [adequate / limited] for detecting CI changes when [conditions]. -->
-
-<!-- Provide validated growth estimates with uncertainty; recommend routine stratified validation for cross-city comparability. -->
-
-<!-- Tables & Figures (recommended) -->
-
-<!-- T1. Sample counts by class × verifiability (and by stratum). -->
-
-<!-- T2. ADD/REMOVE precision with 95% CIs (overall + by stratum). -->
-
-<!-- T3. GENERAL FN_rate and Recall_ADD with 95% CIs (overall + by stratum). -->
-
-<!-- F1. Stratified sampling map (tracts + sampled points). -->
-
-<!-- F2. Heatmap of metrics by stratum. -->
-
-<!-- F3. Raw vs validated km (adds/removals) with CIs (bar/CI plot). -->
-
-<!-- Supp. Coding protocol examples (what counts as CI), sensitivity plots. -->
+Example: “Adjusted estimates show the largest growth in central tracts, while peripheral areas show smaller net additions once errors are corrected.”
 
 <!-- ## References -->
