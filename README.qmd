@@ -1,6 +1,8 @@
 ---
 # title: "ATRAPA Work Package 1: Built Environment Transformations Dataset"
-format: gfm
+format:
+  html:
+    embed-resources: true   # single self-contained HTML file
 editor: visual
 bibliography: wp1.bib
 ---
