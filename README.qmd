@@ -1,8 +1,9 @@
 ---
 # title: "ATRAPA Work Package 1: Built Environment Transformations Dataset"
-format:
-  html:
-    embed-resources: true   # single self-contained HTML file
+gfm:
+    variant: gfm
+    fig-format: png
+    df-print: default # single self-contained HTML file
 editor: visual
 bibliography: wp1.bib
 ---
@@ -73,7 +74,7 @@ bibliography: wp1.bib
 - REMOVED: present in 2019, absent in 2023.
 - Computed via buffered geometric differencing, dropping tiny fragments.
 
-```{r include=FALSE}
+```{r}
 #| label: 01-setup
 #| include: false
 suppressPackageStartupMessages({
@@ -1400,83 +1401,119 @@ t_final %>%
 
 ## Supplements
 
-### S1. Interactive stratification map (density × centrality, 3×3) with sampled tracts
+### S1. Validation workbook 
+
+**Data:** [Download the validation workbook (Excel)](outputs/barcelona_samples_2019_2023.xlsx)
+
+<!-- ### S2. Interactive stratification map (density × centrality, 3×3) with sampled tracts -->
 
 ```{r}
-#| label: s2-strata-map
-#| echo: false
-#| message: false
-#| warning: false
+#| label: 17-stratification-map
+#| include: false
+# --- Leaflet map matching the static bivariate colours ---------------------
+library(sf)
+library(leaflet)
+library(biscale)
+library(htmltools)
+library(dplyr)
 
-# ensure bivariate class exists (same as your ggplot version)
-bt <- barcelona_tracts |> dplyr::mutate(centrality_flipped = -dist_centre_km)
-bb_bivar <- biscale::bi_class(bt, x = dens_2022, y = centrality_flipped, style = "quantile", dim = 3)
+# 0) Ensure identical classes: reuse bb_bivar from your static pipeline
+stopifnot("bi_class" %in% names(bb_bivar))
 
-# palette keyed to bi_class
-pal_vec <- biscale::bi_pal(pal = "DkBlue2", dim = 3, preview = FALSE)
-classes <- sort(unique(bb_bivar$bi_class))
-col_map <- setNames(pal_vec, classes)
+# 1) Fix geometry + CRS for leaflet
+bb_bivar_ll <- bb_bivar |>
+  sf::st_make_valid() |>
+  sf::st_transform(4326)
 
-# labels
-lab <- sprintf(
-  "<b>Tract:</b> %s<br/><b>Stratum:</b> D%d_C%d<br/><b>Density 2022:</b> %s /km²<br/><b>Centre dist:</b> %0.1f km",
-  bb_bivar$CUSEC %||% "", bb_bivar$dens_stratum, bb_bivar$cent_stratum,
-  scales::comma(bb_bivar$dens_2022, accuracy = 1), bb_bivar$dist_centre_km
-)
+# (optional) sampled tracts outlines
+sampled_ll <- NULL
+if (exists("sampled_tracts") && inherits(sampled_tracts, "sf") && nrow(sampled_tracts)) {
+  sampled_ll <- sampled_tracts |> st_make_valid() |> st_transform(4326)
+}
 
-# custom 3×3 legend HTML (x=density, y=centrality)
-leg_html <- htmltools::HTML(sprintf('
-<div style="background:#fff;border:1px solid #ccc;border-radius:6px;padding:8px;">
-  <div style="font-weight:600;margin-bottom:6px;">Density × Centrality</div>
-  <div style="display:grid;grid-template-columns:repeat(3,16px);grid-gap:2px;margin-bottom:6px;">
-    %s
-  </div>
-  <div style="display:flex;justify-content:space-between;font-size:11px;">
-    <span>Low density</span><span>High density</span>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:2px;">
-    (↑ more central)
-  </div>
-</div>',
-  paste(sprintf('<div style="width:16px;height:16px;background:%s"></div>', pal_vec), collapse = "")
-))
+# 2) Build the exact same colour mapping used by bi_scale_fill(pal="DkBlue2", dim=3)
+dim_bi  <- 3
+cols    <- biscale::bi_pal("DkBlue2", dim_bi, preview = FALSE)
+# Arrange to match the legend orientation (↑ y, → x) used in biscale
+M       <- matrix(cols, nrow = dim_bi, byrow = TRUE)
+M_flip  <- M[dim_bi:1, ]                            # flip rows so y increases upward
 
-# map
-m_strata <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE)) |>
-  leaflet::addProviderTiles("CartoDB.Positron") |>
-  leaflet::addPolygons(
-    data = sf::st_transform(bb_bivar, 4326), group = "Strata",
-    fillColor = col_map[bb_bivar$bi_class], fillOpacity = 0.9,
-    color = "#ffffff", weight = 0.5, opacity = 0.7,
-    label = lapply(lab, htmltools::HTML),
-    highlightOptions = leaflet::highlightOptions(weight = 2, color = "#000", bringToFront = TRUE)
-  ) |>
-  # sampled tracts outline
-  leaflet::addPolygons(
-    data = sf::st_transform(sampled_tracts, 4326), group = "Sampled tracts",
-    fill = FALSE, color = "#000000", weight = 1.2, opacity = 0.9
-  ) |>
-  leaflet::addLayersControl(
-    overlayGroups = c("Strata","Sampled tracts"),
-    options = leaflet::layersControlOptions(collapsed = TRUE)
-  ) |>
-  leaflet::addControl(leg_html, position = "bottomright")
+labs_df   <- expand.grid(x = 1:dim_bi, y = 1:dim_bi)
+lab_names <- sprintf("%d-%d", labs_df$x, labs_df$y)
+lab_cols  <- vapply(seq_len(nrow(labs_df)), function(i) M_flip[labs_df$y[i], labs_df$x[i]], "")
+col_lu    <- setNames(lab_cols, lab_names)
 
-m_strata
+# 3) Make sure bi_class is character (not factor), then map colours
+bb_bivar_ll <- bb_bivar_ll |>
+  mutate(bi_class_chr = as.character(bi_class),
+         fill_col     = unname(col_lu[bi_class_chr]),
+         fill_col     = ifelse(is.na(fill_col), "#00000000", fill_col))
+
+# 4) Add a clean bivariate legend that matches the static one
+add_bi_legend_leaflet <- function(map, pal = "DkBlue2", dim = 3,
+                                  position = "bottomright",
+                                  title = "Density × Centrality",
+                                  xlab = "Higher Density →",
+                                  ylab = "More Central ↑",
+                                  box = 14, gap = 2) {
+  cols  <- biscale::bi_pal(pal, dim, preview = FALSE)
+  grid  <- matrix(cols, nrow = dim, byrow = TRUE)[dim:1, ]
+  cells <- as.vector(t(grid))
+
+  html <- tags$div(
+    tags$style(HTML(paste0(
+      ".bi-legend{background:#fff;padding:6px 8px;border-radius:6px;",
+      "box-shadow:0 1px 4px rgba(0,0,0,.3);font-family:sans-serif}",
+      ".bi-title{font-weight:600;margin-bottom:4px;font-size:12px}",
+      ".bi-wrap{display:flex;align-items:center}",
+      ".bi-grid{display:grid;grid-template-columns:repeat(", dim, ",", box, "px);",
+      "grid-auto-rows:", box, "px;gap:", gap, "px;margin:0 6px}",
+      ".bi-cell{width:", box, "px;height:", box, "px}",
+      ".bi-y{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;color:#444}",
+      ".bi-x{text-align:center;font-size:11px;color:#444;margin-top:4px}"
+    ))),
+    tags$div(class = "bi-legend",
+      tags$div(class = "bi-title", title),
+      tags$div(class = "bi-wrap",
+        tags$div(class = "bi-y", ylab),
+        tags$div(class = "bi-grid",
+          lapply(cells, function(clr) tags$div(class = "bi-cell",
+                                               style = paste0("background:", clr, ";")))
+        )
+      ),
+      tags$div(class = "bi-x", xlab)
+    )
+  )
+  leaflet::addControl(map, html = html, position = position)
+}
+
+# 4) Build the leaflet map
+m <- leaflet(options = leafletOptions(zoomControl = TRUE)) |>
+  addProviderTiles("CartoDB.Positron", group = "Positron") |>
+  addPolygons(data = bb_bivar_ll,
+              weight = 0.5, color = "#ffffff", opacity = 1,
+              fillColor = ~fill_col, fillOpacity = 0.9,
+              smoothFactor = 0.2,
+              label = ~paste0("Class: ", bi_class_chr))
+
+if (!is.null(sampled_ll)) {
+  m <- m |> addPolygons(data = sampled_ll, fill = FALSE, color = "black", weight = 1.2)
+}
+
+# 5) Add the same bi-legend as before (already working for you)
+m <- add_bi_legend_leaflet(m, pal = "DkBlue2", dim = 3, position = "bottomright")
+m
+
 
 ```
 
-### S2. Interactive validation points map (with GSV links)
+<!-- ### S3. Interactive validation points map (with GSV links) -->
 
 ```{r}
 #| label: 17-validation-map-points
-#| echo: false
+#| include: false
 #| message: false
 #| warning: false
-
-library(leaflet)
-library(sf)
-library(dplyr)
 
 # ---- helper: prep points (WGS84 + lon/lat + popup) --------------------------
 prep_pts <- function(x){
@@ -1730,11 +1767,11 @@ ggsave("figs/validation_points.png", p_val, width = 9, height = 7, dpi = 300)
 
 ```
 
-### S3. Interactive infrastructure change map (2019→2023)
+<!-- ### S4. Interactive infrastructure change map (2019→2023) -->
 
 ```{r}
 #| label: 09-map
-#| echo: false
+#| include: false
 #| message: false
 #| warning: false
 
@@ -1936,7 +1973,4 @@ ggsave("figs/change_map.png", p, width = 9, height = 7, dpi = 300)
 
 ```
 
-### S4. Validation workbook 
-
-**Data:** [Download the validation workbook (Excel)](outputs/barcelona_samples_2019_2023.xlsx)
 <!-- ## References -->
