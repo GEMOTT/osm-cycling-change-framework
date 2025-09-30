@@ -207,61 +207,13 @@ F1 0.80.
 
 Table 3: Validation points by class and stratum
 
-    <table class="table table-striped table-hover" style="width: auto !important; margin-left: auto; margin-right: auto;">
-    <caption>Table 4: Validation performance (usable points only)</caption>
-     <thead>
-      <tr>
-       <th style="text-align:left;"> Class </th>
-       <th style="text-align:right;"> n (usable) </th>
-       <th style="text-align:right;"> TP </th>
-       <th style="text-align:right;"> FP </th>
-       <th style="text-align:left;"> FN&lt;br/&gt;(source) </th>
-       <th style="text-align:left;"> Precision </th>
-       <th style="text-align:left;"> Precision (95% CI) </th>
-       <th style="text-align:left;"> Recall </th>
-       <th style="text-align:left;"> Recall (95% CI) </th>
-       <th style="text-align:left;"> F1 </th>
-      </tr>
-     </thead>
-    <tbody>
-      <tr>
-       <td style="text-align:left;"> ADD </td>
-       <td style="text-align:right;"> 15 </td>
-       <td style="text-align:right;"> 13 </td>
-       <td style="text-align:right;"> 2 </td>
-       <td style="text-align:left;"> from GENERAL </td>
-       <td style="text-align:left;"> 0.87 </td>
-       <td style="text-align:left;"> 0.87 [0.62–0.96] </td>
-       <td style="text-align:left;"> 1.00 </td>
-       <td style="text-align:left;"> 1.00 [0.77–1.00] </td>
-       <td style="text-align:left;"> 0.93 </td>
-      </tr>
-      <tr>
-       <td style="text-align:left;"> REMOVE </td>
-       <td style="text-align:right;"> 5 </td>
-       <td style="text-align:right;"> 1 </td>
-       <td style="text-align:right;"> 4 </td>
-       <td style="text-align:left;"> from GENERAL </td>
-       <td style="text-align:left;"> 0.20 </td>
-       <td style="text-align:left;"> 0.20 [0.04–0.62] </td>
-       <td style="text-align:left;"> 0.50 </td>
-       <td style="text-align:left;"> 0.50 [0.09–0.91] </td>
-       <td style="text-align:left;"> 0.29 </td>
-      </tr>
-      <tr>
-       <td style="text-align:left;"> Pooled </td>
-       <td style="text-align:right;"> 20 </td>
-       <td style="text-align:right;"> 14 </td>
-       <td style="text-align:right;"> 6 </td>
-       <td style="text-align:left;"> from GENERAL </td>
-       <td style="text-align:left;"> 0.70 </td>
-       <td style="text-align:left;"> 0.70 [0.48–0.85] </td>
-       <td style="text-align:left;"> 0.93 </td>
-       <td style="text-align:left;"> 0.93 [0.70–0.99] </td>
-       <td style="text-align:left;"> 0.80 </td>
-      </tr>
-    </tbody>
-    </table>
+| Class | n (usable) | TP | FP | FN (source) | Precision | Precision (95% CI) | Recall | Recall (95% CI) | F1 |
+|:---|---:|---:|---:|:---|---:|---:|---:|---:|---:|
+| ADD | 15 | 13 | 2 | from GENERAL | 0.87 | 0.87 \[0.62–0.96\] | 1.00 | 1.00 \[0.77–1.00\] | 0.93 |
+| REMOVE | 5 | 1 | 4 | from GENERAL | 0.20 | 0.20 \[0.04–0.62\] | 0.50 | 0.50 \[0.09–0.91\] | 0.29 |
+| Pooled | 20 | 14 | 6 | from GENERAL | 0.70 | 0.70 \[0.48–0.85\] | 0.93 | 0.93 \[0.70–0.99\] | 0.80 |
+
+Table 4: Validation performance (usable points only)
 
 <!-- ### Error-adjusted change estimates -->
 <!-- Calibrated totals after applying validation metrics. -->

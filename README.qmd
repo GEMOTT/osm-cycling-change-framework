@@ -1385,17 +1385,25 @@ t_final <- t_class %>%
   # Prettify the FN source column name with a line break
   rename(`FN<br/>(source)` = FN_note)
 
-t_final %>%
-  kable(
-    booktabs = TRUE,
-    escape   = FALSE,  # keep the <br/> in the header
-    caption  = "Table 4: Validation performance (usable points only)"
-  ) %>%
-  kable_styling(
-    full_width = FALSE,
-    position   = "center",
-    bootstrap_options = c("striped", "hover")
+# --- Plain kable, same style as Table 3 (no kableExtra) ----------------------
+
+# keep a clean header (no <br/> for GFM)
+t_final_clean <- t_final %>%
+  dplyr::rename(`FN (source)` = `FN<br/>(source)`) %>%
+  dplyr::select(
+    Class, `n (usable)`, TP, FP, `FN (source)`,
+    Precision, `Precision (95% CI)`,
+    Recall,    `Recall (95% CI)`,
+    F1
   )
+
+knitr::kable(
+  t_final_clean,
+  caption = "Table 4: Validation performance (usable points only)",
+  align   = c("l","r","r","r","l","r","r","r","r","r"),
+  digits  = 0
+)
+
 ```
 
 <!-- ### Error-adjusted change estimates -->
