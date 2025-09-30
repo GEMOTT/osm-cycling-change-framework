@@ -230,7 +230,7 @@ Table 4: Validation performance (usable points only)
 **Data:** [Download the validation workbook
 (Excel)](outputs/barcelona_samples_2019_2023.xlsx)
 
-<!-- ### S2. Interactive stratification map (density × centrality, 3×3) with sampled tracts -->
+### S2. Interactive stratification map (density × centrality, 3×3) with sampled tracts
 
 ``` r
 # #| label: 17-stratification-map
@@ -330,7 +330,7 @@ Table 4: Validation performance (usable points only)
 # m
 ```
 
-<!-- ### S3. Interactive validation points map (with GSV links) -->
+### S3. Interactive validation points map (with GSV links)
 
 ``` r
 # #| label: 17-validation-map-points
@@ -526,70 +526,7 @@ Table 4: Validation performance (usable points only)
 #   )
 ```
 
-``` r
-# #| label: make-static-validation-map
-# #| include: false
-# # Requires: added_pts, removed_pts, gen_pts (from sampling), and sampled_tracts or tracts
-# 
-# suppressPackageStartupMessages({ library(sf); library(ggplot2); library(dplyr) })
-# dir.create("figs", showWarnings = FALSE)
-# 
-# # guards
-# if (!exists("added_pts"))   added_pts   <- NULL
-# if (!exists("removed_pts")) removed_pts <- NULL
-# if (!exists("gen_pts"))     gen_pts     <- NULL
-# # prefer the sampled tract polygons if you have them
-# tracts_use <- if (exists("sampled_tracts")) sampled_tracts else if (exists("tracts")) tracts else NULL
-# 
-# # to WGS84
-# as_wgs <- function(x){
-#   if (!inherits(x,"sf") || !nrow(x)) return(NULL)
-#   x <- sf::st_make_valid(x)
-#   x <- x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE]
-#   sf::st_transform(x, 4326)
-# }
-# add_wgs <- if (!is.null(added_pts)   && nrow(added_pts)   > 0) as_wgs(added_pts)   else NULL
-# rem_wgs <- if (!is.null(removed_pts) && nrow(removed_pts) > 0) as_wgs(removed_pts) else NULL
-# gen_wgs <- if (!is.null(gen_pts)     && nrow(gen_pts)     > 0) as_wgs(gen_pts)     else NULL
-# trs_wgs <- if (!is.null(tracts_use)  && nrow(tracts_use)  > 0) as_wgs(tracts_use)  else NULL
-# 
-# # build a single points sf with class column for legend
-# pts_list <- list(
-#   if (!is.null(add_wgs)) mutate(add_wgs, class = "ADD"),
-#   if (!is.null(rem_wgs)) mutate(rem_wgs, class = "REMOVE"),
-#   if (!is.null(gen_wgs)) mutate(gen_wgs, class = "GENERAL")
-# )
-# pts_all <- do.call(dplyr::bind_rows, pts_list)
-# 
-# # bounds: prefer tracts, else points union, else fallback
-# get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) st_bbox(obj) else NULL
-# bb <- get_bbox(trs_wgs)
-# if (is.null(bb) && !is.null(pts_all) && nrow(pts_all) > 0) bb <- st_bbox(pts_all)
-# if (is.null(bb)) bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
-# lims <- list(x = c(bb[["xmin"]], bb[["xmax"]]), y = c(bb[["ymin"]], bb[["ymax"]]))
-# 
-# # colours
-# cols <- c(ADD = "#E6AB02", REMOVE = "#D95F02", GENERAL = "#1B9E77")
-# 
-# p_val <- ggplot() +
-#   { if (!is.null(trs_wgs)) geom_sf(data = trs_wgs, fill = NA, colour = "#777777", linewidth = 0.2, alpha = 0.6) } +
-#   { if (!is.null(pts_all) && nrow(pts_all) > 0)
-#       geom_sf(data = pts_all, aes(fill = class), colour = "black", shape = 21, size = 2.2, stroke = 0.2) } +
-#   scale_fill_manual(values = cols, name = "Validation class") +
-#   coord_sf(xlim = lims$x, ylim = lims$y, expand = 0) +
-#   theme_void() +
-#   theme(
-#     panel.background = element_rect(fill = "#F7F7F7", colour = NA),
-#     legend.position  = c(0.05, 0.95),
-#     legend.justification = c("left","top"),
-#     legend.background = element_rect(fill = alpha("white", 0.8), colour = "#CCCCCC"),
-#     plot.margin      = margin(5,5,5,5)
-#   )
-# 
-# ggsave("figs/validation_points.png", p_val, width = 9, height = 7, dpi = 300)
-```
-
-<!-- ### S4. Interactive infrastructure change map (2019→2023) -->
+### S4. Interactive infrastructure change map (2019→2023)
 
 ``` r
 # #| label: 09-map
@@ -707,90 +644,6 @@ Table 4: Validation performance (usable points only)
 #     labels = c("2019 CI","Added (19→23)","Removed (19→23)"),
 #     opacity = 1
 #   )
-```
-
-``` r
-# #| label: make-static-infra-map
-# #| include: false
-# # Requires: cyc19_n, added, removed (built earlier), and optionally city_perimeter
-# 
-# suppressPackageStartupMessages({ library(sf); library(ggplot2); library(dplyr) })
-# dir.create("figs", showWarnings = FALSE)
-# 
-# # helpers
-# as_wgs <- function(x){
-#   if (!inherits(x,"sf") || !nrow(x)) return(NULL)
-#   x <- sf::st_make_valid(x)
-#   x <- x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE]
-#   sf::st_transform(x, 4326)
-# }
-# 
-# # prepare layers (WGS84)
-# perim_wgs   <- if (exists("city_perimeter")) as_wgs(city_perimeter) else NULL
-# cyc19_wgs   <- if (exists("cyc19_n"))  as_wgs(cyc19_n)  else NULL
-# added_wgs   <- if (exists("added"))    as_wgs(added)    else NULL
-# removed_wgs <- if (exists("removed"))  as_wgs(removed)  else NULL
-# 
-# # bounds: prefer perimeter, else union of layers, else BCN-ish fallback
-# get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) st_bbox(obj) else NULL
-# bb <- get_bbox(perim_wgs)
-# if (is.null(bb)) {
-#   cands <- Filter(Negate(is.null), list(get_bbox(cyc19_wgs), get_bbox(added_wgs), get_bbox(removed_wgs)))
-#   if (length(cands)) {
-#     mins <- do.call(pmin, lapply(cands, function(b) c(b$xmin,b$ymin)))
-#     maxs <- do.call(pmax, lapply(cands, function(b) c(b$xmax,b$ymax)))
-#     bb <- structure(list(xmin=mins[1], ymin=mins[2], xmax=maxs[1], ymax=maxs[2]), class="bbox")
-#   } else {
-#     bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
-#   }
-# }
-# lims <- list(x = c(bb[["xmin"]], bb[["xmax"]]), y = c(bb[["ymin"]], bb[["ymax"]]))
-# 
-# # colours
-# col_2019  <- "#666666"
-# col_added <- "#D95F02"
-# col_white <- "#FFFFFF"
-# col_halo  <- "#000000"
-# 
-# # label → colour mapping for the legend
-# leg_cols <- c(
-#   "2019 CI"          = col_2019,
-#   "Added (19→23)"    = col_added,
-#   "Removed (19→23)"  = col_white
-# )
-# 
-# p <- ggplot() +
-#   # perimeter (no legend)
-#   { if (!is.null(perim_wgs)) geom_sf(data = perim_wgs, fill = NA, colour = "#222222",
-#                                      linewidth = 0.2, show.legend = FALSE) } +
-#   # 2019 network (legend label by mapping colour to a string)
-#   { if (!is.null(cyc19_wgs)) geom_sf(data = cyc19_wgs, aes(color = "2019 CI"),
-#                                      linewidth = 0.4, alpha = 0.85) } +
-#   # added
-#   { if (!is.null(added_wgs)) geom_sf(data = added_wgs, aes(color = "Added (19→23)"),
-#                                      linewidth = 0.5, alpha = 0.95) } +
-#   # removed: halo (no legend), then white line WITH legend label
-#   { if (!is.null(removed_wgs)) geom_sf(data = removed_wgs, colour = col_halo,
-#                                        linewidth = 0.7, alpha = 0.18, show.legend = FALSE) } +
-#   { if (!is.null(removed_wgs)) geom_sf(data = removed_wgs, aes(color = "Removed (19→23)"),
-#                                        linewidth = 0.5, alpha = 1.00) } +
-#   scale_color_manual(values = leg_cols, breaks = names(leg_cols),
-#                      guide = guide_legend(title = "Layers", override.aes = list(linewidth = 1.5))) +
-#   coord_sf(xlim = lims$x, ylim = lims$y, expand = 0) +
-#   theme_void() +
-#   theme(
-#     panel.background = element_rect(fill = "#F7F7F7", colour = NA),
-#     # ggplot ≥3.5: place legend inside
-#     legend.position = "inside",
-#     legend.position.inside = c(0.02, 0.98),
-#     legend.justification = c("left","top"),
-#     legend.background = element_rect(fill = scales::alpha("white", 0.85), colour = "#CCCCCC"),
-#     # make white "Removed" line visible in the legend
-#     legend.key = element_rect(fill = "#F7F7F7", colour = NA),
-#     plot.margin = margin(5,5,5,5)
-#   )
-# 
-# ggsave("figs/change_map.png", p, width = 9, height = 7, dpi = 300)
 ```
 
 <!-- ## References -->
