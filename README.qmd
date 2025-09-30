@@ -95,6 +95,21 @@ proc_dir <- "data/processed"; if (!dir.exists(proc_dir)) dir.create(proc_dir, TR
   obj <- build(); saveRDS(obj, path); obj
 }
 
+
+library(knitr)
+opts_chunk$set(
+  # Disable HTML widgets for markdown output
+  warning = FALSE,
+  message = FALSE,
+  # Use basic table formatting
+  render = function(x, ...) {
+    if (inherits(x, "kableExtra")) {
+      as.character(x)
+    } else {
+      knitr:::knit_print(x, ...)
+    }
+  }
+)
 ```
 
 ```{r}
