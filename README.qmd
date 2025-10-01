@@ -4,6 +4,7 @@ format:
   # html
   gfm:
     prefer-html: true
+    tbl-cap-location: top
 editor: visual
 bibliography: wp1.bib
 ---
@@ -1179,106 +1180,83 @@ Validation covered 44 points across all nine density–centrality strata (larges
 ```{r}
 #| label: 22-summary-by-stratum
 #| echo: false
-#| message: true        # <-- show diagnostics while we fix this
+#| message: false
 #| warning: false
 
 suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(stringr); library(readxl)
 })
 
-# ---------- CONFIG ----------
+# ---- CONFIG ----
 FILE <- "outputs/barcelona_samples_2019_2023_test1.xlsx"
 
-# ---------- HELPERS ----------
-# robust truthy/yes parser
+# ---- HELPERS ----
 is_yes <- function(x){
   x <- tolower(str_trim(as.character(x)))
-  x %in% c("yes","y","true","1","sí","si")
+  x %in% c("yes","y","true","1","sí","si","s\u00ed")
 }
 
-# read + normalize, trimming column names (handles trailing spaces)
-safe_read <- function(path, sh, need_cols = c("present_2019","present_2023","verifiable_2019","verifiable_2023","stratum")){
-  if (!file.exists(path)) stop(sprintf("File not found: %s (wd: %s)", path, getwd()))
+safe_read <- function(path, sh){
   df <- read_xlsx(path, sheet = sh)
-  # Trim/clean column names (catch hidden spaces)
   names(df) <- trimws(names(df))
-  # Diagnostics
-  message(sprintf("Loaded sheet '%s': n=%s | cols=%s", sh, nrow(df), paste(names(df), collapse=", ")))
-  # Check required columns exist (after trimming)
-  if (!all(need_cols %in% names(df))) {
-    missing <- setdiff(need_cols, names(df))
-    stop(sprintf("Sheet '%s' is missing columns: %s", sh, paste(missing, collapse=", ")))
-  }
+  stopifnot(all(c("present_2019","present_2023","verifiable_2019","verifiable_2023","stratum") %in% names(df)))
   df %>%
     mutate(
-      present_2019     = tolower(str_trim(as.character(present_2019))),
-      present_2023     = tolower(str_trim(as.character(present_2023))),
-      verifiable_2019  = is_yes(verifiable_2019),
-      verifiable_2023  = is_yes(verifiable_2023),
-      stratum          = as.character(stratum)
+      present_2019    = tolower(str_trim(as.character(present_2019))),
+      present_2023    = tolower(str_trim(as.character(present_2023))),
+      verifiable_2019 = is_yes(verifiable_2019),
+      verifiable_2023 = is_yes(verifiable_2023),
+      stratum         = as.character(stratum)
     )
 }
 
-# ---------- READ WORKBOOK DIRECTLY (no dependencies) ----------
-message(sprintf("Reading workbook: %s", normalizePath(FILE, winslash = "/",
-                                                     mustWork = FALSE)))
-message(sprintf("Working directory: %s", getwd()))
-sheets <- tryCatch(readxl::excel_sheets(FILE), error = function(e) character(0))
-message(sprintf("Sheets found: %s", paste(sheets, collapse=", ")))
-
+# ---- READ ----
 add_tbl <- safe_read(FILE, "ADD")
 rem_tbl <- safe_read(FILE, "REMOVE")
 gen_tbl <- safe_read(FILE, "GENERAL")
 
-# ---------- BUILD USABLE UNIVERSE ----------
-samples_tbl2 <- bind_rows(
+# ---- BIND & FILTER (USABLE) ----
+usable_tbl <- bind_rows(
   add_tbl %>% mutate(class = "ADD"),
   rem_tbl %>% mutate(class = "REMOVE"),
   gen_tbl %>% mutate(class = "GENERAL")
-)
+) %>%
+  filter(verifiable_2019, verifiable_2023)
 
-# Diagnostics before filter
-message(sprintf("Sampled counts by class: %s",
-                paste(capture.output(print(table(samples_tbl2$class), quote=FALSE)), collapse=" | ")))
-
-usable_tbl <- samples_tbl2 %>%
-  filter(verifiable_2019, verifiable_2023)   # both TRUE after is_yes()
-
-# Diagnostics after filter
-message(sprintf("Usable total n = %d (expected around 39)", nrow(usable_tbl)))
-message(sprintf("Usable counts by class: %s",
-                paste(capture.output(print(table(usable_tbl$class), quote=FALSE)), collapse=" | ")))
-
-if (nrow(usable_tbl) == 0) {
-  stop("Usable table is empty after filtering verifiable_2019 & verifiable_2023. 
-Check that those columns contain recognizable yes/true values, and that we’re reading the correct file.")
-}
-
-# ---------- TABLE 3 (stratum × class) ----------
+# ---- SUMMARY (stratum × class) ----
 summary_stratum_class <- usable_tbl %>%
-  filter(!is.na(stratum), !is.na(class)) %>%
   count(stratum, class, name = "n") %>%
-  tidyr::pivot_wider(names_from = class, values_from = n, values_fill = 0) %>%
-  mutate(Total = rowSums(across(where(is.numeric)))) %>%
+  pivot_wider(names_from = class, values_from = n, values_fill = 0)
+
+# Ensure fixed column order and totals
+wanted_cols <- c("stratum","REMOVE","ADD","GENERAL")
+for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
+  summary_stratum_class[[cc]] <- 0L
+}
+summary_stratum_class <- summary_stratum_class %>%
+  select(all_of(wanted_cols)) %>%
+  mutate(Total = REMOVE + ADD + GENERAL) %>%
   arrange(stratum)
 
 # Totals row
 summary_stratum_class_full <- bind_rows(
   summary_stratum_class,
-  summary_stratum_class %>%
-    summarise(stratum = "TOTAL", across(where(is.numeric), sum, na.rm = TRUE))
+  summarise(summary_stratum_class,
+            stratum = "TOTAL",
+            REMOVE = sum(REMOVE, na.rm = TRUE),
+            ADD    = sum(ADD,    na.rm = TRUE),
+            GENERAL= sum(GENERAL,na.rm = TRUE),
+            Total  = sum(Total,  na.rm = TRUE))
 )
 
-# Final sanity check
-tot_row <- summary_stratum_class_full %>% filter(stratum == "TOTAL") %>% pull(Total)
-message(sprintf("Table 3 TOTAL = %d", tot_row))
-
+# ---- TABLE (GFM-safe) ----
 knitr::kable(
   summary_stratum_class_full,
   caption = "Table 3: Validation points by class and stratum (usable points)",
-  align = c("l","r","r","r","r"),
-  digits = 0
+  align   = c("l","r","r","r","r"),
+  digits  = 0
 )
+
 
 ```
 
