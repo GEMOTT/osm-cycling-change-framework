@@ -252,30 +252,6 @@ Table 3: Validation points by class and stratum (usable points)
 
 Table 4: Validation performance (usable points only)
 
-| Class  | n (OSM-flagged, usable) |  TP |  FP | Precision |
-|:-------|------------------------:|----:|----:|----------:|
-| ADD    |                      15 |  13 |   2 |      0.87 |
-| REMOVE |                       5 |   1 |   4 |      0.20 |
-| Pooled |                      20 |  14 |   6 |      0.70 |
-
-Panel A. OSM-flagged points (for Precision): 15 ADD + 5 REMOVE = 20
-usable
-
-| GENERAL n (usable) | FN (missed ADD) | FN (missed REMOVE) | Total FN |
-|-------------------:|----------------:|-------------------:|---------:|
-|                 20 |               0 |                  1 |        1 |
-
-Panel B. GENERAL points (for False Negatives detection)
-
-| Class  | n (flagged, usable) |  TP |  FP |  FN | Precision | Recall |   F1 |
-|:-------|--------------------:|----:|----:|----:|----------:|-------:|-----:|
-| ADD    |                  15 |  13 |   2 |   0 |      0.87 |   1.00 | 0.93 |
-| REMOVE |                   5 |   1 |   4 |   1 |      0.20 |   0.50 | 0.29 |
-| Pooled |                  20 |  14 |   6 |   1 |      0.70 |   0.93 | 0.80 |
-
-Panel C. Final metrics (Precision on OSM-flagged; Recall includes FN
-from GENERAL)
-
 <!-- ### Error-adjusted change estimates -->
 <!-- Calibrated totals after applying validation metrics. -->
 <!-- Example table contrasting Raw vs Adjusted at city level (and possibly mean per tract). -->
