@@ -7,7 +7,7 @@ format:
 editor: visual
 bibliography: wp1.bib
 ---
-M
+
 <!-- # Can OpenStreetMap Reliably Track Changes in Active Travel Infrastructure? Evidence from Barcelona with GSV Validation -->
 
 <!-- ## Introduction -->
