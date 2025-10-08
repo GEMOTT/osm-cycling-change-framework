@@ -58,9 +58,34 @@ However, the reliability of OSM data for detecting infrastructure change is unce
 ### Methods
 
 ```{r}
+#| label: 01-setup
+#| include: false
+suppressPackageStartupMessages({
+  library(sf); sf::sf_use_s2(FALSE)   # planar ops faster in UTM
+  library(dplyr); library(tidyr); library(stringr)
+  library(knitr); library(kableExtra)
+  library(ggplot2); library(cowplot)
+  library(leaflet); library(tmap)      # widgets/maps
+  library(osmdata); library(osmextract)
+  library(biscale); library(readxl); library(purrr); library(DiagrammeR); library(DiagrammeRsvg);
+library(rsvg); library(openxlsx) 
+  # add others here if you use them anywhere in the doc
+})
+
+# caching helper + processed dir (used everywhere)
+proc_dir <- "data/processed"; if (!dir.exists(proc_dir)) dir.create(proc_dir, TRUE)
+.cache <- function(path, build, inputs = NULL, reuse = TRUE) {
+  up_to_date <- file.exists(path) && (is.null(inputs) || max(file.mtime(inputs)) <= file.mtime(path))
+  if (reuse && up_to_date) return(readRDS(path))
+  obj <- build(); saveRDS(obj, path); obj
+}
+
+FILE <- "outputs/barcelona_samples_2019_2023.xlsx"
+```
+
+```{r}
 #| eval: false
 #| include: false
-library(DiagrammeR)
 
 dot <- grViz("
 digraph {
@@ -150,31 +175,6 @@ knitr::include_graphics("figs/osm_gsv_flowchart.png")
 - ADDED: CI present in OSM 2023, absent in OSM 2019.
 - REMOVED: CI present in OSM 2019, absent in OSM 2023.
 - Computed via buffered geometric differencing, dropping tiny fragments.
-
-```{r}
-#| label: 01-setup
-#| include: false
-suppressPackageStartupMessages({
-  library(sf); sf::sf_use_s2(FALSE)   # planar ops faster in UTM
-  library(dplyr); library(tidyr); library(stringr)
-  library(knitr); library(kableExtra)
-  library(ggplot2); library(cowplot)
-  library(leaflet); library(tmap)      # widgets/maps
-  library(osmdata); library(osmextract)
-  library(biscale); library(readxl); library(purrr) 
-  # add others here if you use them anywhere in the doc
-})
-
-# caching helper + processed dir (used everywhere)
-proc_dir <- "data/processed"; if (!dir.exists(proc_dir)) dir.create(proc_dir, TRUE)
-.cache <- function(path, build, inputs = NULL, reuse = TRUE) {
-  up_to_date <- file.exists(path) && (is.null(inputs) || max(file.mtime(inputs)) <= file.mtime(path))
-  if (reuse && up_to_date) return(readRDS(path))
-  obj <- build(); saveRDS(obj, path); obj
-}
-
-FILE <- "outputs/barcelona_samples_2019_2023.xlsx"
-```
 
 ```{r}
 #| label: 02-boundary-build-once
@@ -351,7 +351,7 @@ ver19    <- "19"
 ver23    <- "23"
 crs_work <- 25831
 tol_m    <- 10
-min_len  <- 30
+min_len  <- 10
 
 # ---- raw paths ----
 dir_city <- "data"
@@ -379,9 +379,7 @@ cyc23_n <- .cache(
   build  = function() l23 |> pick_cycle_strict() |> sf::st_transform(crs_work) |> normalize_lines_safe(),
   inputs = gpkg23
 )
-
 ```
-
 
 ```{r}
 #| label: 06-build-ci-change
@@ -436,7 +434,6 @@ message("CI nets — 2019 segs: ", nrow(cyc19_n),
         " | 2023 segs: ", nrow(cyc23_n),
         " | Added segs: ", nrow(added),
         " | Removed segs: ", nrow(removed))
-
 ```
 
 ```{r}
@@ -476,8 +473,6 @@ general23_n <- if (exists(".cache")) .cache(
   if (min_len > 0) x <- x[as.numeric(sf::st_length(x)) >= min_len, , drop = FALSE]
   x
 }
-
-
 ```
 
 ```{r}
@@ -569,7 +564,6 @@ barcelona_tracts <- .cache(
   inputs = c("data/bcn-seccio-censal/BCN_seccion_censal_2015.rds",
              "data/pop/Population_Census_tract_2015_2022.rds")
 )
-
 ```
 
 ```{r}
@@ -587,7 +581,7 @@ barcelona_tracts <- barcelona_tracts |>
   )
 
 set.seed(123)
-per_stratum <- 5  # try 3–6 depending on effort
+per_stratum <- 6  # try 3–6 depending on effort
 
 sampled_tracts <- barcelona_tracts |> 
   group_by(stratum_id) |> 
@@ -623,7 +617,6 @@ bivar_map <- ggplot() +
  ggsave("figs/stratified_sample_bivariate_map.png", final_plot, width = 8, height = 8, dpi = 300)
 ```
 
-
 ```{r}
 #| label: fig-bivariate-map
 #| fig-cap: "Stratified sampling bivariate map (density × centrality, 3×3) with selected validation tracts; inset shows the bivariate legend."
@@ -656,76 +649,163 @@ knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
 #| message: false
 #| warning: false
 
-# 1) One-point-per-row from each line (middle of the line; safe fallback)
-if (!exists("midpoint_one")) {
-  midpoint_one <- function(x){
-    if (!inherits(x,"sf") || !nrow(x))
-      return(sf::st_sf(id = integer(0), geometry = sf::st_sfc(crs = sf::st_crs(x))))
-    g <- sf::st_geometry(x) |> sf::st_make_valid()
-    # Try the true midpoint along the line; fallback to point_on_surface if needed
-    tryCatch({
-      pts <- sf::st_line_sample(g, sample = 0.5)
-      sf::st_as_sf(data.frame(id = seq_len(nrow(x))),
-                   geometry = sf::st_cast(pts, "POINT"),
-                   crs = sf::st_crs(x))
-    }, error = function(e){
-      sf::st_as_sf(data.frame(id = seq_len(nrow(x))),
-                   geometry = sf::st_point_on_surface(g),
-                   crs = sf::st_crs(x))
-    })
-  }
-}
+# k evenly-spaced points per (clipped) line — stays inside tracts
+points_on_lines <- # Create k evenly spaced points per LINESTRING (safe on odd geoms)
+sample_points_along <- function(x, k = 3){
+  stopifnot(inherits(x, "sf"))
+  if (!nrow(x) || k < 1) return(x[0, , drop = FALSE])
 
-# 2) Points -> lon/lat + GSV link (0-row safe)
-if (!exists("to_lonlat_tbl")) {
-  to_lonlat_tbl <- function(pts_sf){
-    stopifnot(inherits(pts_sf, "sf"))
-    n <- nrow(pts_sf)
-    if (!n) {
-      base <- sf::st_drop_geometry(pts_sf)[0, , drop = FALSE]
-      base$lon <- numeric(0); base$lat <- numeric(0); base$gsv_link <- character(0)
-      return(base)
+  g <- sf::st_geometry(x)
+  crs_in <- sf::st_crs(x)
+
+  # per-row sampling, always returning exactly k POINT sfgs
+  pts_list <- lapply(seq_len(nrow(x)), function(i){
+    gi <- sf::st_make_valid(g[i])
+
+    # ensure single LINESTRING
+    gi1 <- try(suppressWarnings(sf::st_line_merge(gi)), silent = TRUE)
+    if (inherits(gi1, "try-error") || !inherits(gi1, "sfc_LINESTRING")) {
+      parts <- try(suppressWarnings(sf::st_cast(gi, "LINESTRING")), silent = TRUE)
+      if (inherits(parts, "try-error") || length(parts) == 0) {
+        # fall back to k duplicates of an empty point
+        return(rep(list(sf::st_point()), k))
+      }
+      gi1 <- parts[which.max(as.numeric(sf::st_length(parts)))]
     }
-    wgs <- sf::st_transform(pts_sf, 4326)
-    xy  <- sf::st_coordinates(wgs)
-    out <- sf::st_drop_geometry(wgs)
-    out$lon <- xy[,1]; out$lat <- xy[,2]
-    out$gsv_link <- paste0("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=",
-                           out$lat, ",", out$lon)
-    out
-  }
+
+    # k regular points; fallback to point_on_surface if needed
+    p <- try(sf::st_line_sample(gi1, n = k, type = "regular"), silent = TRUE)
+    if (inherits(p, "try-error") || length(p) == 0)
+      p <- sf::st_point_on_surface(gi1)
+
+    p <- suppressWarnings(sf::st_cast(p, "POINT"))
+
+    # pad/truncate to exactly k sfgs
+    sfgs <- if (length(p) >= k) {
+      p[1:k]
+    } else {
+      c(p, rep(list(p[[length(p)]]), k - length(p)))
+    }
+    sfgs
+  })
+
+  # flatten and repeat attributes k times per row
+  geom <- sf::st_sfc(unlist(pts_list, recursive = FALSE), crs = crs_in)
+  attrs <- sf::st_drop_geometry(x)[rep(seq_len(nrow(x)), each = k), , drop = FALSE]
+  sf::st_as_sf(attrs, geometry = geom)
 }
 
-# 3) Validation placeholders
-if (!exists("add_validation_cols")) {
-  add_validation_cols <- function(df){
-    n <- nrow(df)
-    df$present_2019    <- rep(NA, n)
-    df$present_2023    <- rep(NA, n)
-    df$verifiable_2019 <- rep(NA, n)
-    df$verifiable_2023 <- rep(NA, n)
-    df$notes           <- rep(NA_character_, n)
-    df
-  }
+
+# --- 1) Robust midpoint: exactly one point per line (no losses) ---------------
+points_on_lines <- function(x){
+  # Always return same row count as input
+  if (!inherits(x,"sf") || !nrow(x))
+    return(sf::st_sf(id = integer(0), geometry = sf::st_sfc(crs = sf::st_crs(x))))
+
+  g <- sf::st_geometry(x)
+  crs_in <- sf::st_crs(x)
+
+  pts <- lapply(seq_len(nrow(x)), function(i){
+    gi <- g[i]
+    if (sf::st_is_empty(gi)) return(sf::st_point())
+
+    gi <- sf::st_make_valid(gi)
+
+    # ensure a simple LINESTRING
+    gi1 <- try(suppressWarnings(sf::st_line_merge(gi)), silent = TRUE)
+    if (inherits(gi1, "try-error") || !inherits(gi1, "sfc_LINESTRING")) {
+      parts <- try(suppressWarnings(sf::st_cast(gi, "LINESTRING")), silent = TRUE)
+      if (inherits(parts, "try-error") || length(parts) == 0)
+        return(sf::st_point())
+      gi1 <- parts[which.max(as.numeric(sf::st_length(parts)))]
+    }
+
+    # Try sampling midpoint; fallback to centroid/point_on_surface
+    p <- try(sf::st_line_sample(gi1, sample = 0.5), silent = TRUE)
+    if (inherits(p, "try-error") || length(p) == 0) {
+      p <- try(sf::st_point_on_surface(gi1), silent = TRUE)
+      if (inherits(p, "try-error")) p <- sf::st_centroid(gi1)
+    }
+
+    # Ensure single POINT sfg
+    p <- suppressWarnings(sf::st_cast(p, "POINT"))
+    if (length(p) == 0 || !inherits(p[[1]], "sfg")) p <- sf::st_point()
+    p[[1]]
+  })
+
+  sf::st_as_sf(
+    data.frame(id = seq_len(nrow(x))),
+    geometry = sf::st_sfc(pts, crs = crs_in)
+  )
 }
 
-# 4) Coerce for bind_rows (consistent types)
-if (!exists("coerce_for_bind")) {
-  coerce_for_bind <- function(df){
-    if (!"class" %in% names(df))    df$class <- character(nrow(df))
-    if (!"interval" %in% names(df)) df$interval <- character(nrow(df))
-    df$class    <- as.character(df$class)
-    df$interval <- as.character(df$interval)
-    if ("gsv_link" %in% names(df)) df$gsv_link <- as.character(df$gsv_link)
-    if ("lon" %in% names(df))      df$lon      <- as.numeric(df$lon)
-    if ("lat" %in% names(df))      df$lat      <- as.numeric(df$lat)
-    if ("present_2019" %in% names(df))    df$present_2019    <- as.logical(df$present_2019)
-    if ("present_2023" %in% names(df))    df$present_2023    <- as.logical(df$present_2023)
-    if ("verifiable_2019" %in% names(df)) df$verifiable_2019 <- as.logical(df$verifiable_2019)
-    if ("verifiable_2023" %in% names(df)) df$verifiable_2023 <- as.logical(df$verifiable_2023)
-    if ("notes" %in% names(df))           df$notes           <- as.character(df$notes)
-    df
+# --- 2) One-liner: lines → points table with lon/lat + GSV link ---------------
+to_lonlat_tbl <- function(pts_sf){
+  stopifnot(inherits(pts_sf, "sf"))
+  if (!nrow(pts_sf))
+    return(dplyr::tibble(lon=numeric(), lat=numeric(), gsv_link=character()))
+  wgs <- sf::st_transform(pts_sf, 4326)
+  xy  <- sf::st_coordinates(wgs)
+  out <- sf::st_drop_geometry(wgs)
+  out$lon <- xy[,1]; out$lat <- xy[,2]
+  out$gsv_link <- paste0("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=",
+                         out$lat, ",", out$lon)
+  out
+}
+
+# --- 3) Add validation placeholders ------------------------------------------
+add_validation_cols <- function(df){
+  n <- nrow(df)
+  df$present_2019    <- NA
+  df$present_2023    <- NA
+  df$verifiable_2019 <- NA
+  df$verifiable_2023 <- NA
+  df$notes           <- NA_character_
+  df
+}
+
+# --- 4) Bind-safe coercion ----------------------------------------------------
+coerce_for_bind <- function(df){
+  chr <- c("class","interval","gsv_link","notes")
+  num <- c("lon","lat")
+  log <- c("present_2019","present_2023","verifiable_2019","verifiable_2023")
+  for (v in chr) if (v %in% names(df)) df[[v]] <- as.character(df[[v]])
+  for (v in num) if (v %in% names(df)) df[[v]] <- as.numeric(df[[v]])
+  for (v in log) if (v %in% names(df)) df[[v]] <- as.logical(df[[v]])
+  df
+}
+
+# --- 5) Core sampler: clips lines inside each tract ---------------------------
+sample_lines_by_tract <- function(lines_sf, tracts_sf, n_per, replace = FALSE, min_len = 0){
+  if (!inherits(lines_sf,"sf") || !nrow(lines_sf)) {
+    out <- lines_sf[0, , drop = FALSE]
+    out$tract_id <- character(0); out$stratum <- factor()[0]
+    return(out)
   }
+  L <- sf::st_transform(lines_sf, sf::st_crs(tracts_sf))
+  hits  <- sf::st_intersects(tracts_sf, L)
+  picks <- vector("list", nrow(tracts_sf))
+
+  for (i in seq_len(nrow(tracts_sf))) {
+    idx <- hits[[i]]; if (!length(idx)) next
+    cand <- suppressWarnings(sf::st_intersection(L[idx, , drop = FALSE], tracts_sf[i, ]))
+    cand <- suppressWarnings(sf::st_collection_extract(cand, "LINESTRING", warn = FALSE))
+    cand <- cand[!sf::st_is_empty(cand), , drop = FALSE]
+    if (min_len > 0)
+      cand <- cand[as.numeric(sf::st_length(cand)) >= min_len, , drop = FALSE]
+    if (!nrow(cand)) next
+
+    draw_with_replacement <- isTRUE(replace) && nrow(cand) < n_per
+    k <- if (draw_with_replacement) n_per else min(n_per, nrow(cand))
+    lens <- as.numeric(sf::st_length(cand)); lens[!is.finite(lens)] <- 0
+    prob <- if (sum(lens) > 0) lens / sum(lens) else NULL
+
+    piece <- cand[sample(seq_len(nrow(cand)), k, replace = draw_with_replacement, prob = prob), , drop = FALSE]
+    piece$tract_id <- tracts_sf$tract_id[i]
+    piece$stratum  <- tracts_sf$stratum[i]
+    picks[[i]] <- piece
+  }
+  dplyr::bind_rows(picks)
 }
 
 ```
@@ -738,39 +818,11 @@ if (!exists("coerce_for_bind")) {
 #| eval: true
 #| include: false
 
-# safety: define if missing
-if (!exists("pick_noncycle_strict")) {
-  pick_noncycle_strict <- function(x){
-    stopifnot(inherits(x,"sf"))
-    if (!nrow(x)) return(x)
-    nm <- names(x); n <- nrow(x)
-    gchr <- function(col) if (col %in% nm) tolower(as.character(x[[col]])) else rep(NA_character_, n)
-    highway      <- gchr("highway")
-    bicycle      <- gchr("bicycle")
-    bicycle_road <- gchr("bicycle_road")
-    lane_cols <- c("cycleway","cycleway:both","cycleway:left","cycleway:right")
-    lane_vals <- c("lane","track","opposite_lane","opposite_track","separate")
-    has_physical_lane <- rep(FALSE, n)
-    for (col in lane_cols) if (col %in% nm) {
-      v <- gchr(col); has_physical_lane <- has_physical_lane | (v %in% lane_vals)
-    }
-    is_cycleway        <- highway == "cycleway"
-    is_designated_path <- (highway %in% c("path","footway","track")) & (bicycle %in% c("designated","yes"))
-    is_bicycle_road    <- bicycle_road == "yes"
-    keep_cycle <- is_cycleway | has_physical_lane | is_designated_path | is_bicycle_road
-    base_roads <- highway %in% c("trunk","primary","secondary","tertiary",
-                                 "unclassified","residential","service",
-                                 "primary_link","secondary_link","tertiary_link",
-                                 "living_street","pedestrian")
-    x[base_roads & !keep_cycle, , drop = FALSE]
-  }
-}
-
-# Requires: added, removed, l23, crs_work, sampled_tracts (sf POLYGONS)
+# --- basic checks -------------------------------------------------------------
 stopifnot(exists("added"), exists("removed"), exists("l23"), exists("crs_work"))
 stopifnot(exists("sampled_tracts"))
 
-# --- Ensure sampled_tracts has a 'tract_id' ----------------------------------
+# --- Ensure sampled_tracts has a 'tract_id' -----------------------------------
 normalize_tract_id <- function(s){
   nm  <- names(s); nml <- tolower(nm)
   candidates <- c("tract_id","tractid","geoid","geoid10","geoid20","id","code","name","objectid","fid")
@@ -785,13 +837,14 @@ normalize_tract_id <- function(s){
 sampled_tracts <- normalize_tract_id(sampled_tracts)
 stopifnot("tract_id" %in% names(sampled_tracts))
 
-# --- Quotas per tract (tune as needed) ---------------------------------------
-PERTRACT_ADD <- 4
-PERTRACT_REM <- 2
-PERTRACT_GEN <- 4
-FORCE_QUOTA  <- FALSE   # TRUE = allow replacement to hit quota
+# --- Quotas and parameters -----------------------------------------------------
+PERTRACT_ADD  <- 4
+PERTRACT_REM  <- 4
+PERTRACT_GEN  <- 2
+FORCE_QUOTA   <- TRUE      # prevent duplicates
+target_ratio  <- 0.6
 
-# --- Ensure tracts are in work CRS and have 'stratum' ------------------------
+# --- Harmonise CRS and stratum -------------------------------------------------
 tracts <- sf::st_transform(sampled_tracts, crs_work)
 if (!"stratum" %in% names(tracts)) {
   if (all(c("density_f","centrality_f") %in% names(tracts))) {
@@ -802,53 +855,10 @@ if (!"stratum" %in% names(tracts)) {
 }
 tracts$stratum <- droplevels(as.factor(tracts$stratum))
 
-# --- Helper: sample lines within each tract (length-weighted) ----------------
-sample_lines_by_tract <- function(lines_sf, tracts_sf, n_per, replace = FALSE, min_len = 0){
-  if (!inherits(lines_sf,"sf") || nrow(lines_sf) == 0) {
-    out <- lines_sf[0, , drop = FALSE]
-    out$tract_id <- character(0); out$stratum <- factor()[0]
-    return(out)
-  }
-  L <- sf::st_transform(lines_sf, sf::st_crs(tracts_sf))
-  if (min_len > 0) {
-    L <- L[as.numeric(sf::st_length(L)) >= min_len, , drop = FALSE]
-  }
-  if (!nrow(L)) {
-    out <- L; out$tract_id <- character(0); out$stratum <- factor()[0]; return(out)
-  }
-
-  hits  <- sf::st_intersects(tracts_sf, L)  # per-tract list of row indices
-  picks <- vector("list", length = nrow(tracts_sf))
-
-  for (i in seq_len(nrow(tracts_sf))) {
-    idx <- hits[[i]]
-    if (!length(idx)) next
-
-    draw_with_replacement <- isTRUE(replace) && length(idx) < n_per
-    k <- if (draw_with_replacement) n_per else min(n_per, length(idx))
-
-    local <- seq_along(idx)
-    lens  <- as.numeric(sf::st_length(L[idx, , drop = FALSE]))
-    lens[!is.finite(lens)] <- 0
-    sprob <- sum(lens, na.rm = TRUE)
-    prob <- if (sprob > 0 && length(lens) == length(local)) lens / sprob else NULL
-
-    pick_local <- sample(local, size = k, replace = draw_with_replacement, prob = prob)
-    pick_idx   <- idx[pick_local]
-
-    piece <- L[pick_idx, , drop = FALSE]
-    piece$tract_id <- tracts_sf$tract_id[i]
-    piece$stratum  <- tracts_sf$stratum[i]
-    picks[[i]] <- piece
-  }
-  dplyr::bind_rows(picks)
-}
-
-# --- GENERAL (2023 non-cycle) pool -------------------------------------------
+# --- GENERAL (2023 non-cycle) pool --------------------------------------------
 if (exists("general23_n") && inherits(general23_n, "sf") && nrow(general23_n)) {
   noncycle23 <- sf::st_transform(general23_n, crs_work)
 } else {
-  # Tag-based selection, then filter to line geoms only
   noncycle23 <- l23 |>
     sf::st_transform(crs_work) |>
     pick_noncycle_strict() |>
@@ -861,64 +871,103 @@ if (exists("general23_n") && inherits(general23_n, "sf") && nrow(general23_n)) {
     noncycle23 <- suppressWarnings(sf::st_cast(noncycle23, "LINESTRING"))
     noncycle23 <- noncycle23[!sf::st_is_empty(sf::st_geometry(noncycle23)), , drop = FALSE]
   }
-
-  # Spatial fallback if still empty: base roads minus cycle buffer
-  if (!nrow(noncycle23)) {
-    base_roads <- c("trunk","primary","secondary","tertiary",
-                    "unclassified","residential","service",
-                    "primary_link","secondary_link","tertiary_link",
-                    "living_street","pedestrian")
-
-    base23 <- l23 |>
-      sf::st_transform(crs_work) |>
-      dplyr::filter(.data$highway %in% base_roads)
-
-    keep_lines <- sf::st_geometry_type(base23, by_geometry = TRUE) %in% c("LINESTRING","MULTILINESTRING")
-    base23 <- base23[keep_lines, , drop = FALSE] |>
-              sf::st_make_valid() |>
-              suppressWarnings(sf::st_cast("LINESTRING"))
-
-    cyc_geom <- NULL
-    if (exists("cyc23_n") && inherits(cyc23_n,"sf") && nrow(cyc23_n)) {
-      cyc_geom <- sf::st_buffer(sf::st_geometry(cyc23_n), tol_m) |> sf::st_union()
-    } else if (exists("cyc23") && inherits(cyc23,"sf") && nrow(cyc23)) {
-      cyc_geom <- sf::st_buffer(sf::st_geometry(sf::st_transform(cyc23, crs_work)), tol_m) |> sf::st_union()
-    }
-
-    if (!is.null(cyc_geom) && length(cyc_geom) > 0) {
-      diff_geom <- sf::st_difference(sf::st_geometry(base23), cyc_geom)
-      diff_geom <- sf::st_collection_extract(diff_geom, "LINESTRING", warn = FALSE)
-      noncycle23 <- sf::st_sf(geometry = diff_geom, crs = crs_work)
-      noncycle23 <- noncycle23[!sf::st_is_empty(sf::st_geometry(noncycle23)), , drop = FALSE]
-    } else {
-      noncycle23 <- base23
-    }
-  }
 }
 
-# --- STRATIFIED PICKS (per-tract quotas) --------------------------------------
-added_by_tr    <- sample_lines_by_tract(added,   tracts, PERTRACT_ADD, replace = FORCE_QUOTA)
-removed_by_tr  <- sample_lines_by_tract(removed, tracts, PERTRACT_REM, replace = FORCE_QUOTA)
+# --- PERSISTENT cycle pool -----------------------------------------------------
+if (!exists("persist") || !inherits(persist, "sf")) {
+  cyc19_buf <- sf::st_buffer(sf::st_union(sf::st_geometry(cyc19_n)), tol_m)
+  persist <- sf::st_intersection(sf::st_geometry(cyc23_n), cyc19_buf) |>
+             sf::st_collection_extract("LINESTRING", warn = FALSE) |>
+             sf::st_sf(crs = crs_work)
+  persist <- persist[!sf::st_is_empty(persist), , drop = FALSE]
+}
 
-# GENERAL: restrict to tracts where we sampled ADD (fallback = all tracts)
-sampled_ids <- unique(added_by_tr$tract_id)
-tracts_for_general <- dplyr::filter(tracts, tract_id %in% sampled_ids)
+# --- STRATIFIED PICKS ----------------------------------------------------------
+added_by_tr   <- sample_lines_by_tract(added,   tracts, PERTRACT_ADD, replace = FORCE_QUOTA)
+removed_by_tr <- sample_lines_by_tract(removed, tracts, PERTRACT_REM, replace = FORCE_QUOTA)
+
+change_ids <- unique(na.omit(c(added_by_tr$tract_id, removed_by_tr$tract_id)))
+tracts_for_general <- dplyr::filter(tracts, tract_id %in% change_ids)
 if (!nrow(tracts_for_general)) tracts_for_general <- tracts
-
 general_by_tr <- sample_lines_by_tract(noncycle23, tracts_for_general, PERTRACT_GEN, replace = FORCE_QUOTA)
+persist_by_tr <- sample_lines_by_tract(persist, tracts, PERTRACT_GEN, replace = FORCE_QUOTA)
+
+# --- Convert to midpoints ------------------------------------------------------
+# choose how much to scale
+K_ADD <- 3; K_REM <- 3; K_GEN <- 2
+
+added_pts   <- sample_points_along(added_by_tr,   k = K_ADD) %>% dplyr::mutate(class = "ADD")
+removed_pts <- sample_points_along(removed_by_tr, k = K_REM) %>% dplyr::mutate(class = "REMOVE")
+gen_pts     <- sample_points_along(general_by_tr, k = K_GEN) %>% dplyr::mutate(class = "GENERAL")
 
 
-added_pts   <- midpoint_one(added_by_tr)    |> dplyr::mutate(class="ADD",     tract_id=added_by_tr$tract_id,    stratum=added_by_tr$stratum)
-removed_pts <- midpoint_one(removed_by_tr)  |> dplyr::mutate(class="REMOVE",  tract_id=removed_by_tr$tract_id,  stratum=removed_by_tr$stratum)
-gen_pts     <- midpoint_one(general_by_tr)  |> dplyr::mutate(class="GENERAL", tract_id=general_by_tr$tract_id,  stratum=general_by_tr$stratum)
+# --- Tables with lon/lat -------------------------------------------------------
+add_tbl <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval="2019→2023") |> add_validation_cols() |> coerce_for_bind()
+rem_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval="2019→2023") |> add_validation_cols() |> coerce_for_bind()
+gen_tbl <- dplyr::bind_rows(
+  to_lonlat_tbl(gen_pts)     |> dplyr::mutate(interval="2019→2023", source="NONCYCLE_2023"),
+  to_lonlat_tbl(persist_pts) |> dplyr::mutate(interval="2019→2023", source="PERSIST_19_23")
+) |> add_validation_cols() |> coerce_for_bind()
 
-# --- Tables with lon/lat + placeholders, then bind ---------------------------
-add_tbl <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
-rem_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
-gen_tbl <- to_lonlat_tbl(gen_pts)     |> dplyr::mutate(interval = "2019→2023") |> add_validation_cols() |> coerce_for_bind()
-
+n_flagged   <- nrow(add_tbl) + nrow(rem_tbl)
+max_general <- max(20, round(target_ratio * n_flagged))
+if (nrow(gen_tbl) > max_general) {
+  set.seed(123)
+  gen_tbl <- gen_tbl[sample(seq_len(nrow(gen_tbl)), max_general), , drop = FALSE]
+}
 samples_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, gen_tbl)
 
+# --- Top-up to ensure stratum balance -----------------------------------------
+min_gen_per_stratum <- 2
+min_rem_per_stratum <- 3
+
+general_by_tr <- top_up(noncycle23, tracts, general_by_tr, min_gen_per_stratum)
+removed_by_tr <- top_up(removed,     tracts, removed_by_tr, min_rem_per_stratum)
+
+added_pts    <- points_on_lines(added_by_tr)
+removed_pts  <- points_on_lines(removed_by_tr)
+gen_pts      <- points_on_lines(general_by_tr)
+
+# --- Keep only points within tract boundaries ---------------------------------
+keep_in <- function(pts, tracts, eps = 0.5){
+  if (!inherits(pts,"sf") || !nrow(pts)) return(pts)
+  if (sf::st_crs(pts) != sf::st_crs(tracts))
+    pts <- sf::st_transform(pts, sf::st_crs(tracts))
+  M <- sf::st_is_within_distance(pts, tracts, dist = eps, sparse = FALSE)
+  pts[apply(M, 1, any), , drop = FALSE]
+}
+
+added_pts   <- keep_in(added_pts,   tracts)
+removed_pts <- keep_in(removed_pts, tracts)
+gen_pts     <- keep_in(gen_pts,     tracts)
+
+stopifnot(
+  nrow(added_pts)   == nrow(added_by_tr),
+  nrow(removed_pts) == nrow(removed_by_tr),
+  nrow(gen_pts)     == nrow(general_by_tr)
+)
+
+# --- Sanity checks ------------------------------------------------------------
+cat("\nCounts (lines → points):\n")
+print(rbind(
+  ADD      = c(lines = nrow(added_by_tr),   pts = nrow(added_pts)),
+  REMOVE   = c(lines = nrow(removed_by_tr), pts = nrow(removed_pts)),
+  GENERAL  = c(lines = nrow(general_by_tr), pts = nrow(gen_pts))
+))
+
+check_inside <- function(pts, tracts, eps = 0.5){
+  sum(!apply(sf::st_is_within_distance(pts, tracts, dist = eps, sparse = FALSE), 1, any))
+}
+cat("\nPoints outside tract boundaries (should be 0):\n")
+print(rbind(
+  ADD     = check_inside(added_pts, tracts),
+  REMOVE  = check_inside(removed_pts, tracts),
+  GENERAL = check_inside(gen_pts, tracts)
+))
+
+as.data.frame(table(stratum = added_by_tr$stratum))
+as.data.frame(table(stratum = removed_by_tr$stratum))
+as.data.frame(table(stratum = general_by_tr$stratum))
 ```
 
 ```{r}
@@ -932,35 +981,48 @@ outdir  <- "outputs"
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 outfile <- file.path(outdir, paste0(city_tag, "_samples_2019_2023.xlsx"))
 
-library(openxlsx); library(dplyr)
+# ensure uniform columns across sheets
+if (!"source" %in% names(add_tbl)) add_tbl$source <- "ADD_FLAG"
+if (!"source" %in% names(rem_tbl)) rem_tbl$source <- "REMOVE_FLAG"
+if (!"source" %in% names(gen_tbl)) gen_tbl$source <- NA_character_
+
+wb <- createWorkbook()
+
+write_one <- function(df, sheet){
+  # make sure these columns exist so relocate() can succeed
+  if (!"gsv_link" %in% names(df)) df$gsv_link <- NA_character_
+  if (!"source"  %in% names(df)) df$source   <- NA_character_
+
+  df2 <- df %>%
+    mutate(GSV = NA_character_) %>%
+    # move only the columns that exist (no error if absent)
+    relocate(any_of(c("GSV","source")), .after = gsv_link)
+
+  addWorksheet(wb, sheet)
+  writeData(wb, sheet, df2)
+
+  if (nrow(df2) > 0) {
+    link_col <- which(names(df2) == "GSV")
+    writeFormula(
+      wb, sheet,
+      x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
+      startCol = link_col, startRow = 2
+    )
+  }
+  addFilter(wb, sheet, row = 1, cols = 1:ncol(df2))
+  setColWidths(wb, sheet, cols = 1:ncol(df2), widths = "auto")
+  freezePane(wb, sheet, firstActiveRow = 2, firstActiveCol = 1)
+}
+
+write_one(add_tbl, "ADD")
+write_one(rem_tbl, "REMOVE")
+write_one(gen_tbl, "GENERAL")
 
 if (file.exists(outfile)) {
-  message("✔ Found existing coded Excel. Not overwriting: ", normalizePath(outfile))
+  message("✔ Found existing Excel; not overwriting: ", normalizePath(outfile))
 } else {
-  wb <- createWorkbook()
-
-  write_one <- function(df, sheet){
-    df2 <- df %>% mutate(GSV = NA_character_) %>% relocate(GSV, .after = gsv_link)
-    addWorksheet(wb, sheet)
-    writeData(wb, sheet, df2)
-    if (nrow(df2) > 0) {
-      link_col <- which(names(df2) == "GSV")
-      writeFormula(wb, sheet,
-                   x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
-                   startCol = link_col, startRow = 2)
-    }
-    addFilter(wb, sheet, row = 1, cols = 1:ncol(df2))
-    setColWidths(wb, sheet, cols = 1:ncol(df2), widths = "auto")
-    freezePane(wb, sheet, firstActiveRow = 2, firstActiveCol = 1)
-  }
-
-  write_one(add_tbl, "ADD")
-  write_one(rem_tbl, "REMOVE")
-  write_one(gen_tbl, "GENERAL")
-
   saveWorkbook(wb, outfile, overwrite = FALSE)
   message("✅ Blank Excel created: ", normalizePath(outfile))
-  message("→ Fill it, then re-run the metrics chunks (22 & 23).")
 }
 
 ```
@@ -1018,7 +1080,6 @@ The OSM cycling network expanded from 214.1 km in 2019 to 263.9 km in 2023 (+49.
 #| fig-align: center
 #| echo: false
 knitr::include_graphics("figs/change_map.png")
-
 ```
 
 ```{r}
@@ -1052,7 +1113,6 @@ snap_like <- function(a, b, tol){
   if (!requireNamespace("lwgeom", quietly = TRUE)) return(a)
   lwgeom::st_snap(a, b, tolerance = tol)
 }
-
 ```
 
 ```{r}
@@ -1250,7 +1310,6 @@ knitr::kable(
   caption = "Table 2: OSM-estimated additions and removals (2019–2023) by density × centrality stratum",
   align = c("l","r","r","r","r")
 )
-
 ```
 
 ### Validation results
@@ -1489,7 +1548,6 @@ knitr::kable(
   align   = c("l","r","r","r","l","r","r","r","r","r"),
   digits  = 0
 )
-
 ```
 
 
@@ -1507,451 +1565,445 @@ knitr::kable(
 
 <!-- Example: “Adjusted estimates show the largest growth in central tracts, while peripheral areas show smaller net additions once errors are corrected.” -->
 
-<!-- ## Supplements -->
+## Supplements
 
-<!-- ### S1. Validation workbook -->
+### S1. Validation workbook
 
-<!-- **Data:** [Download the validation workbook (Excel)](outputs/barcelona_samples_2019_2023.xlsx) -->
+**Data:** [Download the validation workbook (Excel)](outputs/barcelona_samples_2019_2023.xlsx)
 
-<!-- ### S2. Interactive stratification map (density × centrality, 3×3) with sampled tracts -->
+### S2. Interactive stratification map (density × centrality, 3×3) with sampled tracts
 
-<!-- ```{r} -->
-<!-- #| label: 17-stratification-map -->
-<!-- #| eval: false -->
-<!-- #| include: false -->
-<!-- # --- Leaflet map matching the static bivariate colours --------------------- -->
-<!-- library(sf) -->
-<!-- library(leaflet) -->
-<!-- library(biscale) -->
-<!-- library(htmltools) -->
-<!-- library(dplyr) -->
+```{r}
+#| label: 17-stratification-map
+#| eval: false
+#| include: false
+# --- Leaflet map matching the static bivariate colours ---------------------
+library(sf)
+library(leaflet)
+library(biscale)
+library(htmltools)
+library(dplyr)
 
-<!-- # 0) Ensure identical classes: reuse bb_bivar from your static pipeline -->
-<!-- stopifnot("bi_class" %in% names(bb_bivar)) -->
+# 0) Ensure identical classes: reuse bb_bivar from your static pipeline
+stopifnot("bi_class" %in% names(bb_bivar))
 
-<!-- # 1) Fix geometry + CRS for leaflet -->
-<!-- bb_bivar_ll <- bb_bivar |> -->
-<!--   sf::st_make_valid() |> -->
-<!--   sf::st_transform(4326) -->
+# 1) Fix geometry + CRS for leaflet
+bb_bivar_ll <- bb_bivar |>
+  sf::st_make_valid() |>
+  sf::st_transform(4326)
 
-<!-- # (optional) sampled tracts outlines -->
-<!-- sampled_ll <- NULL -->
-<!-- if (exists("sampled_tracts") && inherits(sampled_tracts, "sf") && nrow(sampled_tracts)) { -->
-<!--   sampled_ll <- sampled_tracts |> st_make_valid() |> st_transform(4326) -->
-<!-- } -->
+# (optional) sampled tracts outlines
+sampled_ll <- NULL
+if (exists("sampled_tracts") && inherits(sampled_tracts, "sf") && nrow(sampled_tracts)) {
+  sampled_ll <- sampled_tracts |> st_make_valid() |> st_transform(4326)
+}
 
-<!-- # 2) Build the exact same colour mapping used by bi_scale_fill(pal="DkBlue2", dim=3) -->
-<!-- dim_bi  <- 3 -->
-<!-- cols    <- biscale::bi_pal("DkBlue2", dim_bi, preview = FALSE) -->
-<!-- # Arrange to match the legend orientation (↑ y, → x) used in biscale -->
-<!-- M       <- matrix(cols, nrow = dim_bi, byrow = TRUE) -->
-<!-- M_flip  <- M[dim_bi:1, ]                            # flip rows so y increases upward -->
+# 2) Build the exact same colour mapping used by bi_scale_fill(pal="DkBlue2", dim=3)
+dim_bi  <- 3
+cols    <- biscale::bi_pal("DkBlue2", dim_bi, preview = FALSE)
+# Arrange to match the legend orientation (↑ y, → x) used in biscale
+M       <- matrix(cols, nrow = dim_bi, byrow = TRUE)
+M_flip  <- M[dim_bi:1, ]                            # flip rows so y increases upward
 
-<!-- labs_df   <- expand.grid(x = 1:dim_bi, y = 1:dim_bi) -->
-<!-- lab_names <- sprintf("%d-%d", labs_df$x, labs_df$y) -->
-<!-- lab_cols  <- vapply(seq_len(nrow(labs_df)), function(i) M_flip[labs_df$y[i], labs_df$x[i]], "") -->
-<!-- col_lu    <- setNames(lab_cols, lab_names) -->
+labs_df   <- expand.grid(x = 1:dim_bi, y = 1:dim_bi)
+lab_names <- sprintf("%d-%d", labs_df$x, labs_df$y)
+lab_cols  <- vapply(seq_len(nrow(labs_df)), function(i) M_flip[labs_df$y[i], labs_df$x[i]], "")
+col_lu    <- setNames(lab_cols, lab_names)
 
-<!-- # 3) Make sure bi_class is character (not factor), then map colours -->
-<!-- bb_bivar_ll <- bb_bivar_ll |> -->
-<!--   mutate(bi_class_chr = as.character(bi_class), -->
-<!--          fill_col     = unname(col_lu[bi_class_chr]), -->
-<!--          fill_col     = ifelse(is.na(fill_col), "#00000000", fill_col)) -->
+# 3) Make sure bi_class is character (not factor), then map colours
+bb_bivar_ll <- bb_bivar_ll |>
+  mutate(bi_class_chr = as.character(bi_class),
+         fill_col     = unname(col_lu[bi_class_chr]),
+         fill_col     = ifelse(is.na(fill_col), "#00000000", fill_col))
 
-<!-- # 4) Add a clean bivariate legend that matches the static one -->
-<!-- add_bi_legend_leaflet <- function(map, pal = "DkBlue2", dim = 3, -->
-<!--                                   position = "bottomright", -->
-<!--                                   title = "Density × Centrality", -->
-<!--                                   xlab = "Higher Density →", -->
-<!--                                   ylab = "More Central ↑", -->
-<!--                                   box = 14, gap = 2) { -->
-<!--   cols  <- biscale::bi_pal(pal, dim, preview = FALSE) -->
-<!--   grid  <- matrix(cols, nrow = dim, byrow = TRUE)[dim:1, ] -->
-<!--   cells <- as.vector(t(grid)) -->
+# 4) Add a clean bivariate legend that matches the static one
+add_bi_legend_leaflet <- function(map, pal = "DkBlue2", dim = 3,
+                                  position = "bottomright",
+                                  title = "Density × Centrality",
+                                  xlab = "Higher Density →",
+                                  ylab = "More Central ↑",
+                                  box = 14, gap = 2) {
+  cols  <- biscale::bi_pal(pal, dim, preview = FALSE)
+  grid  <- matrix(cols, nrow = dim, byrow = TRUE)[dim:1, ]
+  cells <- as.vector(t(grid))
 
-<!--   html <- tags$div( -->
-<!--     tags$style(HTML(paste0( -->
-<!--       ".bi-legend{background:#fff;padding:6px 8px;border-radius:6px;", -->
-<!--       "box-shadow:0 1px 4px rgba(0,0,0,.3);font-family:sans-serif}", -->
-<!--       ".bi-title{font-weight:600;margin-bottom:4px;font-size:12px}", -->
-<!--       ".bi-wrap{display:flex;align-items:center}", -->
-<!--       ".bi-grid{display:grid;grid-template-columns:repeat(", dim, ",", box, "px);", -->
-<!--       "grid-auto-rows:", box, "px;gap:", gap, "px;margin:0 6px}", -->
-<!--       ".bi-cell{width:", box, "px;height:", box, "px}", -->
-<!--       ".bi-y{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;color:#444}", -->
-<!--       ".bi-x{text-align:center;font-size:11px;color:#444;margin-top:4px}" -->
-<!--     ))), -->
-<!--     tags$div(class = "bi-legend", -->
-<!--       tags$div(class = "bi-title", title), -->
-<!--       tags$div(class = "bi-wrap", -->
-<!--         tags$div(class = "bi-y", ylab), -->
-<!--         tags$div(class = "bi-grid", -->
-<!--           lapply(cells, function(clr) tags$div(class = "bi-cell", -->
-<!--                                                style = paste0("background:", clr, ";"))) -->
-<!--         ) -->
-<!--       ), -->
-<!--       tags$div(class = "bi-x", xlab) -->
-<!--     ) -->
-<!--   ) -->
-<!--   leaflet::addControl(map, html = html, position = position) -->
-<!-- } -->
+  html <- tags$div(
+    tags$style(HTML(paste0(
+      ".bi-legend{background:#fff;padding:6px 8px;border-radius:6px;",
+      "box-shadow:0 1px 4px rgba(0,0,0,.3);font-family:sans-serif}",
+      ".bi-title{font-weight:600;margin-bottom:4px;font-size:12px}",
+      ".bi-wrap{display:flex;align-items:center}",
+      ".bi-grid{display:grid;grid-template-columns:repeat(", dim, ",", box, "px);",
+      "grid-auto-rows:", box, "px;gap:", gap, "px;margin:0 6px}",
+      ".bi-cell{width:", box, "px;height:", box, "px}",
+      ".bi-y{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;color:#444}",
+      ".bi-x{text-align:center;font-size:11px;color:#444;margin-top:4px}"
+    ))),
+    tags$div(class = "bi-legend",
+      tags$div(class = "bi-title", title),
+      tags$div(class = "bi-wrap",
+        tags$div(class = "bi-y", ylab),
+        tags$div(class = "bi-grid",
+          lapply(cells, function(clr) tags$div(class = "bi-cell",
+                                               style = paste0("background:", clr, ";")))
+        )
+      ),
+      tags$div(class = "bi-x", xlab)
+    )
+  )
+  leaflet::addControl(map, html = html, position = position)
+}
 
-<!-- # 4) Build the leaflet map -->
-<!-- m <- leaflet(options = leafletOptions(zoomControl = TRUE)) |> -->
-<!--   addProviderTiles("CartoDB.Positron", group = "Positron") |> -->
-<!--   addPolygons(data = bb_bivar_ll, -->
-<!--               weight = 0.5, color = "#ffffff", opacity = 1, -->
-<!--               fillColor = ~fill_col, fillOpacity = 0.9, -->
-<!--               smoothFactor = 0.2, -->
-<!--               label = ~paste0("Class: ", bi_class_chr)) -->
+# 4) Build the leaflet map
+m <- leaflet(options = leafletOptions(zoomControl = TRUE)) |>
+  addProviderTiles("CartoDB.Positron", group = "Positron") |>
+  addPolygons(data = bb_bivar_ll,
+              weight = 0.5, color = "#ffffff", opacity = 1,
+              fillColor = ~fill_col, fillOpacity = 0.9,
+              smoothFactor = 0.2,
+              label = ~paste0("Class: ", bi_class_chr))
 
-<!-- if (!is.null(sampled_ll)) { -->
-<!--   m <- m |> addPolygons(data = sampled_ll, fill = FALSE, color = "black", weight = 1.2) -->
-<!-- } -->
+if (!is.null(sampled_ll)) {
+  m <- m |> addPolygons(data = sampled_ll, fill = FALSE, color = "black", weight = 1.2)
+}
 
-<!-- # 5) Add the same bi-legend as before (already working for you) -->
-<!-- m <- add_bi_legend_leaflet(m, pal = "DkBlue2", dim = 3, position = "bottomright") -->
-<!-- m -->
-
-
-<!-- ``` -->
-
-<!-- ### S3. Interactive validation points map (with GSV links) -->
-
-<!-- ```{r} -->
-<!-- #| label: 17-validation-map-points -->
-<!-- #| echo: false -->
-<!-- #| include: false -->
-<!-- #| message: false -->
-<!-- #| warning: false -->
-
-<!-- # ---- helper: prep points (WGS84 + lon/lat + popup) -------------------------- -->
-<!-- prep_pts <- function(x){ -->
-<!--   if (!inherits(x,"sf") || !nrow(x)) return(NULL) -->
-<!--   w  <- sf::st_transform(x, 4326) -->
-<!--   xy <- sf::st_coordinates(w) -->
-<!--   good <- is.finite(xy[,1]) & is.finite(xy[,2]) -->
-<!--   if (!any(good)) return(NULL) -->
-<!--   w   <- w[good, , drop = FALSE] -->
-<!--   xy  <- xy[good, , drop = FALSE] -->
-<!--   w$lon <- xy[,1]; w$lat <- xy[,2] -->
-<!--   w$gsv <- sprintf("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%f,%f", xy[,2], xy[,1]) -->
-<!--   w$popup <- paste0( -->
-<!--     "<b>", w$class, "</b>", -->
-<!--     "<br/>tract: ", w$tract_id, -->
-<!--     if ("stratum" %in% names(w)) paste0("<br/>stratum: ", w$stratum) else "", -->
-<!--     "<br/><a href='", w$gsv, "' target='_blank'>Open GSV</a>" -->
-<!--   ) -->
-<!--   w -->
-<!-- } -->
-
-<!-- add_wgs <- prep_pts(added_pts) -->
-<!-- rem_wgs <- prep_pts(removed_pts) -->
-<!-- gen_wgs <- prep_pts(gen_pts) -->
-
-<!-- # ---- bounds (prefer city_perimeter -> points -> tracts -> fallback) ---------- -->
-<!-- get_bbox <- function(obj) if (inherits(obj, "sf") && nrow(obj)) sf::st_bbox(sf::st_transform(obj, 4326)) else NULL -->
-
-<!-- bb <- NULL -->
-<!-- if (exists("city_perimeter") && inherits(city_perimeter, "sf") && nrow(city_perimeter)) { -->
-<!--   bb <- get_bbox(city_perimeter) -->
-<!-- } else { -->
-<!--   bbs <- list() -->
-<!--   if (!is.null(add_wgs) && nrow(add_wgs)) bbs <- c(bbs, list(sf::st_bbox(add_wgs))) -->
-<!--   if (!is.null(rem_wgs) && nrow(rem_wgs)) bbs <- c(bbs, list(sf::st_bbox(rem_wgs))) -->
-<!--   if (!is.null(gen_wgs) && nrow(gen_wgs)) bbs <- c(bbs, list(sf::st_bbox(gen_wgs))) -->
-<!--   if (!length(bbs) && exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) { -->
-<!--     bbs <- list(get_bbox(tracts)) -->
-<!--   } -->
-<!--   if (length(bbs)) { -->
-<!--     mins <- do.call(pmin, lapply(bbs, function(b) c(b$xmin, b$ymin))) -->
-<!--     maxs <- do.call(pmax, lapply(bbs, function(b) c(b$xmax, b$ymax))) -->
-<!--     bb <- structure(list(xmin=mins[1], ymin=mins[2], xmax=maxs[1], ymax=maxs[2]), class="bbox") -->
-<!--   } else { -->
-<!--     bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)  # BCN-ish fallback -->
-<!--   } -->
-<!-- } -->
-<!-- bounds <- unname(c(bb["xmin"], bb["ymin"], bb["xmax"], bb["ymax"])) -->
-
-<!-- # ---- colours ----------------------------------------------------------------- -->
-<!-- # points -->
-<!-- col_add_pt <- "#E6AB02"  # gold -->
-<!-- col_rem_pt <- "#D95F02"  # orange-red -->
-<!-- col_gen_pt <- "#1B9E77"  # teal -->
-<!-- stroke     <- "#000000" -->
-
-<!-- # tracts -->
-<!-- tract_stroke <- "#000000" -->
-<!-- tract_fill   <- "#FFFFFF" -->
-
-<!-- # networks (optional) -->
-<!-- col_2019_net   <- "#666666" -->
-<!-- col_added_net  <- "#D95F02" -->
-<!-- col_removedNet <- "#FFFFFF" -->
-<!-- col_removedHalo<- "#000000" -->
-<!-- col_2023_net   <- "#1B9E77" -->
-<!-- col_nonci      <- "#BDBDBD" -->
-
-<!-- # ---- map --------------------------------------------------------------------- -->
-<!-- m <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>% -->
-<!--   addProviderTiles("CartoDB.Positron", group = "Positron") -->
-
-<!-- # Barcelona boundary (outline only) -->
-<!-- if (exists("city_perimeter") && inherits(city_perimeter, "sf") && nrow(city_perimeter)) { -->
-<!--   m <- m %>% -->
-<!--     addMapPane("boundaryPane", zIndex = 420) %>% -->
-<!--     addPolygons( -->
-<!--       data = sf::st_transform(city_perimeter, 4326), -->
-<!--       group = "Barcelona boundary", -->
-<!--       color = "#111827", weight = 1, opacity = 0.9, -->
-<!--       fillColor = "transparent", fillOpacity = 0, -->
-<!--       smoothFactor = 0.5 -->
-<!--     ) -->
-<!-- } -->
-
-<!-- # Tracts polygons (transparent fill, faint outline) -->
-<!-- if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) { -->
-<!--   m <- m %>% -->
-<!--     addMapPane("tractsPane", zIndex = 410) %>% -->
-<!--     addPolygons( -->
-<!--       data = sf::st_transform(tracts, 4326), group = "Tracts", -->
-<!--       color = tract_stroke, opacity = 0.7, weight = 0.8, -->
-<!--       fillColor = tract_fill, fillOpacity = 0, smoothFactor = 0.5 -->
-<!--     ) -->
-
-<!--   # Area labels -->
-<!--   tract_centers <- sf::st_point_on_surface(sf::st_transform(tracts, 4326)) -->
-<!--   m <- m %>% -->
-<!--     addCircleMarkers( -->
-<!--       data = tract_centers, group = "Area labels", -->
-<!--       radius = 0.1, stroke = FALSE, fillOpacity = 0, -->
-<!--       label = ~as.character(tract_id), -->
-<!--       labelOptions = labelOptions( -->
-<!--         noHide = TRUE, direction = "center", -->
-<!--         style = list( -->
-<!--           "background"      = "transparent", -->
-<!--           "border"          = "none", -->
-<!--           "box-shadow"      = "none", -->
-<!--           "padding"         = "0px", -->
-<!--           "color"           = "rgba(0,0,0,0.25)", -->
-<!--           "text-shadow"     = "none", -->
-<!--           "pointer-events"  = "none" -->
-<!--         ) -->
-<!--       ) -->
-<!--     ) -->
-<!-- } -->
-
-<!-- # Prepare General (non-CI) network (lines only) -->
-<!-- gnet <- NULL -->
-<!-- if (exists("general23_n") && inherits(general23_n,"sf") && nrow(general23_n)) { -->
-<!--   gnet <- general23_n -->
-<!-- } else if (exists("noncycle23") && inherits(noncycle23,"sf") && nrow(noncycle23)) { -->
-<!--   gnet <- noncycle23 -->
-<!-- } -->
-
-<!-- if (!is.null(gnet)) { -->
-<!--   keep_lines <- sf::st_geometry_type(gnet, by_geometry = TRUE) %in% c("LINESTRING","MULTILINESTRING") -->
-<!--   gnet <- gnet[keep_lines, , drop = FALSE] -->
-<!--   if (nrow(gnet)) { -->
-<!--     gnet <- suppressWarnings(sf::st_cast(gnet, "LINESTRING")) -->
-<!--     gnet <- gnet[!sf::st_is_empty(sf::st_geometry(gnet)), , drop = FALSE] -->
-<!--     gnet_wgs <- sf::st_transform(gnet, 4326) -->
-<!--   } else { -->
-<!--     gnet_wgs <- NULL -->
-<!--   } -->
-<!-- } else { -->
-<!--   gnet_wgs <- NULL -->
-<!-- } -->
-
-<!-- # Optional network context (added but hidden by default below) -->
-<!-- if (exists("cyc19_n") && inherits(cyc19_n,"sf") && nrow(cyc19_n)) -->
-<!--   m <- m %>% addPolylines(data = sf::st_transform(cyc19_n, 4326), group = "2019 net", -->
-<!--                           weight = 2, color = col_2019_net, opacity = 0.7) -->
-
-<!-- if (exists("removed") && inherits(removed,"sf") && nrow(removed)) { -->
-<!--   m <- m %>% addPolylines(data = sf::st_transform(removed, 4326), group = "Removed net", -->
-<!--                           weight = 2.6, color = col_removedHalo, opacity = 0.18) -->
-<!--   m <- m %>% addPolylines(data = sf::st_transform(removed, 4326), group = "Removed net", -->
-<!--                           weight = 2.0, color = col_removedNet,  opacity = 1.0) -->
-<!-- } -->
-
-<!-- if (exists("added") && inherits(added,"sf") && nrow(added)) -->
-<!--   m <- m %>% addPolylines(data = sf::st_transform(added, 4326), group = "Added net", -->
-<!--                           weight = 2, color = col_added_net, opacity = 0.95) -->
-
-<!-- if (exists("cyc23_n") && inherits(cyc23_n,"sf") && nrow(cyc23_n)) -->
-<!--   m <- m %>% addPolylines(data = sf::st_transform(cyc23_n, 4326), group = "2023 net", -->
-<!--                           weight = 2, color = col_2023_net, opacity = 0.6) -->
-
-<!-- # Points (explicit lng/lat; active by default) -->
-<!-- if (!is.null(add_wgs) && nrow(add_wgs) > 0) -->
-<!--   m <- m %>% addCircleMarkers(data = add_wgs, lng = ~lon, lat = ~lat, group = "ADD pts", -->
-<!--                               radius = 4, weight = 1, color = stroke, -->
-<!--                               fillColor = col_add_pt, fillOpacity = 0.95, -->
-<!--                               popup = ~popup) -->
-
-<!-- if (!is.null(rem_wgs) && nrow(rem_wgs) > 0) -->
-<!--   m <- m %>% addCircleMarkers(data = rem_wgs, lng = ~lon, lat = ~lat, group = "REMOVE pts", -->
-<!--                               radius = 4, weight = 1, color = stroke, -->
-<!--                               fillColor = col_rem_pt, fillOpacity = 0.95, -->
-<!--                               popup = ~popup) -->
-
-<!-- if (!is.null(gen_wgs) && nrow(gen_wgs) > 0) -->
-<!--   m <- m %>% addCircleMarkers(data = gen_wgs, lng = ~lon, lat = ~lat, group = "GENERAL pts", -->
-<!--                               radius = 4, weight = 1, color = stroke, -->
-<!--                               fillColor = col_gen_pt, fillOpacity = 0.95, -->
-<!--                               popup = ~popup) -->
-
-<!-- # General (non-CI) network -->
-<!-- if (!is.null(gnet_wgs) && nrow(gnet_wgs)) -->
-<!--   m <- m %>% addPolylines(data = gnet_wgs, group = "General (non-CI) net", -->
-<!--                           weight = 1, color = col_nonci, opacity = 0.7) -->
-
-<!-- # Control + single legend -->
-<!-- m %>% -->
-<!--   clearControls() %>% -->
-<!--   addLayersControl( -->
-<!--     baseGroups = c("Positron"), -->
-<!--     overlayGroups = c( -->
-<!--       "Barcelona boundary",         # ← boundary as its own layer -->
-<!--       "Tracts","Area labels", -->
-<!--       "2019 net","Added net","Removed net","2023 net", -->
-<!--       "General (non-CI) net", -->
-<!--       "ADD pts","REMOVE pts","GENERAL pts" -->
-<!--     ), -->
-<!--     options = layersControlOptions(collapsed = TRUE) -->
-<!--   ) %>% -->
-<!--   hideGroup(c("2019 net","Added net","Removed net","2023 net","General (non-CI) net")) %>% -->
-<!--   fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>% -->
-<!--   addLegend( -->
-<!--     position = "bottomright", title = "", -->
-<!--     colors = c(col_add_pt, col_rem_pt, col_gen_pt), -->
-<!--     labels = c("ADD points", "REMOVE points", "GENERAL points"), -->
-<!--     opacity = 1 -->
-<!--   ) -->
+# 5) Add the same bi-legend as before (already working for you)
+m <- add_bi_legend_leaflet(m, pal = "DkBlue2", dim = 3, position = "bottomright")
+m
 
 
-<!-- ``` -->
+```
 
-<!-- ```{r} -->
-<!-- #| label: make-static-validation-map -->
-<!-- #| include: false -->
-<!-- # Requires: added_pts, removed_pts, gen_pts (from sampling), and sampled_tracts or tracts -->
-<!-- # Optionally: city_perimeter (to draw BCN boundary) -->
+### S3. Interactive validation points map (with GSV links)
 
-<!-- suppressPackageStartupMessages({ library(sf); library(ggplot2); library(dplyr) }) -->
-<!-- dir.create("figs", showWarnings = FALSE) -->
+```{r}
+#| label: 17-validation-map-points
+#| echo: false
+#| include: false
+#| message: false
+#| warning: false
 
-<!-- # helpers -->
-<!-- as_wgs <- function(x){ -->
-<!--   if (!inherits(x,"sf") || !nrow(x)) return(NULL) -->
-<!--   x <- sf::st_make_valid(x) -->
-<!--   x <- x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE] -->
-<!--   sf::st_transform(x, 4326) -->
-<!-- } -->
+# ---- helper: prep points (WGS84 + lon/lat + popup) --------------------------
+prep_pts <- function(x){
+  if (!inherits(x,"sf") || !nrow(x)) return(NULL)
+  w  <- sf::st_transform(x, 4326)
+  xy <- sf::st_coordinates(w)
+  good <- is.finite(xy[,1]) & is.finite(xy[,2])
+  if (!any(good)) return(NULL)
+  w   <- w[good, , drop = FALSE]
+  xy  <- xy[good, , drop = FALSE]
+  w$lon <- xy[,1]; w$lat <- xy[,2]
+  w$gsv <- sprintf("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%f,%f", xy[,2], xy[,1])
+  w$popup <- paste0(
+    "<b>", w$class, "</b>",
+    "<br/>tract: ", w$tract_id,
+    if ("stratum" %in% names(w)) paste0("<br/>stratum: ", w$stratum) else "",
+    "<br/><a href='", w$gsv, "' target='_blank'>Open GSV</a>"
+  )
+  w
+}
 
-<!-- # guards -->
-<!-- if (!exists("added_pts"))   added_pts   <- NULL -->
-<!-- if (!exists("removed_pts")) removed_pts <- NULL -->
-<!-- if (!exists("gen_pts"))     gen_pts     <- NULL -->
-<!-- tracts_use <- if (exists("sampled_tracts")) sampled_tracts else if (exists("tracts")) tracts else NULL -->
+add_wgs <- prep_pts(added_pts)
+rem_wgs <- prep_pts(removed_pts)
+gen_wgs <- prep_pts(gen_pts)
 
-<!-- # perimeter (optional) -->
-<!-- perim_wgs <- if (exists("city_perimeter")) as_wgs(city_perimeter) else NULL -->
+# ---- bounds (prefer city_perimeter -> points -> tracts -> fallback) ----------
+get_bbox <- function(obj) if (inherits(obj, "sf") && nrow(obj)) sf::st_bbox(sf::st_transform(obj, 4326)) else NULL
 
-<!-- # to WGS84 -->
-<!-- add_wgs <- if (!is.null(added_pts)   && nrow(added_pts)   > 0) as_wgs(added_pts)   else NULL -->
-<!-- rem_wgs <- if (!is.null(removed_pts) && nrow(removed_pts) > 0) as_wgs(removed_pts) else NULL -->
-<!-- gen_wgs <- if (!is.null(gen_pts)     && nrow(gen_pts)     > 0) as_wgs(gen_pts)     else NULL -->
-<!-- trs_wgs <- if (!is.null(tracts_use)  && nrow(tracts_use)  > 0) as_wgs(tracts_use)  else NULL -->
+bb <- NULL
+if (exists("city_perimeter") && inherits(city_perimeter, "sf") && nrow(city_perimeter)) {
+  bb <- get_bbox(city_perimeter)
+} else {
+  bbs <- list()
+  if (!is.null(add_wgs) && nrow(add_wgs)) bbs <- c(bbs, list(sf::st_bbox(add_wgs)))
+  if (!is.null(rem_wgs) && nrow(rem_wgs)) bbs <- c(bbs, list(sf::st_bbox(rem_wgs)))
+  if (!is.null(gen_wgs) && nrow(gen_wgs)) bbs <- c(bbs, list(sf::st_bbox(gen_wgs)))
+  if (!length(bbs) && exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
+    bbs <- list(get_bbox(tracts))
+  }
+  if (length(bbs)) {
+    mins <- do.call(pmin, lapply(bbs, function(b) c(b$xmin, b$ymin)))
+    maxs <- do.call(pmax, lapply(bbs, function(b) c(b$xmax, b$ymax)))
+    bb <- structure(list(xmin=mins[1], ymin=mins[2], xmax=maxs[1], ymax=maxs[2]), class="bbox")
+  } else {
+    bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)  # BCN-ish fallback
+  }
+}
+bounds <- unname(c(bb["xmin"], bb["ymin"], bb["xmax"], bb["ymax"]))
 
-<!-- # points + class -->
-<!-- pts_list <- list( -->
-<!--   if (!is.null(add_wgs)) dplyr::mutate(add_wgs, class = "ADD"), -->
-<!--   if (!is.null(rem_wgs)) dplyr::mutate(rem_wgs, class = "REMOVE"), -->
-<!--   if (!is.null(gen_wgs)) dplyr::mutate(gen_wgs, class = "GENERAL") -->
-<!-- ) -->
-<!-- pts_all <- do.call(dplyr::bind_rows, pts_list) -->
+# ---- colours -----------------------------------------------------------------
+# points
+col_add_pt <- "#E6AB02"  # gold
+col_rem_pt <- "#D95F02"  # orange-red
+col_gen_pt <- "#1B9E77"  # teal
+stroke     <- "#666666"
 
-<!-- # ---------- OPTION A: zoom-to-points bbox (buffered), clamped to perimeter ---- -->
-<!-- make_zoom_bbox <- function(pts, perim = NULL, margin_m = 2000){ -->
-<!--   if (is.null(pts) || !inherits(pts,"sf") || !nrow(pts)) return(NULL) -->
-<!--   p3857   <- sf::st_transform(pts, 3857)              # metric CRS -->
-<!--   buf     <- sf::st_buffer(sf::st_union(p3857), margin_m) -->
-<!--   bb_poly <- sf::st_as_sfc(sf::st_bbox(buf))          # bbox polygon in 3857 -->
-<!--   bb4326  <- sf::st_transform(bb_poly, 4326) -->
-<!--   bb      <- sf::st_bbox(bb4326) -->
-<!--   if (!is.null(perim) && inherits(perim,"sf") && nrow(perim)){ -->
-<!--     bp <- sf::st_bbox(perim) -->
-<!--     bb["xmin"] <- max(bb["xmin"], bp["xmin"]) -->
-<!--     bb["ymin"] <- max(bb["ymin"], bp["ymin"]) -->
-<!--     bb["xmax"] <- min(bb["xmax"], bp["xmax"]) -->
-<!--     bb["ymax"] <- min(bb["ymax"], bp["ymax"]) -->
-<!--   } -->
-<!--   bb -->
-<!-- } -->
+# tracts
+tract_stroke <- "#000000"
+tract_fill   <- "#FFFFFF"
 
-<!-- get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) st_bbox(obj) else NULL -->
+# networks (optional)
+col_2019_net   <- "#666666"
+col_added_net  <- "#D95F02"
+col_removedNet <- "#FFFFFF"
+col_removedHalo<- "#000000"
+col_2023_net   <- "#1B9E77"
+col_nonci      <- "#BDBDBD"
 
-<!-- bb <- if (!is.null(pts_all) && nrow(pts_all) > 0) make_zoom_bbox(pts_all, perim_wgs, margin_m = 2000) else NULL -->
-<!-- if (is.null(bb)) bb <- get_bbox(perim_wgs) -->
-<!-- if (is.null(bb)) bb <- get_bbox(trs_wgs) -->
-<!-- if (is.null(bb)) bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45) -->
+# ---- map ---------------------------------------------------------------------
+m <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
+  addProviderTiles("CartoDB.Positron", group = "Positron")
 
-<!-- lims <- list(x = c(bb[["xmin"]], bb[["xmax"]]), y = c(bb[["ymin"]], bb[["ymax"]])) -->
+# Barcelona boundary (outline only)
+if (exists("city_perimeter") && inherits(city_perimeter, "sf") && nrow(city_perimeter)) {
+  m <- m %>%
+    addMapPane("boundaryPane", zIndex = 420) %>%
+    addPolygons(
+      data = sf::st_transform(city_perimeter, 4326),
+      group = "Barcelona boundary",
+      color = "#111827", weight = 1, opacity = 0.9,
+      fillColor = "transparent", fillOpacity = 0,
+      smoothFactor = 0.5
+    )
+}
 
-<!-- # colours -->
-<!-- cols <- c(ADD = "#E6AB02", REMOVE = "#D95F02", GENERAL = "#1B9E77") -->
+# Tracts polygons (transparent fill, faint outline)
+if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
+  m <- m %>%
+    addMapPane("tractsPane", zIndex = 410) %>%
+    addPolygons(
+      data = sf::st_transform(tracts, 4326), group = "Tracts",
+      color = tract_stroke, opacity = 0.7, weight = 1.5,
+      fillColor = tract_fill, fillOpacity = 0, smoothFactor = 0.5
+    )
 
-<!-- # --- OPTIONAL: base cycle network (use whatever object you have) -------------- -->
-<!-- # cyc_wgs <- NULL -->
-<!-- # if (exists("cyc19_n")) { -->
-<!-- #   cyc_wgs <- as_wgs(cyc19_n) -->
-<!-- # } else if (exists("cyc23_n")) { -->
-<!-- #   cyc_wgs <- as_wgs(cyc23_n) -->
-<!-- # } else if (exists("cyc_network")) { -->
-<!-- #   cyc_wgs <- as_wgs(cyc_network) -->
-<!-- # } -->
-<!-- #  -->
-<!-- # # Clip to the city perimeter to avoid clutter outside BCN -->
-<!-- # if (!is.null(cyc_wgs) && !is.null(perim_wgs)) { -->
-<!-- #   cyc_wgs <- suppressWarnings(sf::st_intersection(cyc_wgs, sf::st_union(perim_wgs))) -->
-<!-- # } -->
+  # Area labels
+  tract_centers <- sf::st_point_on_surface(sf::st_transform(tracts, 4326))
+  m <- m %>%
+    addCircleMarkers(
+      data = tract_centers, group = "Area labels",
+      radius = 0.1, stroke = FALSE, fillOpacity = 0,
+      label = ~as.character(tract_id),
+      labelOptions = labelOptions(
+        noHide = TRUE, direction = "center",
+        style = list(
+          "background"      = "transparent",
+          "border"          = "none",
+          "box-shadow"      = "none",
+          "padding"         = "0px",
+          "color"           = "rgba(0,0,0,0.25)",
+          "text-shadow"     = "none",
+          "pointer-events"  = "none"
+        )
+      )
+    )
+}
+
+# Prepare General (non-CI) network (lines only)
+gnet <- NULL
+if (exists("general23_n") && inherits(general23_n,"sf") && nrow(general23_n)) {
+  gnet <- general23_n
+} else if (exists("noncycle23") && inherits(noncycle23,"sf") && nrow(noncycle23)) {
+  gnet <- noncycle23
+}
+
+if (!is.null(gnet)) {
+  keep_lines <- sf::st_geometry_type(gnet, by_geometry = TRUE) %in% c("LINESTRING","MULTILINESTRING")
+  gnet <- gnet[keep_lines, , drop = FALSE]
+  if (nrow(gnet)) {
+    gnet <- suppressWarnings(sf::st_cast(gnet, "LINESTRING"))
+    gnet <- gnet[!sf::st_is_empty(sf::st_geometry(gnet)), , drop = FALSE]
+    gnet_wgs <- sf::st_transform(gnet, 4326)
+  } else {
+    gnet_wgs <- NULL
+  }
+} else {
+  gnet_wgs <- NULL
+}
+
+# Optional network context (added but hidden by default below)
+if (exists("cyc19_n") && inherits(cyc19_n,"sf") && nrow(cyc19_n))
+  m <- m %>% addPolylines(data = sf::st_transform(cyc19_n, 4326), group = "2019 net",
+                          weight = 2, color = col_2019_net, opacity = 0.7)
+
+if (exists("removed") && inherits(removed,"sf") && nrow(removed)) {
+  m <- m %>% addPolylines(data = sf::st_transform(removed, 4326), group = "Removed net",
+                          weight = 2.6, color = col_removedHalo, opacity = 0.18)
+  m <- m %>% addPolylines(data = sf::st_transform(removed, 4326), group = "Removed net",
+                          weight = 2.0, color = col_removedNet,  opacity = 1.0)
+}
+
+if (exists("added") && inherits(added,"sf") && nrow(added))
+  m <- m %>% addPolylines(data = sf::st_transform(added, 4326), group = "Added net",
+                          weight = 2, color = col_added_net, opacity = 0.95)
+
+if (exists("cyc23_n") && inherits(cyc23_n,"sf") && nrow(cyc23_n))
+  m <- m %>% addPolylines(data = sf::st_transform(cyc23_n, 4326), group = "2023 net",
+                          weight = 2, color = col_2023_net, opacity = 0.6)
+
+# Points (explicit lng/lat; active by default)
+if (!is.null(add_wgs) && nrow(add_wgs) > 0)
+  m <- m %>% addCircleMarkers(data = add_wgs, lng = ~lon, lat = ~lat, group = "ADD pts",
+                              radius = 4, weight = 1, color = stroke,
+                              fillColor = col_add_pt, fillOpacity = 0.95,
+                              popup = ~popup)
+
+if (!is.null(rem_wgs) && nrow(rem_wgs) > 0)
+  m <- m %>% addCircleMarkers(data = rem_wgs, lng = ~lon, lat = ~lat, group = "REMOVE pts",
+                              radius = 4, weight = 1, color = stroke,
+                              fillColor = col_rem_pt, fillOpacity = 0.95,
+                              popup = ~popup)
+
+if (!is.null(gen_wgs) && nrow(gen_wgs) > 0)
+  m <- m %>% addCircleMarkers(data = gen_wgs, lng = ~lon, lat = ~lat, group = "GENERAL pts",
+                              radius = 4, weight = 1, color = stroke,
+                              fillColor = col_gen_pt, fillOpacity = 0.95,
+                              popup = ~popup)
+
+# General (non-CI) network
+if (!is.null(gnet_wgs) && nrow(gnet_wgs))
+  m <- m %>% addPolylines(data = gnet_wgs, group = "General (non-CI) net",
+                          weight = 1, color = col_nonci, opacity = 0.7)
+
+# Control + single legend
+m %>%
+  clearControls() %>%
+  addLayersControl(
+    baseGroups = c("Positron"),
+    overlayGroups = c(
+      "Barcelona boundary",         # ← boundary as its own layer
+      "Tracts","Area labels",
+      "2019 net","Added net","Removed net","2023 net",
+      "General (non-CI) net",
+      "ADD pts","REMOVE pts","GENERAL pts"
+    ),
+    options = layersControlOptions(collapsed = TRUE)
+  ) %>%
+  hideGroup(c("2019 net", "Area labels", "Added net","Removed net","2023 net","General (non-CI) net")) %>%
+  fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
+  addLegend(
+    position = "bottomright", title = "",
+    colors = c(col_add_pt, col_rem_pt, col_gen_pt),
+    labels = c("ADD points", "REMOVE points", "GENERAL points"),
+    opacity = 1
+  )
+```
+
+```{r}
+#| label: make-static-validation-map
+#| include: false
+# Requires: added_pts, removed_pts, gen_pts (from sampling), and sampled_tracts or tracts
+# Optionally: city_perimeter (to draw BCN boundary)
+
+suppressPackageStartupMessages({ library(sf); library(ggplot2); library(dplyr) })
+dir.create("figs", showWarnings = FALSE)
+
+# helpers
+as_wgs <- function(x){
+  if (!inherits(x,"sf") || !nrow(x)) return(NULL)
+  x <- sf::st_make_valid(x)
+  x <- x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE]
+  sf::st_transform(x, 4326)
+}
+
+# guards
+if (!exists("added_pts"))   added_pts   <- NULL
+if (!exists("removed_pts")) removed_pts <- NULL
+if (!exists("gen_pts"))     gen_pts     <- NULL
+tracts_use <- if (exists("sampled_tracts")) sampled_tracts else if (exists("tracts")) tracts else NULL
+
+# perimeter (optional)
+perim_wgs <- if (exists("city_perimeter")) as_wgs(city_perimeter) else NULL
+
+# to WGS84
+add_wgs <- if (!is.null(added_pts)   && nrow(added_pts)   > 0) as_wgs(added_pts)   else NULL
+rem_wgs <- if (!is.null(removed_pts) && nrow(removed_pts) > 0) as_wgs(removed_pts) else NULL
+gen_wgs <- if (!is.null(gen_pts)     && nrow(gen_pts)     > 0) as_wgs(gen_pts)     else NULL
+trs_wgs <- if (!is.null(tracts_use)  && nrow(tracts_use)  > 0) as_wgs(tracts_use)  else NULL
+
+# points + class
+pts_list <- list(
+  if (!is.null(add_wgs)) dplyr::mutate(add_wgs, class = "ADD"),
+  if (!is.null(rem_wgs)) dplyr::mutate(rem_wgs, class = "REMOVE"),
+  if (!is.null(gen_wgs)) dplyr::mutate(gen_wgs, class = "GENERAL")
+)
+pts_all <- do.call(dplyr::bind_rows, pts_list)
+
+# ---------- OPTION A: zoom-to-points bbox (buffered), clamped to perimeter ----
+make_zoom_bbox <- function(pts, perim = NULL, margin_m = 2000){
+  if (is.null(pts) || !inherits(pts,"sf") || !nrow(pts)) return(NULL)
+  p3857   <- sf::st_transform(pts, 3857)              # metric CRS
+  buf     <- sf::st_buffer(sf::st_union(p3857), margin_m)
+  bb_poly <- sf::st_as_sfc(sf::st_bbox(buf))          # bbox polygon in 3857
+  bb4326  <- sf::st_transform(bb_poly, 4326)
+  bb      <- sf::st_bbox(bb4326)
+  if (!is.null(perim) && inherits(perim,"sf") && nrow(perim)){
+    bp <- sf::st_bbox(perim)
+    bb["xmin"] <- max(bb["xmin"], bp["xmin"])
+    bb["ymin"] <- max(bb["ymin"], bp["ymin"])
+    bb["xmax"] <- min(bb["xmax"], bp["xmax"])
+    bb["ymax"] <- min(bb["ymax"], bp["ymax"])
+  }
+  bb
+}
+
+get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) st_bbox(obj) else NULL
+
+bb <- if (!is.null(pts_all) && nrow(pts_all) > 0) make_zoom_bbox(pts_all, perim_wgs, margin_m = 2000) else NULL
+if (is.null(bb)) bb <- get_bbox(perim_wgs)
+if (is.null(bb)) bb <- get_bbox(trs_wgs)
+if (is.null(bb)) bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
+
+lims <- list(x = c(bb[["xmin"]], bb[["xmax"]]), y = c(bb[["ymin"]], bb[["ymax"]]))
+
+# colours
+cols <- c(ADD = "#E6AB02", REMOVE = "#D95F02", GENERAL = "#1B9E77")
+
+# --- OPTIONAL: base cycle network (use whatever object you have) --------------
+# cyc_wgs <- NULL
+# if (exists("cyc19_n")) {
+#   cyc_wgs <- as_wgs(cyc19_n)
+# } else if (exists("cyc23_n")) {
+#   cyc_wgs <- as_wgs(cyc23_n)
+# } else if (exists("cyc_network")) {
+#   cyc_wgs <- as_wgs(cyc_network)
+# }
+#
+# # Clip to the city perimeter to avoid clutter outside BCN
+# if (!is.null(cyc_wgs) && !is.null(perim_wgs)) {
+#   cyc_wgs <- suppressWarnings(sf::st_intersection(cyc_wgs, sf::st_union(perim_wgs)))
+# }
 
 
-<!-- p_val <- ggplot() + -->
-<!--   # network below everything -->
-<!--   # { if (!is.null(cyc_wgs)) -->
-<!--   #     geom_sf(data = cyc_wgs, inherit.aes = FALSE, -->
-<!--   #             colour = "#9E9E9E", linewidth = 0.35, alpha = 0.5, show.legend = FALSE) } + -->
-<!--   # boundary + tracts -->
-<!--   { if (!is.null(perim_wgs)) -->
-<!--       geom_sf(data = perim_wgs, inherit.aes = FALSE, -->
-<!--               fill = NA, colour = "#222222", linewidth = 0.3, show.legend = FALSE) } + -->
-<!--   { if (!is.null(trs_wgs)) -->
-<!--       geom_sf(data = trs_wgs, inherit.aes = FALSE, -->
-<!--               fill = NA, colour = "#B3B3B3", linewidth = 0.25, alpha = 0.4) } + -->
-<!--   # points on top -->
-<!--   { if (!is.null(pts_all) && nrow(pts_all) > 0) -->
-<!--       geom_sf(data = pts_all, aes(fill = class), -->
-<!--               colour = "white", shape = 21, size = 3.2, stroke = 0.5) } + -->
-<!--   scale_fill_manual(values = cols, name = "Validation class") + -->
-<!--   coord_sf(xlim = lims$x, ylim = lims$y, expand = 0) + -->
-<!--   theme_void() + -->
-<!--   theme( -->
-<!--     panel.background = element_rect(fill = "#F7F7F7", colour = NA), -->
-<!--     legend.position  = c(0.05, 0.95), -->
-<!--     legend.justification = c("left","top"), -->
-<!--     legend.background = element_rect(fill = scales::alpha("white", 0.8), colour = "#CCCCCC"), -->
-<!--     plot.margin = margin(5,5,5,5) -->
-<!--   ) -->
+p_val <- ggplot() +
+  # network below everything
+  # { if (!is.null(cyc_wgs))
+  #     geom_sf(data = cyc_wgs, inherit.aes = FALSE,
+  #             colour = "#9E9E9E", linewidth = 0.35, alpha = 0.5, show.legend = FALSE) } +
+  # boundary + tracts
+  { if (!is.null(perim_wgs))
+      geom_sf(data = perim_wgs, inherit.aes = FALSE,
+              fill = NA, colour = "#666666", linewidth = 0.3, show.legend = FALSE) } +
+  { if (!is.null(trs_wgs))
+      geom_sf(data = trs_wgs, inherit.aes = FALSE,
+              fill = NA, colour = "#222222", linewidth = 0.3, alpha = 0.4) } +
+  # points on top
+  { if (!is.null(pts_all) && nrow(pts_all) > 0)
+      geom_sf(data = pts_all, aes(fill = class),
+              colour = "white", shape = 21, size = 3.2, stroke = 0.5) } +
+  scale_fill_manual(values = cols, name = "Validation class") +
+  coord_sf(xlim = lims$x, ylim = lims$y, expand = 0) +
+  theme_void() +
+  theme(
+    panel.background = element_rect(fill = "#F7F7F7", colour = NA),
+    legend.position  = c(0.05, 0.95),
+    legend.justification = c("left","top"),
+    legend.background = element_rect(fill = scales::alpha("white", 0.8), colour = "#CCCCCC"),
+    plot.margin = margin(5,5,5,5)
+  )
 
-
-<!-- ggsave("figs/validation_points_boundary.png", p_val, width = 9, height = 7, dpi = 300) -->
-
-
-
-<!-- ``` -->
+ggsave("figs/validation_points_boundary.png", p_val, width = 9, height = 7, dpi = 300)
+```
 
 <!-- ### S4. Interactive infrastructure change map (2019→2023) -->
 
