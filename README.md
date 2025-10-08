@@ -234,24 +234,15 @@ F1 0.80.
 
 | stratum | REMOVE | ADD | GENERAL | Total |
 |:--------|-------:|----:|--------:|------:|
-| D1_C1   |      1 |   0 |       0 |     1 |
-| D1_C2   |      1 |   3 |       4 |     8 |
-| D1_C3   |      1 |   2 |       3 |     6 |
-| D2_C1   |      1 |   0 |       0 |     1 |
-| D2_C2   |      1 |   1 |       2 |     4 |
-| D2_C3   |      0 |   1 |       2 |     3 |
-| D3_C1   |      0 |   1 |       2 |     3 |
-| D3_C2   |      0 |   2 |       2 |     4 |
-| D3_C3   |      0 |   5 |       5 |    10 |
-| TOTAL   |      5 |  15 |      20 |    40 |
+| TOTAL   |      0 |   0 |       0 |     0 |
 
 Table 3: Validation points by class and stratum (usable points)
 
 | Class | n (usable) | TP | FP | FN (source) | Precision | Precision (95% CI) | Recall | Recall (95% CI) | F1 |
 |:---|---:|---:|---:|:---|---:|---:|---:|---:|---:|
-| ADD | 15 | 13 | 2 | from GENERAL | 0.87 | 0.87 \[0.62–0.96\] | 1.00 | 1.00 \[0.77–1.00\] | 0.93 |
-| REMOVE | 5 | 1 | 4 | from GENERAL | 0.20 | 0.20 \[0.04–0.62\] | 0.50 | 0.50 \[0.09–0.91\] | 0.29 |
-| Pooled | 20 | 14 | 6 | from GENERAL | 0.70 | 0.70 \[0.48–0.85\] | 0.93 | 0.93 \[0.70–0.99\] | 0.80 |
+| ADD | 0 | 0 | 0 | from GENERAL | NaN | NaN \[NA–NA\] | NaN | NaN \[NA–NA\] | NA |
+| REMOVE | 0 | 0 | 0 | from GENERAL | NaN | NaN \[NA–NA\] | NaN | NaN \[NA–NA\] | NA |
+| Pooled | 0 | 0 | 0 | from GENERAL | NaN | NaN \[NA–NA\] | NaN | NaN \[NA–NA\] | NA |
 
 Table 4: Validation performance (usable points only)
 

@@ -161,7 +161,7 @@ suppressPackageStartupMessages({
   library(ggplot2); library(cowplot)
   library(leaflet); library(tmap)      # widgets/maps
   library(osmdata); library(osmextract)
-  library(biscale)
+  library(biscale); library(readxl); library(purrr) 
   # add others here if you use them anywhere in the doc
 })
 
@@ -173,6 +173,7 @@ proc_dir <- "data/processed"; if (!dir.exists(proc_dir)) dir.create(proc_dir, TR
   obj <- build(); saveRDS(obj, path); obj
 }
 
+FILE <- "outputs/barcelona_samples_2019_2023.xlsx"
 ```
 
 ```{r}
@@ -320,6 +321,22 @@ normalize_lines_safe <- function(x){
   sf::st_make_valid(x)
 }
 
+# length filter for sf LINESTRINGs
+len_ok <- function(x, min_len) {
+  if (!inherits(x, "sf") || !nrow(x)) return(x)
+  x[as.numeric(sf::st_length(x)) >= min_len, , drop = FALSE]
+}
+
+# normalise to lines in a working CRS (safe on collections/empties)
+to_lines_work <- function(x, crs) {
+  x |>
+    sf::st_make_valid() |>
+    sf::st_zm(drop = TRUE, what = "ZM") |>
+    sf::st_transform(crs) |>
+    suppressWarnings(sf::st_collection_extract("LINESTRING", warn = FALSE)) |>
+    suppressWarnings(sf::st_cast("LINESTRING")) |>
+    (\(y) y[!sf::st_is_empty(sf::st_geometry(y)), , drop = FALSE])()
+}
 ```
 
 ```{r}
@@ -364,6 +381,7 @@ cyc23_n <- .cache(
 )
 
 ```
+
 
 ```{r}
 #| label: 06-build-ci-change
@@ -768,9 +786,9 @@ sampled_tracts <- normalize_tract_id(sampled_tracts)
 stopifnot("tract_id" %in% names(sampled_tracts))
 
 # --- Quotas per tract (tune as needed) ---------------------------------------
-PERTRACT_ADD <- 2
-PERTRACT_REM <- 1
-PERTRACT_GEN <- 2
+PERTRACT_ADD <- 4
+PERTRACT_REM <- 2
+PERTRACT_GEN <- 4
 FORCE_QUOTA  <- FALSE   # TRUE = allow replacement to hit quota
 
 # --- Ensure tracts are in work CRS and have 'stratum' ------------------------
@@ -889,14 +907,6 @@ if (!nrow(tracts_for_general)) tracts_for_general <- tracts
 
 general_by_tr <- sample_lines_by_tract(noncycle23, tracts_for_general, PERTRACT_GEN, replace = FORCE_QUOTA)
 
-# --- Midpoints (1 point per sampled row) + metadata ---------------------------
-midpoint_one <- function(x){
-  if (!inherits(x,"sf") || !nrow(x)) return(sf::st_sf(id=integer(0), geometry=sf::st_sfc(crs=sf::st_crs(x))))
-  g <- sf::st_geometry(x) |> sf::st_make_valid() |> suppressWarnings(sf::st_line_merge())
-  sf::st_as_sf(data.frame(id=seq_len(nrow(x))),
-               geometry = sf::st_point_on_surface(g),
-               crs = sf::st_crs(x))
-}
 
 added_pts   <- midpoint_one(added_by_tr)    |> dplyr::mutate(class="ADD",     tract_id=added_by_tr$tract_id,    stratum=added_by_tr$stratum)
 removed_pts <- midpoint_one(removed_by_tr)  |> dplyr::mutate(class="REMOVE",  tract_id=removed_by_tr$tract_id,  stratum=removed_by_tr$stratum)
@@ -918,43 +928,41 @@ samples_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, gen_tbl)
 #| warning: false
 #| eval: true
 
-stopifnot(exists("add_tbl"), exists("rem_tbl"), exists("gen_tbl"))
-
-# Where to save
 outdir  <- "outputs"
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 outfile <- file.path(outdir, paste0(city_tag, "_samples_2019_2023.xlsx"))
 
-library(openxlsx)
-library(dplyr)
+library(openxlsx); library(dplyr)
 
-wb <- createWorkbook()
+if (file.exists(outfile)) {
+  message("✔ Found existing coded Excel. Not overwriting: ", normalizePath(outfile))
+} else {
+  wb <- createWorkbook()
 
-write_one <- function(df, sheet){
-  df2 <- df %>%
-    mutate(GSV = NA_character_) %>%
-    relocate(GSV, .after = gsv_link)
-  addWorksheet(wb, sheet)
-  writeData(wb, sheet, df2)
-  if (nrow(df2) > 0) {
-    link_col <- which(names(df2) == "GSV")
-    writeFormula(
-      wb, sheet,
-      x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
-      startCol = link_col, startRow = 2
-    )
+  write_one <- function(df, sheet){
+    df2 <- df %>% mutate(GSV = NA_character_) %>% relocate(GSV, .after = gsv_link)
+    addWorksheet(wb, sheet)
+    writeData(wb, sheet, df2)
+    if (nrow(df2) > 0) {
+      link_col <- which(names(df2) == "GSV")
+      writeFormula(wb, sheet,
+                   x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
+                   startCol = link_col, startRow = 2)
+    }
+    addFilter(wb, sheet, row = 1, cols = 1:ncol(df2))
+    setColWidths(wb, sheet, cols = 1:ncol(df2), widths = "auto")
+    freezePane(wb, sheet, firstActiveRow = 2, firstActiveCol = 1)
   }
-  addFilter(wb, sheet, row = 1, cols = 1:ncol(df2))
-  setColWidths(wb, sheet, cols = 1:ncol(df2), widths = "auto")
-  freezePane(wb, sheet, firstActiveRow = 2, firstActiveCol = 1)
+
+  write_one(add_tbl, "ADD")
+  write_one(rem_tbl, "REMOVE")
+  write_one(gen_tbl, "GENERAL")
+
+  saveWorkbook(wb, outfile, overwrite = FALSE)
+  message("✅ Blank Excel created: ", normalizePath(outfile))
+  message("→ Fill it, then re-run the metrics chunks (22 & 23).")
 }
 
-write_one(add_tbl, "ADD")
-write_one(rem_tbl, "REMOVE")
-write_one(gen_tbl, "GENERAL")
-
-saveWorkbook(wb, outfile, overwrite = TRUE)
-message("Excel written: ", normalizePath(outfile))
 ```
 
 ```{r}
@@ -1021,7 +1029,7 @@ knitr::include_graphics("figs/change_map.png")
 
 # Parameters (keeps your values if already defined)
 if (!exists("crs_work")) crs_work <- 25831
-if (!exists("tol_m"))    tol_m    <- 3
+if (!exists("tol_m"))    tol_m    <- 10
 
 # Helpers
 len_km <- function(x) if (inherits(x,"sf") && nrow(x)) as.numeric(sum(sf::st_length(x)))/1000 else 0
@@ -1259,9 +1267,6 @@ suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(stringr); library(readxl)
 })
 
-# ---- CONFIG ----
-FILE <- "outputs/barcelona_samples_2019_2023_test1.xlsx"
-
 # ---- HELPERS ----
 is_yes <- function(x){
   x <- tolower(str_trim(as.character(x)))
@@ -1338,9 +1343,10 @@ knitr::kable(
 #| message: false
 #| warning: false
 #| paged-print: false
-# ---- setup ----
-library(readxl); library(dplyr); library(stringr); library(tidyr)
-library(purrr); 
+
+suppressPackageStartupMessages({
+  library(readxl); library(dplyr); library(stringr); library(tidyr)
+})
 
 safe_read <- function(path, sh) {
   stopifnot(file.exists(path))
