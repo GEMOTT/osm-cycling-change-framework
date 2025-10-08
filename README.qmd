@@ -808,6 +808,88 @@ sample_lines_by_tract <- function(lines_sf, tracts_sf, n_per, replace = FALSE, m
   dplyr::bind_rows(picks)
 }
 
+# --- Top-up: fill deficits per (tract × stratum) without sf joins -------------
+top_up <- function(candidates,
+                   tracts,
+                   picked,
+                   min_per_stratum = 2,
+                   tract_id_col = "tract_id",
+                   stratum_col  = "stratum",
+                   seed = 123) {
+
+  stopifnot(inherits(candidates, "sf"), inherits(tracts, "sf"))
+  if (!inherits(picked, "sf")) {
+    picked <- tracts[0, , drop = FALSE]
+  }
+
+  # Harmonize CRS
+  if (sf::st_crs(candidates) != sf::st_crs(tracts))
+    candidates <- sf::st_transform(candidates, sf::st_crs(tracts))
+  if (sf::st_crs(picked) != sf::st_crs(tracts))
+    picked <- sf::st_transform(picked, sf::st_crs(tracts))
+
+  # Ensure LINESTRING candidates
+  keep_lines <- sf::st_geometry_type(candidates, by_geometry = TRUE) %in% c("LINESTRING","MULTILINESTRING")
+  cand <- candidates[keep_lines, , drop = FALSE]
+  if (!nrow(cand)) return(picked)
+  cand <- sf::st_make_valid(cand)
+  cand <- suppressWarnings(sf::st_cast(cand, "LINESTRING"))
+  cand <- cand[!sf::st_is_empty(sf::st_geometry(cand)), , drop = FALSE]
+
+  # Data-only frames (no geometry) for grouping math
+  counts_now <- sf::st_drop_geometry(picked) |>
+    dplyr::count(.data[[tract_id_col]], .data[[stratum_col]], name = "n_now")
+
+  all_groups <- sf::st_drop_geometry(tracts) |>
+    dplyr::distinct(.data[[tract_id_col]], .data[[stratum_col]])
+
+  needs <- all_groups |>
+    dplyr::left_join(counts_now,
+      by = setNames(c(tract_id_col, stratum_col), c(tract_id_col, stratum_col))
+    ) |>
+    dplyr::mutate(n_now = tidyr::replace_na(.data$n_now, 0L),
+                  n_need = pmax(0L, min_per_stratum - .data$n_now)) |>
+    dplyr::filter(.data$n_need > 0L)
+
+  if (!nrow(needs)) return(picked)
+
+  set.seed(seed)
+  adds <- vector("list", nrow(needs))
+
+  for (i in seq_len(nrow(needs))) {
+    tr_id <- needs[[tract_id_col]][i]
+    st_id <- needs[[stratum_col]][i]
+    k     <- needs$n_need[i]
+
+    # Single tract polygon for this group
+    t_i <- tracts[tracts[[tract_id_col]] == tr_id & tracts[[stratum_col]] == st_id, , drop = FALSE]
+    if (!nrow(t_i)) next
+
+    # Intersect candidates with the tract polygon
+    idx <- sf::st_intersects(t_i, cand)[[1]]
+    if (!length(idx)) next
+    clp <- suppressWarnings(sf::st_intersection(cand[idx, , drop = FALSE], t_i))
+    clp <- suppressWarnings(sf::st_collection_extract(clp, "LINESTRING", warn = FALSE))
+    clp <- clp[!sf::st_is_empty(sf::st_geometry(clp)), , drop = FALSE]
+    if (!nrow(clp)) next
+
+    # Length-weighted sampling; with replacement if pool < k
+    lens <- as.numeric(sf::st_length(clp)); lens[!is.finite(lens)] <- 1
+    prob <- lens / sum(lens)
+    take <- if (nrow(clp) >= k) sample(seq_len(nrow(clp)), k, replace = FALSE, prob = prob)
+            else                  sample(seq_len(nrow(clp)), k, replace = TRUE,  prob = prob)
+
+    piece <- clp[take, , drop = FALSE]
+    piece[[tract_id_col]] <- tr_id
+    piece[[stratum_col]]  <- st_id
+    adds[[i]] <- piece
+  }
+
+  adds_sf <- dplyr::bind_rows(adds)
+  if (!nrow(adds_sf)) return(picked)
+
+  dplyr::bind_rows(picked, adds_sf)
+}
 ```
 
 ```{r}
@@ -841,7 +923,7 @@ stopifnot("tract_id" %in% names(sampled_tracts))
 PERTRACT_ADD  <- 4
 PERTRACT_REM  <- 4
 PERTRACT_GEN  <- 2
-FORCE_QUOTA   <- TRUE      # prevent duplicates
+FORCE_QUOTA   <- TRUE      # allow replacement if candidates < quota
 target_ratio  <- 0.6
 
 # --- Harmonise CRS and stratum -------------------------------------------------
@@ -873,7 +955,7 @@ if (exists("general23_n") && inherits(general23_n, "sf") && nrow(general23_n)) {
   }
 }
 
-# --- PERSISTENT cycle pool -----------------------------------------------------
+# --- PERSISTENT cycle pool (19→23 overlap) ------------------------------------
 if (!exists("persist") || !inherits(persist, "sf")) {
   cyc19_buf <- sf::st_buffer(sf::st_union(sf::st_geometry(cyc19_n)), tol_m)
   persist <- sf::st_intersection(sf::st_geometry(cyc23_n), cyc19_buf) |>
@@ -886,47 +968,28 @@ if (!exists("persist") || !inherits(persist, "sf")) {
 added_by_tr   <- sample_lines_by_tract(added,   tracts, PERTRACT_ADD, replace = FORCE_QUOTA)
 removed_by_tr <- sample_lines_by_tract(removed, tracts, PERTRACT_REM, replace = FORCE_QUOTA)
 
+# GENERAL across tracts with changes; fallback to all tracts if none flagged
 change_ids <- unique(na.omit(c(added_by_tr$tract_id, removed_by_tr$tract_id)))
 tracts_for_general <- dplyr::filter(tracts, tract_id %in% change_ids)
 if (!nrow(tracts_for_general)) tracts_for_general <- tracts
 general_by_tr <- sample_lines_by_tract(noncycle23, tracts_for_general, PERTRACT_GEN, replace = FORCE_QUOTA)
+
+# persistent selections (same per-tract quota as general)
 persist_by_tr <- sample_lines_by_tract(persist, tracts, PERTRACT_GEN, replace = FORCE_QUOTA)
 
-# --- Convert to midpoints ------------------------------------------------------
-# choose how much to scale
-K_ADD <- 3; K_REM <- 3; K_GEN <- 2
-
-added_pts   <- sample_points_along(added_by_tr,   k = K_ADD) %>% dplyr::mutate(class = "ADD")
-removed_pts <- sample_points_along(removed_by_tr, k = K_REM) %>% dplyr::mutate(class = "REMOVE")
-gen_pts     <- sample_points_along(general_by_tr, k = K_GEN) %>% dplyr::mutate(class = "GENERAL")
-
-
-# --- Tables with lon/lat -------------------------------------------------------
-add_tbl <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval="2019→2023") |> add_validation_cols() |> coerce_for_bind()
-rem_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval="2019→2023") |> add_validation_cols() |> coerce_for_bind()
-gen_tbl <- dplyr::bind_rows(
-  to_lonlat_tbl(gen_pts)     |> dplyr::mutate(interval="2019→2023", source="NONCYCLE_2023"),
-  to_lonlat_tbl(persist_pts) |> dplyr::mutate(interval="2019→2023", source="PERSIST_19_23")
-) |> add_validation_cols() |> coerce_for_bind()
-
-n_flagged   <- nrow(add_tbl) + nrow(rem_tbl)
-max_general <- max(20, round(target_ratio * n_flagged))
-if (nrow(gen_tbl) > max_general) {
-  set.seed(123)
-  gen_tbl <- gen_tbl[sample(seq_len(nrow(gen_tbl)), max_general), , drop = FALSE]
-}
-samples_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, gen_tbl)
-
-# --- Top-up to ensure stratum balance -----------------------------------------
+# --- Top-up to ensure stratum balance (lines) ----------------------------------
+# (requires top_up() defined in helpers chunk)
 min_gen_per_stratum <- 2
 min_rem_per_stratum <- 3
-
 general_by_tr <- top_up(noncycle23, tracts, general_by_tr, min_gen_per_stratum)
 removed_by_tr <- top_up(removed,     tracts, removed_by_tr, min_rem_per_stratum)
 
-added_pts    <- points_on_lines(added_by_tr)
-removed_pts  <- points_on_lines(removed_by_tr)
-gen_pts      <- points_on_lines(general_by_tr)
+# --- Convert selected LINES to ONE point per line ------------------------------
+# (use points_on_lines(): robust midpoint, 1 point per line)
+added_pts    <- points_on_lines(added_by_tr)    |> dplyr::mutate(class = "ADD")
+removed_pts  <- points_on_lines(removed_by_tr)  |> dplyr::mutate(class = "REMOVE")
+gen_pts      <- points_on_lines(general_by_tr)  |> dplyr::mutate(class = "GENERAL")
+persist_pts  <- points_on_lines(persist_by_tr)  |> dplyr::mutate(class = "PERSIST")
 
 # --- Keep only points within tract boundaries ---------------------------------
 keep_in <- function(pts, tracts, eps = 0.5){
@@ -936,23 +999,44 @@ keep_in <- function(pts, tracts, eps = 0.5){
   M <- sf::st_is_within_distance(pts, tracts, dist = eps, sparse = FALSE)
   pts[apply(M, 1, any), , drop = FALSE]
 }
-
 added_pts   <- keep_in(added_pts,   tracts)
 removed_pts <- keep_in(removed_pts, tracts)
 gen_pts     <- keep_in(gen_pts,     tracts)
+persist_pts <- keep_in(persist_pts, tracts)
 
+# --- Sanity: one point per selected line --------------------------------------
 stopifnot(
-  nrow(added_pts)   == nrow(added_by_tr),
-  nrow(removed_pts) == nrow(removed_by_tr),
-  nrow(gen_pts)     == nrow(general_by_tr)
+  nrow(added_pts)    == nrow(added_by_tr),
+  nrow(removed_pts)  == nrow(removed_by_tr),
+  nrow(gen_pts)      == nrow(general_by_tr),
+  nrow(persist_pts)  == nrow(persist_by_tr)
 )
+
+# --- Tables with lon/lat -------------------------------------------------------
+add_tbl <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval="2019→2023", source="ADD_FLAG")     |> add_validation_cols() |> coerce_for_bind()
+rem_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval="2019→2023", source="REMOVE_FLAG")  |> add_validation_cols() |> coerce_for_bind()
+gen_tbl <- dplyr::bind_rows(
+  to_lonlat_tbl(gen_pts)     |> dplyr::mutate(interval="2019→2023", source="NONCYCLE_2023"),
+  to_lonlat_tbl(persist_pts) |> dplyr::mutate(interval="2019→2023", source="PERSIST_19_23")
+) |> add_validation_cols() |> coerce_for_bind()
+
+# cap general to target ratio vs flagged
+n_flagged   <- nrow(add_tbl) + nrow(rem_tbl)
+max_general <- max(20, round(target_ratio * n_flagged))
+if (nrow(gen_tbl) > max_general) {
+  set.seed(123)
+  gen_tbl <- gen_tbl[sample(seq_len(nrow(gen_tbl)), max_general), , drop = FALSE]
+}
+
+samples_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, gen_tbl)
 
 # --- Sanity checks ------------------------------------------------------------
 cat("\nCounts (lines → points):\n")
 print(rbind(
-  ADD      = c(lines = nrow(added_by_tr),   pts = nrow(added_pts)),
-  REMOVE   = c(lines = nrow(removed_by_tr), pts = nrow(removed_pts)),
-  GENERAL  = c(lines = nrow(general_by_tr), pts = nrow(gen_pts))
+  ADD      = c(lines = nrow(added_by_tr),    pts = nrow(added_pts)),
+  REMOVE   = c(lines = nrow(removed_by_tr),  pts = nrow(removed_pts)),
+  GENERAL  = c(lines = nrow(general_by_tr),  pts = nrow(gen_pts)),
+  PERSIST  = c(lines = nrow(persist_by_tr),  pts = nrow(persist_pts))
 ))
 
 check_inside <- function(pts, tracts, eps = 0.5){
@@ -962,7 +1046,8 @@ cat("\nPoints outside tract boundaries (should be 0):\n")
 print(rbind(
   ADD     = check_inside(added_pts, tracts),
   REMOVE  = check_inside(removed_pts, tracts),
-  GENERAL = check_inside(gen_pts, tracts)
+  GENERAL = check_inside(gen_pts, tracts),
+  PERSIST = check_inside(persist_pts, tracts)
 ))
 
 as.data.frame(table(stratum = added_by_tr$stratum))
@@ -979,7 +1064,11 @@ as.data.frame(table(stratum = general_by_tr$stratum))
 
 outdir  <- "outputs"
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
-outfile <- file.path(outdir, paste0(city_tag, "_samples_2019_2023.xlsx"))
+
+# Crea nom amb data i hora
+timestamp <- format(Sys.time(), "%Y%m%d-%H%M")
+outfile <- file.path(outdir, paste0(city_tag, "_samples_2019_2023_", timestamp, ".xlsx"))
+
 
 # ensure uniform columns across sheets
 if (!"source" %in% names(add_tbl)) add_tbl$source <- "ADD_FLAG"
