@@ -2,7 +2,10 @@
 # title: "ATRAPA Work Package 1: Built Environment Transformations Dataset"
 format: 
    html
-  # gfm:
+freeze: false
+execute:
+  cache: false
+      # gfm:
   #   prefer-html: true
 editor: visual
 bibliography: wp1.bib
@@ -223,9 +226,13 @@ knitr::include_graphics("figs/osm_gsv_flowchart.png")
 
 #### Geometric differencing
 
-- ADDED: CI present in OSM 2023, absent in OSM 2019.
-- REMOVED: CI present in OSM 2019, absent in OSM 2023.
-- Computed via buffered geometric differencing, dropping tiny fragments.
+- ADDED: CI present in OSM 2023 but absent in OSM 2019.
+
+- REMOVED: CI present in OSM 2019 but absent in OSM 2023.
+
+- CI_STABLE: CI present in both years (2019 → 2023 overlap).
+
+All changes were computed through buffered geometric differencing and short-segment filtering to remove spurious fragments.
 
 ```{r}
 #| label: 05-data-extraction-helpers
@@ -578,49 +585,49 @@ bboxes <- list(
 bboxes <- Filter(Negate(is.null), bboxes)
 
 # ---- map ---------------------------------------------------------------------
-m <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
-  addMapPane("basePane",  zIndex = 410) %>%
-  addMapPane("nonciPane", zIndex = 420) %>%
-  addMapPane("bikePane",  zIndex = 430) %>%
-  addProviderTiles("CartoDB.Positron", group = "Positron")
-
-if (!is.null(base_wgs))
-  m <- m %>% addPolylines(
-    data = base_wgs, group = "All base (2023)",
-    weight = 1, color = col_base, opacity = 0.5,
-    options = pathOptions(pane = "basePane")
-  )
-
-if (!is.null(nonci_wgs))
-  m <- m %>% addPolylines(
-    data = nonci_wgs, group = "Non-CI (2023)",
-    weight = 1, color = col_nonci, opacity = 1.0,
-    options = pathOptions(pane = "nonciPane")
-  )
-
-if (!is.null(bike_wgs))
-  m <- m %>% addPolylines(
-    data = bike_wgs, group = "Bike (2023)",
-    weight = 2, color = col_bike, opacity = 0.9,
-    options = pathOptions(pane = "bikePane")
-  )
-
-m <- m %>% addLayersControl(
-  baseGroups    = c("Positron"),
-  overlayGroups = c("All base (2023)", "Bike (2023)", "Non-CI (2023)"),
-  options = layersControlOptions(collapsed = TRUE)
-)
-
-# Fit to data if we have bounds
-if (length(bboxes)) {
-  xmin <- min(sapply(bboxes, `[[`, "xmin"))
-  ymin <- min(sapply(bboxes, `[[`, "ymin"))
-  xmax <- max(sapply(bboxes, `[[`, "xmax"))
-  ymax <- max(sapply(bboxes, `[[`, "ymax"))
-  m <- m %>% fitBounds(xmin, ymin, xmax, ymax)
-}
-
-m
+# m <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
+#   addMapPane("basePane",  zIndex = 410) %>%
+#   addMapPane("nonciPane", zIndex = 420) %>%
+#   addMapPane("bikePane",  zIndex = 430) %>%
+#   addProviderTiles("CartoDB.Positron", group = "Positron")
+# 
+# if (!is.null(base_wgs))
+#   m <- m %>% addPolylines(
+#     data = base_wgs, group = "All base (2023)",
+#     weight = 1, color = col_base, opacity = 0.5,
+#     options = pathOptions(pane = "basePane")
+#   )
+# 
+# if (!is.null(nonci_wgs))
+#   m <- m %>% addPolylines(
+#     data = nonci_wgs, group = "Non-CI (2023)",
+#     weight = 1, color = col_nonci, opacity = 1.0,
+#     options = pathOptions(pane = "nonciPane")
+#   )
+# 
+# if (!is.null(bike_wgs))
+#   m <- m %>% addPolylines(
+#     data = bike_wgs, group = "Bike (2023)",
+#     weight = 2, color = col_bike, opacity = 0.9,
+#     options = pathOptions(pane = "bikePane")
+#   )
+# 
+# m <- m %>% addLayersControl(
+#   baseGroups    = c("Positron"),
+#   overlayGroups = c("All base (2023)", "Bike (2023)", "Non-CI (2023)"),
+#   options = layersControlOptions(collapsed = TRUE)
+# )
+# 
+# # Fit to data if we have bounds
+# if (length(bboxes)) {
+#   xmin <- min(sapply(bboxes, `[[`, "xmin"))
+#   ymin <- min(sapply(bboxes, `[[`, "ymin"))
+#   xmax <- max(sapply(bboxes, `[[`, "xmax"))
+#   ymax <- max(sapply(bboxes, `[[`, "ymax"))
+#   m <- m %>% fitBounds(xmin, ymin, xmax, ymax)
+# }
+# 
+# m
 
 # Fit bounds as in your code...
 ```
@@ -628,11 +635,11 @@ m
 
 #### Sampling design
 
--   Stratified tracts: Pre-selected census tracts by centrality × density (3×3).
+- Stratified tracts: Pre-selected census tracts by centrality × density (3×3).
 
--   In sampled tracts, draw length-weighted points for ADD, REMOVE, and GENERAL (2023 non-CI network).
+- Sampling within tracts: From each sampled tract, length-weighted segments were drawn for ADD, REMOVE, NONCI, and CI_STABLE classes (typically up to 2 ADD, 2 REMOVE, 1 NONCI, 1 CI_STABLE per tract).
 
--   Validation point = midpoint of the sampled segment.
+- Validation point: Midpoint of the sampled segment, used as the anchor for manual inspection (GSV).
 
 ```{r}
 #| label: 11-tracts-load
@@ -891,9 +898,11 @@ sample_lines_by_tract <- function(lines_sf, tracts_sf, n_per, replace = FALSE, m
 #| warning: false
 #| include: false
 
+set.seed(1234)              # add this near the top of the chunk
+
 # basic checks
 stopifnot(exists("added"), exists("removed"), exists("l23"), exists("crs_work"))
-stopifnot(exists("cyc19_n"), exists("cyc23_n"), exists("tol_m"))   # ← need these for PERSIST
+stopifnot(exists("cyc19_n"), exists("cyc23_n"), exists("tol_m"))   # ← need these for CI_STABLE
 stopifnot(exists("sampled_tracts"))
 
 # ensure 'tract_id'
@@ -907,11 +916,10 @@ normalize_tract_id <- function(s){
 sampled_tracts <- normalize_tract_id(sampled_tracts)
 stopifnot("tract_id" %in% names(sampled_tracts))
 
-# quotas (per tract) — GENERAL capped at 2; PERSIST small
 PERTRACT_ADD     <- 2
-PERTRACT_REM     <- 2
-PERTRACT_GEN     <- 2
-PERTRACT_PERSIST <- 1    # ← new
+PERTRACT_REM     <- 12       # or 3 if you want a stronger boost
+PERTRACT_NONCI     <- 1       # ← change from 2 to 1
+PERTRACT_CI_STABLE <- 1
 FORCE_QUOTA      <- FALSE
 MIN_LEN_M        <- 10
 
@@ -939,26 +947,26 @@ if (exists("general23_n") && inherits(general23_n, "sf") && nrow(general23_n)) {
   }
 }
 
-# PERSIST pool (CI present in 2019 AND 2023; tolerant overlap)
-persist <- sf::st_intersection(
+# CI_STABLE pool (CI present in 2019 AND 2023; tolerant overlap)
+ci_stable <- sf::st_intersection(
   sf::st_geometry(sf::st_transform(cyc23_n, crs_work)),
   sf::st_buffer(sf::st_union(sf::st_geometry(sf::st_transform(cyc19_n, crs_work))), tol_m)
 ) |>
   sf::st_collection_extract("LINESTRING", warn = FALSE) |>
   sf::st_sf(crs = crs_work)
-persist <- persist[!sf::st_is_empty(persist), , drop = FALSE]
+ci_stable <- ci_stable[!sf::st_is_empty(ci_stable), , drop = FALSE]
 
 # picks: strictly per-tract caps; no top-ups
 added_by_tr    <- sample_lines_by_tract(added,      tracts, PERTRACT_ADD,     replace = FORCE_QUOTA, min_len = MIN_LEN_M)
 removed_by_tr  <- sample_lines_by_tract(removed,    tracts, PERTRACT_REM,     replace = FORCE_QUOTA, min_len = MIN_LEN_M)
-general_by_tr  <- sample_lines_by_tract(noncycle23, tracts, PERTRACT_GEN,     replace = FORCE_QUOTA, min_len = MIN_LEN_M)
-persist_by_tr  <- sample_lines_by_tract(persist,    tracts, PERTRACT_PERSIST, replace = FORCE_QUOTA, min_len = MIN_LEN_M)
+general_by_tr  <- sample_lines_by_tract(noncycle23, tracts, PERTRACT_NONCI,     replace = FORCE_QUOTA, min_len = MIN_LEN_M)
+ci_stable_by_tr  <- sample_lines_by_tract(ci_stable, tracts, PERTRACT_CI_STABLE, replace = FORCE_QUOTA, min_len = MIN_LEN_M)
 
 # convert to points (1 per line)
 added_pts    <- points_on_lines(added_by_tr)    |> dplyr::mutate(class = "ADD")
 removed_pts  <- points_on_lines(removed_by_tr)  |> dplyr::mutate(class = "REMOVE")
-gen_pts      <- points_on_lines(general_by_tr)  |> dplyr::mutate(class = "GENERAL")
-persist_pts  <- points_on_lines(persist_by_tr)  |> dplyr::mutate(class = "PERSIST")
+nonci_pts      <- points_on_lines(general_by_tr)  |> dplyr::mutate(class = "NONCI")
+ci_stable_pts  <- points_on_lines(ci_stable_by_tr)  |> dplyr::mutate(class = "CI_STABLE")
 
 # keep only points within tract boundaries
 keep_in <- function(pts, tracts, eps = 0.5){
@@ -969,22 +977,22 @@ keep_in <- function(pts, tracts, eps = 0.5){
 }
 added_pts   <- keep_in(added_pts,   tracts)
 removed_pts <- keep_in(removed_pts, tracts)
-gen_pts     <- keep_in(gen_pts,     tracts)
-persist_pts <- keep_in(persist_pts, tracts)
+nonci_pts     <- keep_in(nonci_pts,     tracts)
+ci_stable_pts <- keep_in(ci_stable_pts, tracts)
 
 # sanity: one point per selected line
 stopifnot(
   nrow(added_pts)    == nrow(added_by_tr),
   nrow(removed_pts)  == nrow(removed_by_tr),
-  nrow(gen_pts)      == nrow(general_by_tr),
-  nrow(persist_pts)  == nrow(persist_by_tr)
+  nrow(nonci_pts)      == nrow(general_by_tr),
+  nrow(ci_stable_pts)  == nrow(ci_stable_by_tr)
 )
 
 # tables for export
 add_tbl  <- to_lonlat_tbl(added_pts)    |> dplyr::mutate(interval="2019→2023", source="ADD_FLAG",       class="ADD")     |> add_validation_cols() |> coerce_for_bind()
 rem_tbl  <- to_lonlat_tbl(removed_pts)  |> dplyr::mutate(interval="2019→2023", source="REMOVE_FLAG",    class="REMOVE")  |> add_validation_cols() |> coerce_for_bind()
-gen_tbl  <- to_lonlat_tbl(gen_pts)      |> dplyr::mutate(interval="2019→2023", source="NONCI_2023",     class="GENERAL") |> add_validation_cols() |> coerce_for_bind()
-pers_tbl <- to_lonlat_tbl(persist_pts)  |> dplyr::mutate(interval="2019→2023", source="PERSIST_19_23",  class="PERSIST") |> add_validation_cols() |> coerce_for_bind()
+gen_tbl  <- to_lonlat_tbl(nonci_pts)      |> dplyr::mutate(interval="2019→2023", source="NONCI_2023",     class="NONCI") |> add_validation_cols() |> coerce_for_bind()
+pers_tbl <- to_lonlat_tbl(ci_stable_pts)  |> dplyr::mutate(interval="2019→2023", source="CI_STABLE_19_23",  class="CI_STABLE") |> add_validation_cols() |> coerce_for_bind()
 
 # final stack
 samples_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, gen_tbl, pers_tbl)
@@ -994,8 +1002,8 @@ cat("\nCounts (lines → points):\n")
 print(rbind(
   ADD      = c(lines = nrow(added_by_tr),    pts = nrow(added_pts)),
   REMOVE   = c(lines = nrow(removed_by_tr),  pts = nrow(removed_pts)),
-  GENERAL  = c(lines = nrow(general_by_tr),  pts = nrow(gen_pts)),
-  PERSIST  = c(lines = nrow(persist_by_tr),  pts = nrow(persist_pts))
+  NONCI  = c(lines = nrow(general_by_tr),  pts = nrow(nonci_pts)),
+  CI_STABLE  = c(lines = nrow(ci_stable_by_tr),  pts = nrow(ci_stable_pts))
 ))
 
 # --- Stratum sanity: are samples well distributed? ----------------------------
@@ -1006,17 +1014,17 @@ attach_stratum_to_pts <- function(pts, tracts){
   sf::st_join(p, tracts[, c("tract_id","stratum")], left = TRUE, join = sf::st_within)
 }
 
-gen_pts_s  <- attach_stratum_to_pts(gen_pts,     tracts)
-add_pts_s  <- attach_stratum_to_pts(added_pts,   tracts)
+nonci_pts_s  <- attach_stratum_to_pts(nonci_pts, tracts)
+add_pts_s  <- attach_stratum_to_pts(added_pts, tracts)
 rem_pts_s  <- attach_stratum_to_pts(removed_pts, tracts)
-pers_pts_s <- attach_stratum_to_pts(persist_pts, tracts)
+pers_pts_s <- attach_stratum_to_pts(ci_stable_pts, tracts)
 
 by_stratum <- data.frame(
   STRATUM = levels(tracts$stratum),
-  GENERAL = as.integer(table(factor(gen_pts_s$stratum,  levels(tracts$stratum)))),
+  NONCI = as.integer(table(factor(nonci_pts_s$stratum,  levels(tracts$stratum)))),
   ADD     = as.integer(table(factor(add_pts_s$stratum,  levels(tracts$stratum)))),
   REMOVE  = as.integer(table(factor(rem_pts_s$stratum, levels(tracts$stratum)))),
-  PERSIST = as.integer(table(factor(pers_pts_s$stratum,levels(tracts$stratum))))
+  CI_STABLE = as.integer(table(factor(pers_pts_s$stratum,levels(tracts$stratum))))
 )
 
 cat("\nBy-stratum counts (POINTS):\n")
@@ -1028,21 +1036,22 @@ print(by_stratum)
 #| warning: false
 #| include: false
 #| paged-print: false
-# attach stratum to pools (if not already)
-pool_with_stratum <- function(lines, tracts){
-  if (!"stratum" %in% names(lines)) {
-    lines <- sf::st_join(lines, tracts[, c("tract_id","stratum")], left = TRUE)
-  }
-  lines
-}
-added_p  <- pool_with_stratum(added,   tracts)
-removed_p<- pool_with_stratum(removed, tracts)
 
-cat("\nPOOL availability (should be >0 to be sampleable):\n")
-print(data.frame(STRATUM = levels(tracts$stratum),
-                 ADD_POOL   = as.integer(table(factor(added_p$stratum,   levels(tracts$stratum)))),
-                 REM_POOL   = as.integer(table(factor(removed_p$stratum, levels(tracts$stratum)))))
-)
+# attach stratum to pools (if not already) 
+ # pool_with_stratum <- function(lines, tracts){
+ #   if (!"stratum" %in% names(lines)) {
+ #     lines <- sf::st_join(lines, tracts[, c("tract_id","stratum")], left = TRUE)
+ #   }
+ #   lines
+ # }
+ # added_p  <- pool_with_stratum(added,   tracts)
+ # removed_p<- pool_with_stratum(removed, tracts)
+ # 
+ # cat("\nPOOL availability (should be >0 to be sampleable):\n")
+ # print(data.frame(STRATUM = levels(tracts$stratum),
+ #                  ADD_POOL   = as.integer(table(factor(added_p$stratum,   levels(tracts$stratum)))),
+ #                  REM_POOL   = as.integer(table(factor(removed_p$stratum, levels(tracts$stratum)))))
+ # )
 ```
 
 ```{r}
@@ -1052,59 +1061,77 @@ print(data.frame(STRATUM = levels(tracts$stratum),
 #| warning: false
 #| eval: true
 
-FILE <- "outputs/barcelona_samples_2019_2023.xlsx"
+# --- setup -------------------------------------------------------
+outdir <- "outputs"; dir.create(outdir, FALSE, TRUE)
+outfile <- file.path(outdir, paste0(city_tag, "_samples_2019_2023_", format(Sys.time(), "%Y%m%d-%H%M"), ".xlsx"))
+wb <- openxlsx::createWorkbook()
 
-outdir  <- "outputs"
-dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
-
-# Crea nom amb data i hora
-timestamp <- format(Sys.time(), "%Y%m%d-%H%M")
-outfile <- file.path(outdir, paste0(city_tag, "_samples_2019_2023_", timestamp, ".xlsx"))
-
-
-# ensure uniform columns across sheets
-if (!"source" %in% names(add_tbl)) add_tbl$source <- "ADD_FLAG"
-if (!"source" %in% names(rem_tbl)) rem_tbl$source <- "REMOVE_FLAG"
-if (!"source" %in% names(gen_tbl)) gen_tbl$source <- NA_character_
-
-wb <- createWorkbook()
-
+# minimal writer (fixed order)
 write_one <- function(df, sheet){
-  # make sure these columns exist so relocate() can succeed
-  if (!"gsv_link" %in% names(df)) df$gsv_link <- NA_character_
-  if (!"source"  %in% names(df)) df$source   <- NA_character_
-
-  df2 <- df %>%
-    mutate(GSV = NA_character_) %>%
-    # move only the columns that exist (no error if absent)
-    relocate(any_of(c("GSV","source")), .after = gsv_link)
-
-  addWorksheet(wb, sheet)
-  writeData(wb, sheet, df2)
-
-  if (nrow(df2) > 0) {
-    link_col <- which(names(df2) == "GSV")
-    writeFormula(
-      wb, sheet,
+  wanted <- c("id","class","tract_id","stratum","lon","lat","gsv_link","GSV","source",
+              "interval","present_2019","present_2023","verifiable_2019","verifiable_2023","notes")
+  for (nm in setdiff(wanted, names(df))) df[[nm]] <- NA
+  df <- df[, wanted, drop = FALSE]
+  openxlsx::addWorksheet(wb, sheet)
+  openxlsx::writeData(wb, sheet, df)
+  if (nrow(df)) {
+    openxlsx::writeFormula(wb, sheet,
       x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
-      startCol = link_col, startRow = 2
-    )
+      startCol = which(names(df)=="GSV"), startRow = 2)
   }
-  addFilter(wb, sheet, row = 1, cols = 1:ncol(df2))
-  setColWidths(wb, sheet, cols = 1:ncol(df2), widths = "auto")
-  freezePane(wb, sheet, firstActiveRow = 2, firstActiveCol = 1)
+  openxlsx::addFilter(wb, sheet, 1, 1:ncol(df))
+  openxlsx::setColWidths(wb, sheet, 1:ncol(df), "auto")
+  openxlsx::freezePane(wb, sheet, firstActiveRow = 2, firstActiveCol = 1)
 }
 
-write_one(add_tbl, "ADD")
-write_one(rem_tbl, "REMOVE")
-write_one(gen_tbl, "GENERAL")
-
-if (file.exists(outfile)) {
-  message("✔ Found existing Excel; not overwriting: ", normalizePath(outfile))
-} else {
-  saveWorkbook(wb, outfile, overwrite = FALSE)
-  message("✅ Blank Excel created: ", normalizePath(outfile))
+# --- keep ONE tract_id + ONE stratum on points -------------------
+add_id_if_missing <- function(p, tr){
+  if (!"tract_id" %in% names(p)) {
+    if (sf::st_crs(p) != sf::st_crs(tr)) p <- sf::st_transform(p, sf::st_crs(tr))
+    p <- sf::st_join(p, tr["tract_id"], join = sf::st_within, left = TRUE)
+  }
+  p
 }
+canon_id_stratum <- function(p, tr){
+  co <- function(df, vars){
+    v <- lapply(vars, \(x) if (x %in% names(df)) as.character(df[[x]]) else NA_character_)
+    z <- v[[1]]; if (length(v)>1) for (k in 2:length(v)) z <- dplyr::coalesce(z, v[[k]])
+    z[trimws(z)==""] <- NA_character_; z
+  }
+  p$tract_id <- co(p, c("tract_id","tract_id.x","tract_id.y"))
+  p$stratum  <- co(p, c("stratum","stratum.x","stratum.y","stratum_id"))
+  if (any(is.na(p$stratum)) && "tract_id" %in% names(p)) {
+    lk <- sf::st_drop_geometry(tr)[,c("tract_id","stratum")]
+    p  <- dplyr::left_join(p, lk, by="tract_id", suffix=c("",".lkp"))
+    p$stratum <- dplyr::coalesce(p$stratum, p$stratum.lkp); p$stratum.lkp <- NULL
+  }
+  p[c("tract_id.x","tract_id.y","stratum.x","stratum.y","stratum_id")] <- NULL
+  p$stratum <- as.character(p$stratum); p$tract_id <- as.character(p$tract_id)
+  p
+}
+
+added_pts     <- canon_id_stratum(add_id_if_missing(added_pts,     tracts), tracts)
+removed_pts   <- canon_id_stratum(add_id_if_missing(removed_pts,   tracts), tracts)
+nonci_pts     <- canon_id_stratum(add_id_if_missing(nonci_pts,     tracts), tracts)
+ci_stable_pts <- canon_id_stratum(add_id_if_missing(ci_stable_pts, tracts), tracts)
+
+# --- rebuild export tables AFTER the joins -----------------------
+mk_tbl <- function(p, src, cls){
+  to_lonlat_tbl(p) |>
+    dplyr::mutate(interval="2019→2023", source=src, class=cls) |>
+    add_validation_cols() |> coerce_for_bind()
+}
+add_tbl  <- mk_tbl(added_pts,     "ADD_FLAG",        "ADD")
+rem_tbl  <- mk_tbl(removed_pts,   "REMOVE_FLAG",     "REMOVE")
+gen_tbl  <- mk_tbl(nonci_pts,     "NONCI_2023",      "NONCI")
+pers_tbl <- mk_tbl(ci_stable_pts, "CI_STABLE_19_23", "CI_STABLE")
+
+# --- write -------------------------------------------------------
+write_one(add_tbl,  "ADD_FLAG")
+write_one(rem_tbl,  "REMOVE_FLAG")
+write_one(gen_tbl,  "NONCI_2023")
+# optional: write_one(pers_tbl, "CI_STABLE_19_23")
+openxlsx::saveWorkbook(wb, outfile, overwrite = TRUE)
 ```
 
 ```{r}
@@ -1124,7 +1151,7 @@ knitr::include_graphics("figs/validation_points_boundary.png")
 
 - F1 = 2·Precision·Recall / (Precision + Recall)
 
-- Notes. Precision is computed on OSM-flagged points (ADD/REMOVE); FN comes from GENERAL points. Report metrics by class and pooled, with 95% CIs.
+- Notes. Precision is computed on OSM-flagged points (ADD/REMOVE); FN comes from NONCI points. Report metrics by class and pooled, with 95% CIs.
 
 <!-- ### Uncertainty & stratification -->
 
@@ -1134,7 +1161,7 @@ knitr::include_graphics("figs/validation_points_boundary.png")
 
 <!-- ### Sensitivity analyses -->
 
-<!-- - Loose FN (ADD): count any verifiable present_2023==TRUE in GENERAL as FN_ADD (regardless of 2019). -->
+<!-- - Loose FN (ADD): count any verifiable present_2023==TRUE in NONCI as FN_ADD (regardless of 2019). -->
 
 <!-- - Alternative windows: tighten 2019 to calendar year; set 2023 to 2022–2024. -->
 
@@ -1404,61 +1431,95 @@ Validation covered 44 points across all nine density–centrality strata (larges
 
 # ---- HELPERS ----
 is_yes <- function(x){
-  x <- tolower(str_trim(as.character(x)))
+  x <- tolower(stringr::str_trim(as.character(x)))
   x %in% c("yes","y","true","1","sí","si","s\u00ed")
 }
 
+empty_sheet <- function(){
+  tibble::tibble(
+    present_2019    = character(),
+    present_2023    = character(),
+    verifiable_2019 = logical(),
+    verifiable_2023 = logical(),
+    stratum         = character()
+  )
+}
+
 safe_read <- function(path, sh){
-  df <- read_xlsx(path, sheet = sh)
+  # return empty if sheet is missing or unreadable
+  df <- tryCatch(readxl::read_xlsx(path, sheet = sh), error = function(e) empty_sheet())
+  if (!nrow(df)) return(empty_sheet())
   names(df) <- trimws(names(df))
-  stopifnot(all(c("present_2019","present_2023","verifiable_2019","verifiable_2023","stratum") %in% names(df)))
-  df %>%
-    mutate(
-      present_2019    = tolower(str_trim(as.character(present_2019))),
-      present_2023    = tolower(str_trim(as.character(present_2023))),
-      verifiable_2019 = is_yes(verifiable_2019),
-      verifiable_2023 = is_yes(verifiable_2023),
-      stratum         = as.character(stratum)
-    )
+  missing_cols <- setdiff(
+    c("present_2019","present_2023","verifiable_2019","verifiable_2023","stratum"),
+    names(df)
+  )
+  if (length(missing_cols)) {
+    # create any missing columns as NA
+    for (mc in missing_cols) df[[mc]] <- NA
+  }
+  dplyr::mutate(
+    df,
+    present_2019    = tolower(stringr::str_trim(as.character(.data$present_2019))),
+    present_2023    = tolower(stringr::str_trim(as.character(.data$present_2023))),
+    verifiable_2019 = is_yes(.data$verifiable_2019),
+    verifiable_2023 = is_yes(.data$verifiable_2023),
+    stratum         = as.character(.data$stratum)
+  )
 }
 
 # ---- READ ----
 add_tbl <- safe_read(FILE, "ADD")
 rem_tbl <- safe_read(FILE, "REMOVE")
-gen_tbl <- safe_read(FILE, "GENERAL")
+gen_tbl <- safe_read(FILE, "NONCI")
+
+# Keep the full set of strata observed in any sheet (so zero-count strata still appear)
+all_strata <- sort(unique(c(add_tbl$stratum, rem_tbl$stratum, gen_tbl$stratum)))
+if (length(all_strata) == 0L) all_strata <- character(0)
 
 # ---- BIND & FILTER (USABLE) ----
-usable_tbl <- bind_rows(
-  add_tbl %>% mutate(class = "ADD"),
-  rem_tbl %>% mutate(class = "REMOVE"),
-  gen_tbl %>% mutate(class = "GENERAL")
-) %>%
-  filter(verifiable_2019, verifiable_2023)
+usable_tbl <- dplyr::bind_rows(
+  dplyr::mutate(add_tbl, class = "ADD"),
+  dplyr::mutate(rem_tbl, class = "REMOVE"),
+  dplyr::mutate(gen_tbl, class = "NONCI")
+) |>
+  dplyr::filter(.data$verifiable_2019, .data$verifiable_2023)
 
 # ---- SUMMARY (stratum × class) ----
-summary_stratum_class <- usable_tbl %>%
-  count(stratum, class, name = "n") %>%
-  pivot_wider(names_from = class, values_from = n, values_fill = 0)
+summary_stratum_class <- usable_tbl |>
+  dplyr::count(.data$stratum, .data$class, name = "n") |>
+  tidyr::complete(
+    stratum = all_strata,
+    class   = c("REMOVE","ADD","NONCI"),
+    fill    = list(n = 0L)
+  ) |>
+  tidyr::pivot_wider(
+    names_from  = .data$class,
+    values_from = .data$n,
+    values_fill = 0L
+  )
 
 # Ensure fixed column order and totals
-wanted_cols <- c("stratum","REMOVE","ADD","GENERAL")
+wanted_cols <- c("stratum","REMOVE","ADD","NONCI")
 for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
   summary_stratum_class[[cc]] <- 0L
 }
-summary_stratum_class <- summary_stratum_class %>%
-  select(all_of(wanted_cols)) %>%
-  mutate(Total = REMOVE + ADD + GENERAL) %>%
-  arrange(stratum)
+summary_stratum_class <- summary_stratum_class |>
+  dplyr::select(dplyr::all_of(wanted_cols)) |>
+  dplyr::mutate(Total = .data$REMOVE + .data$ADD + .data$NONCI) |>
+  dplyr::arrange(.data$stratum)
 
 # Totals row
-summary_stratum_class_full <- bind_rows(
+summary_stratum_class_full <- dplyr::bind_rows(
   summary_stratum_class,
-  summarise(summary_stratum_class,
-            stratum = "TOTAL",
-            REMOVE = sum(REMOVE, na.rm = TRUE),
-            ADD    = sum(ADD,    na.rm = TRUE),
-            GENERAL= sum(GENERAL,na.rm = TRUE),
-            Total  = sum(Total,  na.rm = TRUE))
+  dplyr::summarise(
+    summary_stratum_class,
+    stratum = "TOTAL",
+    REMOVE  = sum(.data$REMOVE, na.rm = TRUE),
+    ADD     = sum(.data$ADD,    na.rm = TRUE),
+    NONCI   = sum(.data$NONCI,  na.rm = TRUE),
+    Total   = sum(.data$Total,  na.rm = TRUE)
+  )
 )
 
 # ---- TABLE (GFM-safe) ----
@@ -1477,92 +1538,96 @@ knitr::kable(
 #| warning: false
 #| paged-print: false
 
+# --- pick newest workbook -------------------------------------------------
+pat <- paste0("^", city_tag, "_samples_2019_2023_\\d{8}-\\d{4}\\.xlsx$")
+xls <- list.files("outputs", pattern = pat, full.names = TRUE)
+stopifnot(length(xls) > 0)
+FILE <- xls[which.max(file.info(xls)$mtime)]
+sheets <- readxl::excel_sheets(FILE)
+
+# map legacy names -> actual sheet names in the file
+sheet_map <- function(name){
+  cand <- c(
+    ADD   = if ("ADD"   %in% sheets) "ADD"   else "ADD_FLAG",
+    REMOVE= if ("REMOVE"%in% sheets) "REMOVE"else "REMOVE_FLAG",
+    NONCI = if ("NONCI" %in% sheets) "NONCI" else "NONCI_2023"
+  )
+  unname(cand[[name]])
+}
+
+# --- reader ---------------------------------------------------------------
 safe_read <- function(path, sh) {
   stopifnot(file.exists(path))
-  df <- read_xlsx(path, sheet = sh)
+  df <- readxl::read_xlsx(path, sheet = sheet_map(sh))
   need <- c("present_2019","present_2023","verifiable_2019","verifiable_2023")
   stopifnot(all(need %in% names(df)))
-  df %>%
-    mutate(across(all_of(need), ~ tolower(str_trim(as.character(.x)))))
+  dplyr::mutate(df, dplyr::across(dplyr::all_of(need), ~ tolower(stringr::str_trim(as.character(.x)))))
 }
 
 add <- safe_read(FILE, "ADD")
 rem <- safe_read(FILE, "REMOVE")
-gen <- safe_read(FILE, "GENERAL")
+gen <- safe_read(FILE, "NONCI")
 
-# Helper: Wilson CI via prop.test (for Supplementary table)
+# --- CI helper ------------------------------------------------------------
 p_ci <- function(x, n){
   if (is.na(x) || is.na(n) || n == 0) return(c(NA_real_, NA_real_))
-  ci <- suppressWarnings(prop.test(x, n, correct = FALSE)$conf.int)
-  round(ci, 2)
+  round(suppressWarnings(prop.test(x, n, correct = FALSE)$conf.int), 2)
 }
 
 # ---- confusion rules ----
-# ADD: TP if absent in 2019 & present in 2023. FP if 2023=no OR (2019=yes & 2023=yes) (late mapping)
 add_v <- add %>%
-  filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
-  mutate(
+  dplyr::filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
+  dplyr::mutate(
     tp = present_2019 == "no"  & present_2023 == "yes",
     fp = (present_2023 == "no") | (present_2019 == "yes" & present_2023 == "yes")
   )
 
-# REMOVE: TP if present in 2019 & absent in 2023.
-# FP if (2019=no & 2023=no) (2019 was wrong) OR (2019=yes & 2023=yes) (never removed)
 rem_v <- rem %>%
-  filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
-  mutate(
+  dplyr::filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
+  dplyr::mutate(
     tp = present_2019 == "yes" & present_2023 == "no",
     fp = (present_2019 == "no" & present_2023 == "no") |
          (present_2019 == "yes" & present_2023 == "yes")
   )
 
-# GENERAL → false negatives (missed changes)
 gen_v <- gen %>%
-  filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
-  mutate(
+  dplyr::filter(verifiable_2019 == "yes", verifiable_2023 == "yes") %>%
+  dplyr::mutate(
     fn_add = present_2019 == "no"  & present_2023 == "yes",
     fn_rem = present_2019 == "yes" & present_2023 == "no"
   )
 
-# ---- counts (with na.rm = TRUE) ----
-n_add_usable <- nrow(add_v %>% filter(!is.na(present_2019), !is.na(present_2023)))
-n_rem_usable <- nrow(rem_v %>% filter(!is.na(present_2019), !is.na(present_2023)))
-n_gen_usable <- nrow(gen_v %>% filter(!is.na(present_2019), !is.na(present_2023)))
+# ---- counts ----
+n_add_usable <- nrow(dplyr::filter(add_v, !is.na(present_2019), !is.na(present_2023)))
+n_rem_usable <- nrow(dplyr::filter(rem_v, !is.na(present_2019), !is.na(present_2023)))
+n_gen_usable <- nrow(dplyr::filter(gen_v, !is.na(present_2019), !is.na(present_2023)))
 
 TP_add <- sum(add_v$tp, na.rm = TRUE); FP_add <- sum(add_v$fp, na.rm = TRUE)
 FN_add <- sum(gen_v$fn_add, na.rm = TRUE)
-
 TP_rem <- sum(rem_v$tp, na.rm = TRUE); FP_rem <- sum(rem_v$fp, na.rm = TRUE)
 FN_rem <- sum(gen_v$fn_rem, na.rm = TRUE)
 
-# ---- metrics ----
 metric <- function(tp, fp, fn){
-  p <- tp / (tp + fp)
-  r <- tp / (tp + fn)
+  p <- tp / (tp + fp); r <- tp / (tp + fn)
   f1 <- ifelse((p + r) > 0, 2*p*r/(p + r), NA_real_)
   list(precision = p, recall = r, f1 = f1)
 }
-
 m_add <- metric(TP_add, FP_add, FN_add)
 m_rem <- metric(TP_rem, FP_rem, FN_rem)
-
-# pooled (adds + removes)
 TP_T <- TP_add + TP_rem; FP_T <- FP_add + FP_rem; FN_T <- FN_add + FN_rem
 m_tot <- metric(TP_T, FP_T, FN_T)
 
-# ---- main Results table (clean: P/R/F1; no CIs) ----
-t_class <- tibble(
+t_class <- tibble::tibble(
   Class     = c("ADD","REMOVE","Pooled"),
   `n (usable)` = c(n_add_usable, n_rem_usable, n_add_usable + n_rem_usable),
   TP        = c(TP_add, TP_rem, TP_T),
   FP        = c(FP_add, FP_rem, FP_T),
-  FN_note   = c("from GENERAL", "from GENERAL", "from GENERAL"),
+  FN_note   = c("from NONCI", "from NONCI", "from NONCI"),
   Precision = sprintf("%.2f", c(m_add$precision, m_rem$precision, m_tot$precision)),
   Recall    = sprintf("%.2f", c(m_add$recall,    m_rem$recall,    m_tot$recall)),
   F1        = sprintf("%.2f", c(m_add$f1,        m_rem$f1,        m_tot$f1))
 )
 
-# ---- supplementary CIs table (optional) ----
 add_prec_ci <- p_ci(TP_add, TP_add + FP_add)
 add_rec_ci  <- p_ci(TP_add, TP_add + FN_add)
 rem_prec_ci <- p_ci(TP_rem, TP_rem + FP_rem)
@@ -1570,7 +1635,7 @@ rem_rec_ci  <- p_ci(TP_rem, TP_rem + FN_rem)
 tot_prec_ci <- p_ci(TP_T,   TP_T   + FP_T)
 tot_rec_ci  <- p_ci(TP_T,   TP_T   + FN_T)
 
-t_ci <- tibble(
+t_ci <- tibble::tibble(
   Class     = c("ADD","REMOVE","Pooled"),
   `Precision (95% CI)` = c(
     sprintf("%.2f [%0.2f–%0.2f]", m_add$precision, add_prec_ci[1], add_prec_ci[2]),
@@ -1585,39 +1650,26 @@ t_ci <- tibble(
   `F1` = sprintf("%.2f", c(m_add$f1, m_rem$f1, m_tot$f1))
 )
 
-# Comment this `gt()` out if you truly want CIs only in Supplementary.
-# ---- single kable table: main + CIs ----
-
-t_final <- t_class %>%
-  select(Class, `n (usable)`, TP, FP, FN_note, Precision, Recall, F1) %>%
-  left_join(
-    t_ci %>% select(Class, `Precision (95% CI)`, `Recall (95% CI)`),
-    by = "Class"
-  ) %>%
-  # Arrange CI columns next to their point estimates
-  relocate(`Precision (95% CI)`, .after = Precision) %>%
-  relocate(`Recall (95% CI)`, .after = Recall) %>%
-  # Prettify the FN source column name with a line break
-  rename(`FN<br/>(source)` = FN_note)
-
-# --- Plain kable, same style as Table 3 (no kableExtra) ----------------------
-
-# keep a clean header (no <br/> for GFM)
-t_final_clean <- t_final %>%
-  dplyr::rename(`FN (source)` = `FN<br/>(source)`) %>%
-  dplyr::select(
-    Class, `n (usable)`, TP, FP, `FN (source)`,
-    Precision, `Precision (95% CI)`,
-    Recall,    `Recall (95% CI)`,
-    F1
-  )
+t_final <- dplyr::left_join(
+  t_class %>% dplyr::select(Class, `n (usable)`, TP, FP, FN_note, Precision, Recall, F1),
+  t_ci    %>% dplyr::select(Class, `Precision (95% CI)`, `Recall (95% CI)`),
+  by = "Class"
+) %>%
+  dplyr::relocate(`Precision (95% CI)`, .after = Precision) %>%
+  dplyr::relocate(`Recall (95% CI)`, .after = Recall) %>%
+  dplyr::rename(`FN (source)` = FN_note) %>%
+  dplyr::select(Class, `n (usable)`, TP, FP, `FN (source)`,
+                Precision, `Precision (95% CI)`,
+                Recall,    `Recall (95% CI)`,
+                F1)
 
 knitr::kable(
-  t_final_clean,
+  t_final,
   caption = "Table 4: Validation performance (usable points only)",
   align   = c("l","r","r","r","l","r","r","r","r","r"),
   digits  = 0
 )
+
 ```
 
 
@@ -1743,10 +1795,13 @@ m
 #| echo: false
 #| message: false
 #| warning: false
+#| paged-print: false
 
 suppressPackageStartupMessages(library(leaflet))
 
 # ---- helper: prep points (WGS84 + lon/lat + popup) --------------------------
+suppressPackageStartupMessages(library(htmltools))
+
 prep_pts <- function(x){
   if (!inherits(x,"sf") || !nrow(x)) return(NULL)
   w  <- sf::st_transform(x, 4326)
@@ -1756,19 +1811,33 @@ prep_pts <- function(x){
   w   <- w[good, , drop = FALSE]
   xy  <- xy[good, , drop = FALSE]
   w$lon <- xy[,1]; w$lat <- xy[,2]
-  w$gsv <- sprintf("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%f,%f", xy[,2], xy[,1])
-  w$popup <- paste0(
-    "<b>", w$class, "</b>",
-    "<br/>tract: ", w$tract_id,
-    if ("stratum" %in% names(w)) paste0("<br/>stratum: ", w$stratum) else "",
-    "<br/><a href='", w$gsv, "' target='_blank'>Open GSV</a>"
+
+  gsv <- sprintf(
+    "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%f,%f",
+    w$lat, w$lon
   )
+  w$gsv <- utils::URLencode(gsv, reserved = TRUE)
+
+  make_html <- function(i) HTML(paste0(
+    "<b>", w$class[i], "</b>",
+    "<br/>tract: ", w$tract_id[i],
+    if ("stratum" %in% names(w)) paste0("<br/>stratum: ", w$stratum[i]) else "",
+    "<br/><a href='", w$gsv[i], "' target='_blank' rel='noopener'>Open GSV</a>"
+  ))
+
+  # htmltools list-column
+  w$popup_html <- lapply(seq_len(nrow(w)), make_html)
+  # plain character alias for backward compatibility
+  w$popup <- vapply(w$popup_html, as.character, "", USE.NAMES = FALSE)
+
   w
 }
 
+
 add_wgs <- prep_pts(added_pts)
 rem_wgs <- prep_pts(removed_pts)
-gen_wgs <- prep_pts(gen_pts)
+gen_wgs <- prep_pts(nonci_pts)
+pers_wgs <- prep_pts(ci_stable_pts)
 
 # ---- Non-CI network: use EXACT object from chunk 10 -------------------------
 # Expect 'nonci23' (work CRS) built in chunk 10. Only transform, do not rebuild.
@@ -1804,6 +1873,7 @@ if (exists("city_perimeter") && inherits(city_perimeter,"sf") && nrow(city_perim
   if (!is.null(rem_wgs) && nrow(rem_wgs)) bbs <- c(bbs, list(sf::st_bbox(rem_wgs)))
   if (!is.null(gen_wgs) && nrow(gen_wgs)) bbs <- c(bbs, list(sf::st_bbox(gen_wgs)))
   if (inherits(gnet_wgs,"sf") && nrow(gnet_wgs)) bbs <- c(bbs, list(sf::st_bbox(gnet_wgs)))  # <- include non-CI
+ if (!is.null(pers_wgs) && nrow(pers_wgs)) bbs <- c(bbs, list(sf::st_bbox(pers_wgs)))
   if (!length(bbs) && exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
     bbs <- list(get_bbox(tracts))
   }
@@ -1816,11 +1886,13 @@ if (exists("city_perimeter") && inherits(city_perimeter,"sf") && nrow(city_perim
   }
 }
 bounds <- unname(c(bb["xmin"], bb["ymin"], bb["xmax"], bb["ymax"]))
+bounds <- as.numeric(bounds); names(bounds) <- NULL
 
 # ---- colours -----------------------------------------------------------------
 col_add_pt <- "#E6AB02"  # gold
 col_rem_pt <- "#D95F02"  # orange-red
 col_gen_pt <- "#1B9E77"  # teal
+col_pers_pt <- "#3B82F6"  # blue
 stroke     <- "#666666"
 
 tract_stroke <- "#000000"
@@ -1848,6 +1920,23 @@ if (exists("city_perimeter") && inherits(city_perimeter,"sf") && nrow(city_perim
   )
 }
 
+# Tracts (polygons)
+if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
+  m <- m %>% addPolygons(
+    data       = sf::st_transform(tracts, 4326),
+    group      = "Tracts",
+    color      = tract_stroke,   # "#000000"
+    weight     = 1,
+    opacity    = 0.7,
+    fillColor  = tract_fill,     # "#FFFFFF"
+    fillOpacity= 0.05,
+    smoothFactor = 0.5,
+    highlightOptions = highlightOptions(weight = 2, color = "#111827", fillOpacity = 0.1, bringToFront = TRUE),
+    label = ~as.character(tract_id)
+  )
+}
+
+
 # Tracts (optional)
 # Area labels (compute in work CRS, then transform to WGS84)
 if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
@@ -1869,7 +1958,7 @@ if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
 }
 
 
-# ---- General (non-CI) network from chunk 10 ----------------------------------
+# ---- NONCI (non-CI) network from chunk 10 ----------------------------------
 if (inherits(gnet_wgs,"sf") && nrow(gnet_wgs))
   m <- m %>% addPolylines(data = gnet_wgs, group = "General (non-CI) net",
                           weight = 1, color = col_nonci, opacity = 1.0)
@@ -1896,22 +1985,35 @@ if (exists("cyc23_n") && inherits(cyc23_n,"sf") && nrow(cyc23_n))
 
 # Points
 if (!is.null(add_wgs) && nrow(add_wgs) > 0)
-  m <- m %>% addCircleMarkers(data = add_wgs, lng = ~lon, lat = ~lat, group = "ADD pts",
-                              radius = 4, weight = 1, color = stroke,
-                              fillColor = col_add_pt, fillOpacity = 0.95, popup = ~popup)
+  m <- m %>% addCircleMarkers(
+    data = add_wgs, lng = ~lon, lat = ~lat, group = "ADD pts",
+    radius = 4, weight = 1, color = stroke, fillColor = col_add_pt, fillOpacity = 0.95,
+    popup = ~popup_html
+  )
 
 if (!is.null(rem_wgs) && nrow(rem_wgs) > 0)
-  m <- m %>% addCircleMarkers(data = rem_wgs, lng = ~lon, lat = ~lat, group = "REMOVE pts",
-                              radius = 4, weight = 1, color = stroke,
-                              fillColor = col_rem_pt, fillOpacity = 0.95, popup = ~popup)
+  m <- m %>% addCircleMarkers(
+    data = rem_wgs, lng = ~lon, lat = ~lat, group = "REMOVE pts",
+    radius = 4, weight = 1, color = stroke, fillColor = col_rem_pt, fillOpacity = 0.95,
+    popup = ~popup_html
+  )
 
 if (!is.null(gen_wgs) && nrow(gen_wgs) > 0)
-  m <- m %>% addCircleMarkers(data = gen_wgs, lng = ~lon, lat = ~lat, group = "GENERAL pts",
-                              radius = 4, weight = 1, color = stroke,
-                              fillColor = col_gen_pt, fillOpacity = 0.95, popup = ~popup)
+  m <- m %>% addCircleMarkers(
+    data = gen_wgs, lng = ~lon, lat = ~lat, group = "NONCI pts",
+    radius = 4, weight = 1, color = stroke, fillColor = col_gen_pt, fillOpacity = 0.95,
+    popup = ~popup_html
+  )
+
+if (!is.null(pers_wgs) && nrow(pers_wgs) > 0)
+  m <- m %>% addCircleMarkers(
+    data = pers_wgs, lng = ~lon, lat = ~lat, group = "CI_STABLE pts",
+    radius = 4, weight = 1, color = stroke, fillColor = col_pers_pt, fillOpacity = 0.95,
+    popup = ~popup_html
+  )
 
 # Controls + legend
-m %>%
+m <- m %>%
   clearControls() %>%
   addLayersControl(
     baseGroups = c("Positron"),
@@ -1919,25 +2021,26 @@ m %>%
       "Barcelona boundary", "Tracts", "Area labels",
       "2019 net","Added net","Removed net","2023 net",
       "General (non-CI) net",
-      "ADD pts","REMOVE pts","GENERAL pts"
+      "ADD pts","REMOVE pts","NONCI pts","CI_STABLE pts"
     ),
     options = layersControlOptions(collapsed = TRUE)
   ) %>%
   hideGroup(c("2019 net","Area labels","Added net","Removed net","2023 net","General (non-CI) net")) %>%
   fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
-  addLegend(position = "bottomright", title = "",
-            colors = c(col_add_pt, col_rem_pt, col_gen_pt),
-            labels = c("ADD points", "REMOVE points", "GENERAL points"),
-            opacity = 1)
-
+  addLegend(
+    position = "bottomright", title = "",
+    colors = c(col_add_pt, col_rem_pt, col_gen_pt, col_pers_pt),   # ← add col_pers_pt
+    labels = c("ADD points", "REMOVE points", "NONCI points", "CI_STABLE points"),
+    opacity = 1
+  )
+m
 ```
 
 ```{r}
 #| label: 28-validation-map-points-static-built
 #| eval: false
 #| include: false
-# Requires: added_pts, removed_pts, gen_pts (from sampling), and sampled_tracts or tracts
-# Optionally: city_perimeter (to draw BCN boundary)
+# Requires: added_pts, removed_pts, nonci_pts, (optional) ci_static_pts OR ci_stable_pts, and sampled_tracts or tracts
 
 dir.create("figs", showWarnings = FALSE)
 
@@ -1950,34 +2053,40 @@ as_wgs <- function(x){
 }
 
 # guards
-if (!exists("added_pts"))   added_pts   <- NULL
-if (!exists("removed_pts")) removed_pts <- NULL
-if (!exists("gen_pts"))     gen_pts     <- NULL
-tracts_use <- if (exists("sampled_tracts")) sampled_tracts else if (exists("tracts")) tracts else NULL
+if (!exists("added_pts"))     added_pts     <- NULL
+if (!exists("removed_pts"))   removed_pts   <- NULL
+if (!exists("nonci_pts"))     nonci_pts     <- NULL
+# accept either name from upstream: ci_static_pts or ci_stable_pts
+ci_static_src <- if (exists("ci_static_pts")) ci_static_pts else if (exists("ci_stable_pts")) ci_stable_pts else NULL
 
-# perimeter (optional)
-perim_wgs <- if (exists("city_perimeter")) as_wgs(city_perimeter) else NULL
+tracts_use <- if (exists("sampled_tracts")) sampled_tracts else if (exists("tracts")) tracts else NULL
+perim_wgs  <- if (exists("city_perimeter")) as_wgs(city_perimeter) else NULL
 
 # to WGS84
-add_wgs <- if (!is.null(added_pts)   && nrow(added_pts)   > 0) as_wgs(added_pts)   else NULL
-rem_wgs <- if (!is.null(removed_pts) && nrow(removed_pts) > 0) as_wgs(removed_pts) else NULL
-gen_wgs <- if (!is.null(gen_pts)     && nrow(gen_pts)     > 0) as_wgs(gen_pts)     else NULL
-trs_wgs <- if (!is.null(tracts_use)  && nrow(tracts_use)  > 0) as_wgs(tracts_use)  else NULL
+add_wgs <- if (!is.null(added_pts)     && nrow(added_pts)     > 0) as_wgs(added_pts)     else NULL
+rem_wgs <- if (!is.null(removed_pts)   && nrow(removed_pts)   > 0) as_wgs(removed_pts)   else NULL
+gen_wgs <- if (!is.null(nonci_pts)     && nrow(nonci_pts)     > 0) as_wgs(nonci_pts)     else NULL
+sta_wgs <- if (!is.null(ci_static_src) && nrow(ci_static_src) > 0) as_wgs(ci_static_src) else NULL
+trs_wgs <- if (!is.null(tracts_use)    && nrow(tracts_use)    > 0) as_wgs(tracts_use)    else NULL
 
-# points + class
+# points + class (ensure factor order for legend)
 pts_list <- list(
   if (!is.null(add_wgs)) dplyr::mutate(add_wgs, class = "ADD"),
   if (!is.null(rem_wgs)) dplyr::mutate(rem_wgs, class = "REMOVE"),
-  if (!is.null(gen_wgs)) dplyr::mutate(gen_wgs, class = "GENERAL")
+  if (!is.null(gen_wgs)) dplyr::mutate(gen_wgs, class = "NONCI"),
+  if (!is.null(sta_wgs)) dplyr::mutate(sta_wgs, class = "CI_STATIC")
 )
 pts_all <- do.call(dplyr::bind_rows, pts_list)
+if (!is.null(pts_all) && nrow(pts_all) > 0) {
+  pts_all$class <- factor(pts_all$class, levels = c("ADD","REMOVE","NONCI","CI_STATIC"))
+}
 
-# ---------- OPTION A: zoom-to-points bbox (buffered), clamped to perimeter ----
+# zoom bbox util
 make_zoom_bbox <- function(pts, perim = NULL, margin_m = 2000){
   if (is.null(pts) || !inherits(pts,"sf") || !nrow(pts)) return(NULL)
-  p3857   <- sf::st_transform(pts, 3857)              # metric CRS
+  p3857   <- sf::st_transform(pts, 3857)
   buf     <- sf::st_buffer(sf::st_union(p3857), margin_m)
-  bb_poly <- sf::st_as_sfc(sf::st_bbox(buf))          # bbox polygon in 3857
+  bb_poly <- sf::st_as_sfc(sf::st_bbox(buf))
   bb4326  <- sf::st_transform(bb_poly, 4326)
   bb      <- sf::st_bbox(bb4326)
   if (!is.null(perim) && inherits(perim,"sf") && nrow(perim)){
@@ -1989,18 +2098,16 @@ make_zoom_bbox <- function(pts, perim = NULL, margin_m = 2000){
   }
   bb
 }
-
-get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) st_bbox(obj) else NULL
+get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) sf::st_bbox(obj) else NULL
 
 bb <- if (!is.null(pts_all) && nrow(pts_all) > 0) make_zoom_bbox(pts_all, perim_wgs, margin_m = 2000) else NULL
 if (is.null(bb)) bb <- get_bbox(perim_wgs)
 if (is.null(bb)) bb <- get_bbox(trs_wgs)
 if (is.null(bb)) bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
-
 lims <- list(x = c(bb[["xmin"]], bb[["xmax"]]), y = c(bb[["ymin"]], bb[["ymax"]]))
 
-# colours
-cols <- c(ADD = "#E6AB02", REMOVE = "#D95F02", GENERAL = "#1B9E77")
+# colours (+ CI_STATIC)
+cols <- c(ADD = "#E6AB02", REMOVE = "#D95F02", NONCI = "#1B9E77", CI_STATIC = "#3B82F6")
 
 p_val <- ggplot() +
   { if (!is.null(perim_wgs))
@@ -2009,7 +2116,6 @@ p_val <- ggplot() +
   { if (!is.null(trs_wgs))
       geom_sf(data = trs_wgs, inherit.aes = FALSE,
               fill = NA, colour = "#222222", linewidth = 0.3, alpha = 0.4) } +
-  # points on top
   { if (!is.null(pts_all) && nrow(pts_all) > 0)
       geom_sf(data = pts_all, aes(fill = class),
               colour = "white", shape = 21, size = 3.2, stroke = 0.5) } +
@@ -2031,48 +2137,51 @@ ggsave("figs/validation_points_boundary.png", p_val, width = 9, height = 7, dpi 
 
 ```{r}
 #| label: 29-infra-change-map-interactive
+#| include: true
+#| eval: true
 #| echo: false
 #| message: false
 #| warning: false
+#| paged-print: false
 
-# ---- helper: force WGS84 LINESTRING and skip empties -------------------------
+suppressPackageStartupMessages(library(leaflet))
+suppressPackageStartupMessages(library(sf))
+
+# ---- helper: force WGS84 LINESTRING / POLYGON and skip empties --------------
 as_wgs_lines <- function(x){
   if (!inherits(x, "sf") || !nrow(x)) return(NULL)
-  x <- sf::st_make_valid(x)
-  keep <- sf::st_geometry_type(x) %in% c("LINESTRING","MULTILINESTRING")
+  x <- st_make_valid(x)
+  keep <- st_geometry_type(x) %in% c("LINESTRING","MULTILINESTRING")
   x <- x[keep, , drop = FALSE]
   if (!nrow(x)) return(NULL)
-  x <- suppressWarnings(sf::st_cast(x, "LINESTRING"))
-  x <- x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE]
+  x <- suppressWarnings(st_cast(x, "LINESTRING"))
+  x <- x[!st_is_empty(st_geometry(x)), , drop = FALSE]
   if (!nrow(x)) return(NULL)
-  x <- sf::st_transform(x, 4326)
-  x
+  st_transform(x, 4326)
 }
 
 as_wgs_poly <- function(x){
   if (!inherits(x, "sf") || !nrow(x)) return(NULL)
-  x <- sf::st_make_valid(x)
-  keep <- sf::st_geometry_type(x) %in% c("POLYGON","MULTIPOLYGON")
+  x <- st_make_valid(x)
+  keep <- st_geometry_type(x) %in% c("POLYGON","MULTIPOLYGON")
   x <- x[keep, , drop = FALSE]
   if (!nrow(x)) return(NULL)
-  x <- sf::st_transform(x, 4326)
-  x
+  st_transform(x, 4326)
 }
 
 # ---- colours -----------------------------------------------------------------
-col_2019         <- "#7F7F7F"  # a bit lighter neutral for base 2019
-col_added        <- "#E69F00"  # match ADD across figures (was #E6AB02 on points)
-col_removed      <- "#FFFFFF"  # white line (erase look)
-col_removed_halo <- "#000000"  # halo
-col_2023         <- "#0072B2"  # blue (avoid green here)
-col_nonci        <- "red"  # lighter background grey
+col_2019         <- "#7F7F7F"
+col_added        <- "#E69F00"
+col_removed      <- "#FFFFFF"
+col_removed_halo <- "#000000"
+col_2023         <- "#0072B2"
+col_nonci        <- "red"
 
-alpha_2019  <- 0.65   # slightly lower so added/removed pop
+alpha_2019  <- 0.65
 alpha_added <- 0.95
 alpha_2023  <- 0.60
-alpha_nonci <- 0.40   # push further into background
-alpha_halo  <- 0.25   # a bit stronger to support white line
-
+alpha_nonci <- 0.40
+alpha_halo  <- 0.25
 
 # ---- prep layers safely ------------------------------------------------------
 perim_wgs   <- if (exists("city_perimeter")) as_wgs_poly(city_perimeter) else NULL
@@ -2082,54 +2191,83 @@ removed_wgs <- if (exists("removed"))  as_wgs_lines(removed)  else NULL
 cyc23_wgs   <- if (exists("cyc23_n"))  as_wgs_lines(cyc23_n)  else NULL
 nonci_wgs   <- if (exists("general23_n")) as_wgs_lines(general23_n) else NULL
 
-# ---- bounds (prefer perimeter, else any layer, else BCN-ish fallback) --------
-get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) sf::st_bbox(obj) else NULL
+# ---- bounds (prefer perimeter, else any layer, else fallback) ----------------
+get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) st_bbox(obj) else NULL
+
 bb <- get_bbox(perim_wgs)
 if (is.null(bb)) {
-  cands <- Filter(Negate(is.null), list(get_bbox(cyc19_wgs), get_bbox(added_wgs),
-                                        get_bbox(removed_wgs), get_bbox(cyc23_wgs),
-                                        get_bbox(nonci_wgs)))
+  cands <- Filter(Negate(is.null), list(
+    get_bbox(cyc19_wgs), get_bbox(added_wgs),
+    get_bbox(removed_wgs), get_bbox(cyc23_wgs),
+    get_bbox(nonci_wgs)
+  ))
   if (length(cands)) {
-    mins <- do.call(pmin, lapply(cands, function(b) c(b$xmin,b$ymin)))
-    maxs <- do.call(pmax, lapply(cands, function(b) c(b$xmax,b$ymax)))
-    bb <- structure(list(xmin=mins[1], ymin=mins[2], xmax=maxs[1], ymax=maxs[2]), class="bbox")
+    mins <- do.call(pmin, lapply(cands, function(b) c(b["xmin"], b["ymin"])))
+    maxs <- do.call(pmax, lapply(cands, function(b) c(b["xmax"], b["ymax"])))
+    # numeric named vector (not a list)
+    bb <- c(xmin = as.numeric(mins[1]),
+            ymin = as.numeric(mins[2]),
+            xmax = as.numeric(maxs[1]),
+            ymax = as.numeric(maxs[2]))
   } else {
-    bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
+    bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45) # BCN-ish fallback
   }
 }
-bounds <- unname(c(bb["xmin"], bb["ymin"], bb["xmax"], bb["ymax"]))
+
+bounds <- as.numeric(bb[c("xmin","ymin","xmax","ymax")])
+names(bounds) <- NULL
+stopifnot(length(bounds) == 4, all(is.finite(bounds)))
 
 # ---- map ---------------------------------------------------------------------
 m <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
   addProviderTiles("CartoDB.Positron", group = "Positron")
 
-if (!is.null(perim_wgs))
-  m <- m %>% addPolygons(data = perim_wgs, group = "Boundary",
-                         weight = 1, color = "#222222", fill = FALSE, fillOpacity = 0)
-
-if (!is.null(cyc19_wgs))
-  m <- m %>% addPolylines(data = cyc19_wgs, group = "2019 CI",
-                          weight = 2, color = col_2019, opacity = alpha_2019)
-
-if (!is.null(removed_wgs)) {
-  m <- m %>% addPolylines(data = removed_wgs, group = "Removed (19→23)",
-                          weight = 2, color = col_removed_halo, opacity = alpha_halo)
-  m <- m %>% addPolylines(data = removed_wgs, group = "Removed (19→23)",
-                          weight = 2.5, color = col_removed, opacity = 1.0)
+if (!is.null(perim_wgs)) {
+  m <- m %>% addPolygons(
+    data = perim_wgs, group = "Boundary",
+    weight = 1, color = "#222222", fill = FALSE, fillOpacity = 0
+  )
 }
 
-if (!is.null(added_wgs))
-  m <- m %>% addPolylines(data = added_wgs, group = "Added (19→23)",
-                          weight = 2, color = col_added, opacity = alpha_added)
+if (!is.null(cyc19_wgs)) {
+  m <- m %>% addPolylines(
+    data = cyc19_wgs, group = "2019 CI",
+    weight = 2, color = col_2019, opacity = alpha_2019
+  )
+}
 
-if (!is.null(cyc23_wgs))
-  m <- m %>% addPolylines(data = cyc23_wgs, group = "2023 CI",
-                          weight = 2, color = col_2023, opacity = alpha_2023)
+if (!is.null(removed_wgs)) {
+  m <- m %>% addPolylines(
+    data = removed_wgs, group = "Removed (19→23)",
+    weight = 2, color = col_removed_halo, opacity = alpha_halo
+  )
+  m <- m %>% addPolylines(
+    data = removed_wgs, group = "Removed (19→23)",
+    weight = 2.5, color = col_removed, opacity = 1.0
+  )
+}
 
-if (!is.null(nonci_wgs))
-  m <- m %>% addPolylines(data = nonci_wgs, group = "General (non-CI) 2023",
-                          weight = 1, color = col_nonci, opacity = alpha_nonci,
-                          smoothFactor = 0.5)
+if (!is.null(added_wgs)) {
+  m <- m %>% addPolylines(
+    data = added_wgs, group = "Added (19→23)",
+    weight = 2, color = col_added, opacity = alpha_added
+  )
+}
+
+if (!is.null(cyc23_wgs)) {
+  m <- m %>% addPolylines(
+    data = cyc23_wgs, group = "2023 CI",
+    weight = 2, color = col_2023, opacity = alpha_2023
+  )
+}
+
+if (!is.null(nonci_wgs)) {
+  m <- m %>% addPolylines(
+    data = nonci_wgs, group = "General (non-CI) 2023",
+    weight = 1, color = col_nonci, opacity = alpha_nonci,
+    smoothFactor = 0.5
+  )
+}
 
 m %>%
   addLayersControl(
@@ -2141,10 +2279,11 @@ m %>%
   fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
   addLegend(
     position = "bottomright", title = "Layers",
-    colors = c(col_2019, col_added, col_removed),
+    colors = unname(c(col_2019, col_added, col_removed)),
     labels = c("2019 CI","Added (19→23)","Removed (19→23)"),
     opacity = 1
   )
+
 ```
 
 ```{r}
@@ -2152,8 +2291,6 @@ m %>%
 #| eval: false
 #| include: false
 # Requires: cyc19_n, added, removed (built earlier), and optionally city_perimeter
-
-dir.create("figs", showWarnings = FALSE)
 
 # helpers
 as_wgs <- function(x){
@@ -2170,19 +2307,27 @@ added_wgs   <- if (exists("added"))    as_wgs(added)    else NULL
 removed_wgs <- if (exists("removed"))  as_wgs(removed)  else NULL
 
 # bounds
-get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) st_bbox(obj) else NULL
+# ---- bounds (prefer perimeter, else any layer, else BCN-ish fallback) --------
+get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) sf::st_bbox(obj) else NULL
 bb <- get_bbox(perim_wgs)
 if (is.null(bb)) {
-  cands <- Filter(Negate(is.null), list(get_bbox(cyc19_wgs), get_bbox(added_wgs), get_bbox(removed_wgs)))
+  cands <- Filter(Negate(is.null), list(get_bbox(cyc19_wgs), get_bbox(added_wgs),
+                                        get_bbox(removed_wgs), get_bbox(cyc23_wgs),
+                                        get_bbox(nonci_wgs)))
   if (length(cands)) {
-    mins <- do.call(pmin, lapply(cands, function(b) c(b$xmin,b$ymin)))
-    maxs <- do.call(pmax, lapply(cands, function(b) c(b$xmax,b$ymax)))
-    bb <- structure(list(xmin=mins[1], ymin=mins[2], xmax=maxs[1], ymax=maxs[2]), class="bbox")
+    mins <- do.call(pmin, lapply(cands, function(b) c(b["xmin"], b["ymin"])))
+    maxs <- do.call(pmax, lapply(cands, function(b) c(b["xmax"], b["ymax"])))
+    # Make bb a NUMERIC vector, not a list:
+    bb <- c(xmin = as.numeric(mins[1]),
+            ymin = as.numeric(mins[2]),
+            xmax = as.numeric(maxs[1]),
+            ymax = as.numeric(maxs[2]))
   } else {
     bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
   }
 }
-lims <- list(x = c(bb[["xmin"]], bb[["xmax"]]), y = c(bb[["ymin"]], bb[["ymax"]]))
+bounds <- as.numeric(bb[c("xmin", "ymin", "xmax", "ymax")]); names(bounds) <- NULL
+
 
 # colours
 col_2019  <- "#7F7F7F"
@@ -2237,7 +2382,6 @@ p <- ggplot() +
   )
 
 ggsave("figs/change_map.png", p, width = 9, height = 7, dpi = 300)
-
 ```
 
 <!-- <!-- ## References --> 
