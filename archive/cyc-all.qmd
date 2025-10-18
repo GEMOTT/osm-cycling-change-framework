@@ -1,0 +1,468 @@
+---
+title: "cyc all"
+format: html
+editor: visual
+---
+
+```{r include=FALSE}
+#remotes::install_github("ropensci/osmextract")
+library(osmdata)
+library(osmextract)
+library(sf)
+library(tidyverse)
+library(tmap)
+library(grid)
+library(gridExtra)
+library(spdep)
+```
+
+```{r boundaries}
+#| eval: false
+#| include: false
+# Get the boundary data for each city at the city, neighbourhood and census section levels  
+
+# Define the cities with their English names
+cities <- list(
+  "Barcelona" = "Barcelona, Spain",
+  "Milan" = "Milano, Italy",
+  "Ljubljana" = "Ljubljana, Slovenia",
+  "Warsaw" = "Warszawa, Poland",
+  "Utrecht" = "Utrecht, Netherlands",
+  "Malmo" = "Malmö, Sweden",
+  "Paris" = "Paris, France"
+)
+
+# Create the data directory if it doesn't exist
+if (!dir.exists("data/street-level")) {
+  dir.create("data/street-level")
+}
+
+for (english_name in names(cities)) {
+  city <- cities[[english_name]]
+  try({
+    # Get the bounding box
+    bbox <- getbb(city, format_out = "polygon")
+    if (is.null(bbox)) {
+      warning(paste("Bounding box for", city, "not found"))
+      next
+    }
+    
+    # Query for the city's boundary with admin_level 8
+    city_boundary <- opq(bbox = bbox) |>
+      add_osm_feature(key = "boundary", value = "administrative") |>
+      add_osm_feature(key = "name", value = gsub(",.*", "", city), value_exact = FALSE) |>
+      add_osm_feature(key = "admin_level", value = "8") |>
+      osmdata_sf()
+    
+    if (is.null(city_boundary$osm_multipolygons)) {
+      warning(paste("Boundary for", city, "not found. Query returned no results."))
+      next
+    }
+    
+    city_perimeter <- city_boundary$osm_multipolygons
+    
+    # Ensure only one observation
+    city_perimeter <- city_perimeter[1, ]
+    
+    # Convert to MULTIPOLYGON if necessary
+    city_perimeter <- st_cast(city_perimeter, "MULTIPOLYGON")
+    
+    # Check and fix invalid geometries
+    if (!all(st_is_valid(city_perimeter))) {
+      city_perimeter <- st_make_valid(city_perimeter)
+    }
+    
+    # Create city-specific directory if it doesn't exist
+    city_dir <- paste0("data/street-level/", tolower(english_name))
+    if (!dir.exists(city_dir)) {
+      dir.create(city_dir)
+    }
+    
+    # Write to GeoPackage (overwrite if exists) using the English name
+    st_write(city_perimeter, paste0(city_dir, "/", tolower(english_name), "_perimeter.gpkg"), layer = english_name, driver = "GPKG", append = FALSE)
+    
+    message(paste("Successfully wrote perimeter for", english_name))
+  }, silent = FALSE)
+}
+
+# Test boundaries
+# # Function to read and plot a city's boundary using tmap
+# plot_city_boundary_tmap <- function(city_name) {
+#   file_path <- paste0("data/", tolower(city_name), "/", tolower(city_name), "_perimeter.gpkg")
+#   
+#   if (!file.exists(file_path)) {
+#     warning(paste("File not found for", city_name))
+#     return(NULL)
+#   }
+#   
+#   city_boundary <- st_read(file_path)
+#   
+#   # Plot with tmap
+#   tm_shape(city_boundary) +
+#     tm_borders(col = "blue") +
+#     tm_fill(col = "lightblue", alpha = 0.5) +
+#     tm_layout(main.title = paste("Boundary of", city_name))
+# }
+# 
+# # Test with a single city (replace "Barcelona" with any other city)
+# plot_city_boundary_tmap("Barcelona")
+```
+
+```{r infras}
+#| eval: false
+#| include: false
+# Get the OSM infrastructture data
+# Define vectortranslate options
+my_vectortranslate <- c(
+  "-select", "osm_id,highway", 
+  "-where", "highway IN ('living_street', 'pedestrian', 'cycleway', 'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link', 'service', 'track', 'bus_guideway', 'escape', 'raceway', 'busway')")
+
+# Define a list of cities with their corresponding region and subregion
+cities <- list(
+  "Barcelona" = c("Barcelona", "Cataluña", "Spain"),
+  "Milan" = c("Milan", "Nord-Ovest", "Milan"),
+  "Ljubljana" = c("Ljubljana", "Central Slovenia", "Ljubljana"),
+  "Warsaw" = c("Warsaw", "Masovian", "Warsaw"),
+  "Utrecht" = c("Utrecht", "Utrecht", "Netherlands"),
+  "Malmo" = c("Malmo", "Skane", "Malmö"),
+  "Paris" = c("Paris", "Ile-de-France", "Paris")
+)
+
+for (english_name in names(cities)) {
+  city_info <- cities[[english_name]]
+  city <- city_info[1]
+  region <- city_info[2]
+  subregion <- city_info[3]
+  
+  try({
+    # Define file path for the perimeter
+    perimeter_path <- paste0("data/street-level/", tolower(english_name), "/", tolower(english_name), "_perimeter.gpkg")
+    
+    # Read the perimeter from GeoPackage
+    if (file.exists(perimeter_path)) {
+      city_perimeter <- st_read(perimeter_path, layer = tolower(english_name))
+      
+      # Ensure CRS is WGS 84 (EPSG:4326)
+      if (st_crs(city_perimeter) != 4326) {
+        message(paste("Transforming CRS for", english_name, "to WGS 84"))
+        city_perimeter <- st_transform(city_perimeter, 4326)
+      }
+      
+    } else {
+      warning(paste("Perimeter file for", english_name, "not found"))
+      next
+    }
+    
+    # Create city-specific directory if it doesn't exist
+    city_dir <- paste0("data/street-level/", tolower(english_name))
+    if (!dir.exists(city_dir)) {
+      dir.create(city_dir, recursive = TRUE)
+    }
+
+    # Function to fetch and crop data
+    fetch_and_crop_data <- function(area, version, perimeter, output_file) {
+      lines_data <- tryCatch({
+        oe_get(area, version = version, vectortranslate_options = my_vectortranslate, quiet = FALSE)
+      }, error = function(e) {
+        message(paste("Error fetching", version, "lines for", english_name, ":", e$message))
+        return(NULL)
+      })
+      
+      if (!is.null(lines_data) && nrow(lines_data) > 0) {
+        # Crop lines that are strictly within the perimeter
+        lines_data <- st_intersection(lines_data, perimeter)
+        
+        if (nrow(lines_data) > 0) {
+          st_write(lines_data, output_file, layer = gsub(".gpkg", "", basename(output_file)), driver = "GPKG", append = FALSE)
+        } else {
+          message(paste("No lines remaining after cropping for", english_name, "(", version, ")"))
+        }
+      } else {
+        message(paste("No data found for", english_name, "(", version, ")"))
+      }
+    }
+
+    # Fetch and crop 160101 data
+    fetch_and_crop_data(region, "160101", city_perimeter, paste0(city_dir, "/", tolower(english_name), "_160101_lines.gpkg"))
+
+    # Fetch and crop 240101 data
+    fetch_and_crop_data(subregion, "240101", city_perimeter, paste0(city_dir, "/", tolower(english_name), "_240101_lines.gpkg"))
+
+    message(paste("Successfully processed and cropped data for", english_name))
+  }, silent = FALSE)
+}
+```
+
+```{r mapcycall}
+#| eval: false
+#| include: false
+
+# Plot a figure with infras for all cities
+
+# Define the list of cities
+cities <- list(
+  "Barcelona" = "Barcelona, Spain",
+  "Milan" = "Milan, Italy",
+  "Ljubljana" = "Ljubljana, Slovenia",
+  "Warsaw" = "Warszawa, Poland",
+  "Utrecht" = "Utrecht, Netherlands",
+  "Malmo" = "Malmo, Sweden",
+  "Paris" = "Paris, France"
+)
+
+# Initialize lists to store tmap objects
+map_objects_2016 <- list()
+map_objects_2023 <- list()
+
+# Loop through each city and create maps
+for (city in names(cities)) {
+
+  # Define file paths
+  perimeter_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_perimeter.gpkg")
+  lines_160101_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_160101_lines.gpkg")
+  lines_240101_path <- paste0("data/street-level/", tolower(city), "/", tolower(city), "_240101_lines.gpkg")
+
+  # Read the perimeter
+  perimeter <- st_read(perimeter_path, layer = tolower(city), quiet = TRUE)
+
+  # Read and filter cycleway lines
+  lines_160101 <- st_read(lines_160101_path, quiet = TRUE) |> filter(highway == "cycleway")
+  lines_240101 <- st_read(lines_240101_path, quiet = TRUE) |> filter(highway == "cycleway")
+
+  # Create tmap objects
+  map_objects_2016[[city]] <- tm_shape(perimeter) +
+    tm_borders() +
+    tm_shape(lines_160101) +
+    tm_lines(col = "red", col_alpha = 0.5, lwd = 0.3) +
+    tm_layout(frame = FALSE)
+
+  map_objects_2023[[city]] <- tm_shape(perimeter) +
+    tm_borders() +
+    tm_shape(lines_240101) +
+    tm_lines(col = "red", col_alpha = 0.5, lwd = 0.3) +
+    tm_layout(frame = FALSE)
+}
+
+# Convert tmap objects to grobs
+grob_maps_2016 <- lapply(map_objects_2016, tmap_grob)
+grob_maps_2023 <- lapply(map_objects_2023, tmap_grob)
+
+# Create column titles
+title_blank <- textGrob("")  # Empty space for alignment
+title_2016 <- textGrob("2015", gp = gpar(fontsize = 12, fontface = "bold"))
+title_2023 <- textGrob("2023", gp = gpar(fontsize = 12, fontface = "bold"))
+
+# Create row titles (city names)
+row_labels <- lapply(names(cities), function(city) textGrob(city, rot = 90, gp = gpar(fontsize = 10)))
+
+# Open a new plotting page to avoid clipping
+grid.newpage()
+
+# Arrange maps with column and row titles
+cyc_all <- grid.arrange(
+  title_blank, title_2016, title_2023,
+  row_labels[[1]], grob_maps_2016[[1]], grob_maps_2023[[1]],
+  row_labels[[2]], grob_maps_2016[[2]], grob_maps_2023[[2]],
+  row_labels[[3]], grob_maps_2016[[3]], grob_maps_2023[[3]],
+  row_labels[[4]], grob_maps_2016[[4]], grob_maps_2023[[4]],
+  row_labels[[5]], grob_maps_2016[[5]], grob_maps_2023[[5]],
+  row_labels[[6]], grob_maps_2016[[6]], grob_maps_2023[[6]],
+  row_labels[[7]], grob_maps_2016[[7]], grob_maps_2023[[7]],
+  nrow = 8, ncol = 3,
+  widths = unit.c(unit(3, "cm"), unit(3, "null"), unit(3, "null"))
+)
+
+# Save the layout as a PNG file
+ggsave("figs/cyc_all4.png", plot = cyc_all, dpi = 600)
+```
+
+```{r}
+#| eval: false
+#| include: false
+#| out-width: 100%
+# plot the image
+knitr::include_graphics("figs/cyc_all.png")
+```
+
+
+### OSM data Barcelona
+
+<!-- #### Indicators at the census tract level -->
+
+<!-- To assess the impact of sustainable travel interventions, we will calculate the following indicators: -->
+
+<!-- -   Length of cycleways / Total Road Network Length -->
+
+<!-- -   Length of pedestrian and living streets / Total Road Network Length -->
+
+<!-- -   Length of pavement extensions / Total Road Network Length -->
+
+<!-- These indicators will provide valuable insights into the distribution and availability of infrastructure designed to promote sustainable travel within urban areas. -->
+
+<!-- -   Cycleway Proportion of Total Network -->
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+#| include: false
+#| paged-print: false
+
+# Get the indicators
+
+# Read in the census tracts (polygon data) and line network for both years
+barcelona_tracts <- st_read("data/street-level/barcelona/barcelona_census_tracts.gpkg", quiet = TRUE)
+
+barcelona_network_2015 <- st_read("data/street-level/barcelona/barcelona_160101_lines.gpkg", quiet = TRUE)
+# barcelona_network_2019 <- st_read("data/street-level/barcelona/barcelona_200101_lines.gpkg", quiet = TRUE)
+barcelona_network_2023 <- st_read("data/street-level/barcelona/barcelona_240101_lines.gpkg", quiet = TRUE)
+
+# Ensure both datasets are in the same coordinate reference system (CRS)
+barcelona_network_2015 <- st_transform(barcelona_network_2015, st_crs(barcelona_tracts))
+# barcelona_network_2019 <- st_transform(barcelona_network_2019, st_crs(barcelona_tracts))
+barcelona_network_2023 <- st_transform(barcelona_network_2023, st_crs(barcelona_tracts))
+
+calculate_cycleway_ratios <- function(barcelona_tracts, barcelona_network) {
+  # Filter the network to select only cycle lanes
+  cycleway_network <- barcelona_network |>
+    filter(highway == "cycleway")
+
+  # Aggregate cycle lanes length per census tract
+  cycleway_aggregated <- cycleway_network |>
+    st_join(barcelona_tracts, join = st_intersects) |>
+    group_by(SEC_CENS) |>
+    summarise(cycleway_length = sum(as.numeric(st_length(geom))), .groups = "drop") |>  # Convert to numeric
+    st_drop_geometry()
+
+  # Aggregate total network length per census tract
+  network_aggregated <- barcelona_network |>
+    st_join(barcelona_tracts, join = st_intersects) |>
+    group_by(SEC_CENS) |>
+    summarise(total_length = sum(as.numeric(st_length(geom))), .groups = "drop") |>  # Convert to numeric
+    st_drop_geometry()
+
+  # Compute cycleway ratio
+  indicator_data <- left_join(cycleway_aggregated, network_aggregated, by = "SEC_CENS") |>
+    mutate(cycleway_ratio = cycleway_length / total_length)
+
+  # Join the data back to the original census tracts
+  tracts_with_indicator <- left_join(barcelona_tracts, indicator_data, by = "SEC_CENS") |>
+    mutate(cycleway_ratio = replace_na(cycleway_ratio, 0))  # Replace NA with 0 safely
+
+  # Compute spatial neighbors (Queen contiguity)
+  nb <- poly2nb(tracts_with_indicator, queen = TRUE)
+  listw <- nb2listw(nb, style = "W")  # Row-standardized weights
+
+  # Compute spatially lagged cycle lanes ratio
+  tracts_with_indicator <- tracts_with_indicator |>
+    mutate(cycleway_ratio_smooth = lag.listw(listw, cycleway_ratio, NAOK = TRUE))
+
+  return(tracts_with_indicator)
+}
+
+# Compute the cycle lanes ratio for each year and rename columns
+barcelona_tracts_with_ratios_2015_sf <- calculate_cycleway_ratios(barcelona_tracts, barcelona_network_2015) 
+
+# barcelona_tracts_with_ratios_2019_sf <- calculate_cycleway_ratios(barcelona_tracts, barcelona_network_2019) 
+
+barcelona_tracts_with_ratios_2023_sf <- calculate_cycleway_ratios(barcelona_tracts, barcelona_network_2023) 
+
+# Drop the geometry column
+barcelona_tracts_with_ratios_2015 <- barcelona_tracts_with_ratios_2015_sf |> 
+  st_drop_geometry() |> 
+  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
+  select(census_tract_id, cycleway_length, total_length, cycleway_ratio, cycleway_ratio_smooth) |> 
+  rename(cycleway_length_2015 = cycleway_length, total_length_2015 = total_length, cycleway_ratio_2015 = cycleway_ratio, cycleway_ratio_smooth_2015 = cycleway_ratio_smooth)
+
+# barcelona_tracts_with_ratios_2019 <- barcelona_tracts_with_ratios_2019_sf |> 
+#   st_drop_geometry() |> 
+#   mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
+#   select(census_tract_id, cycleway_length, total_length, cycleway_ratio, cycleway_ratio_smooth) |> 
+#   rename(cycleway_length_2019 = cycleway_length, total_length_2019 = total_length, cycleway_ratio_2019 = cycleway_ratio, cycleway_ratio_smooth_2019 = cycleway_ratio_smooth)
+
+barcelona_tracts_with_ratios_2023 <- barcelona_tracts_with_ratios_2023_sf |> 
+  st_drop_geometry() |> 
+  mutate(census_tract_id = paste(DISTRICTE, SEC_CENS, sep = "_")) |> 
+  select(census_tract_id, cycleway_length, total_length, cycleway_ratio, cycleway_ratio_smooth) |> 
+  rename(cycleway_length_2023 = cycleway_length, total_length_2023 = total_length, cycleway_ratio_2023 = cycleway_ratio, cycleway_ratio_smooth_2023 = cycleway_ratio_smooth)
+
+barcelona_tracts_with_cycleway_ratios <- barcelona_tracts_with_ratios_2015 |>  # Start with 2015 data
+  # left_join(barcelona_tracts_with_ratios_2019, by = "census_tract_id") |>  # Join 2019 data by SEC_CENS
+  left_join(barcelona_tracts_with_ratios_2023, by = "census_tract_id")  # Join 2023 data by SEC_CENS
+
+# Function to create a map
+create_map <- function(data, year) {
+  tm_shape(data) +
+     tm_polygons(
+    lwd = 0.01,
+    col = "white",
+    fill = "cycleway_ratio_smooth",
+    fill.scale = tm_scale_continuous(
+      values = "brewer.yl_gn_bu", 
+      limits = c(0, 0.7)
+    ),
+    fill.legend = tm_legend(
+      title = "",
+      orientation = "landscape",
+      frame = FALSE,
+      width = 15,
+      height = 15,
+      position = tm_pos_out("center", "bottom")
+    )
+  ) +  
+  tm_layout(
+    frame = FALSE, 
+    component.autoscale = FALSE
+  ) + 
+  tm_title(
+    year, 
+    fontface = "bold",
+    size = 1,
+    position = tm_pos_in("center", "top"))
+}
+
+# Create maps for 2019 and 2023
+map_2015 <- create_map(barcelona_tracts_with_ratios_2015_sf, "2015")
+# map_2019 <- create_map(barcelona_tracts_with_ratios_2019_sf, "2019")
+map_2023 <- create_map(barcelona_tracts_with_ratios_2023_sf, "2023")
+# 
+# map_diff <- tm_shape(barcelona_tracts_smoothed_diff) +
+#   tm_polygons(
+#     lwd = 0.01,
+#     col = "white",
+#     fill = "diff_cycleway_ratio",
+#     fill.scale = tm_scale_continuous(
+#       values = "brewer.rd_bu", 
+#       limits = c(-0.45,0.45),
+#       midpoint = NA),
+#       fill.legend = tm_legend(title = "",
+#         orientation = "landscape",
+#         frame = FALSE,
+#         width = 15,
+#         height = 15,
+#         position = tm_pos_in("center")
+#     )
+#   ) +   
+#   tm_layout(
+#     frame = FALSE, 
+#     component.autoscale = FALSE
+#   ) + 
+#   tm_title(
+#     "Difference", 
+#     fontface = "bold"
+#   )
+
+# Arrange all three maps side by side
+barcelona_cycleway_ratios_15_23 = tmap_arrange(map_2015, map_2023, ncol = 2)
+
+# Save the layout as a PNG file
+tmap_save(barcelona_cycleway_ratios_15_23, "figs/barcelona_cycleway_ratios_15_23.png", dpi = 300)
+```
+
+```{r}
+#| eval: false
+#| include: false
+#| out-width: 100%
+# plot the image
+knitr::include_graphics("figs/barcelona_cycleway_ratios_15_23.png")
+```
