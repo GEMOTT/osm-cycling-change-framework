@@ -157,7 +157,7 @@ digraph {
   B [width=6, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
       <TR><TD><B>2) Calculate geometric differences</B></TD></TR>
-      <TR><TD>Detect <I>ADD</I>/<I>REMOVE </I> between 2019 → 2023</TD></TR>
+      <TR><TD>Detect <I>ADD</I>/<I>REMOVE </I> between 2015 → 2023</TD></TR>
     </TABLE>
   >]
 
@@ -260,30 +260,19 @@ pick_cycle_strict <- function(x){
 #| include: false
 
 suppressPackageStartupMessages({
-  library(sf)
-  library(osmextract)
-  library(osmdata)
-  library(dplyr)
+  library(sf); library(osmextract); library(osmdata); library(dplyr)
 })
 
 # -------------------- PARAMETERS ---------------------------------------------
-city_tag <- "barcelona"   # lowercase id used across your pipeline
-ver15    <- "15"          # label for 2015 snapshot
-ver23    <- "23"          # label for 2023 snapshot
-
-# OE snapshot codes (YYMMDD)
+city_tag <- "barcelona"
+ver15    <- "15"          # label suffix
+ver23    <- "23"
 ver_code_15 <- "160101"   # 2016-01-01
 ver_code_23 <- "240101"   # 2024-01-01
+FORCE_DOWNLOAD <- FALSE
+FORCE_PERIM    <- FALSE
 
-# Area strings for oe_get (tune if you change city)
-oe_area_region    <- "Barcelona"
-oe_area_subregion <- "Barcelona"
-
-# Lazy toggles
-FORCE_DOWNLOAD <- FALSE   # set TRUE to force re-download and overwrite
-FORCE_PERIM    <- FALSE   # set TRUE to rebuild the perimeter even if file exists
-
-# -------------------- PATHS --------------------------------------------------
+# -------------------- PATHS (single base) ------------------------------------
 dir_city <- "data/processed"
 if (!dir.exists(dir_city)) dir.create(dir_city, recursive = TRUE)
 
@@ -292,13 +281,10 @@ gpkg23 <- file.path(dir_city, paste0(city_tag, "_", ver23, "_lines.gpkg"))
 lyr15  <- paste0(city_tag, "_", ver15, "_lines")
 lyr23  <- paste0(city_tag, "_", ver23, "_lines")
 
-# Perimeter path (single-file for the city)
-perim_dir  <- file.path(dir_city)
-perim_file <- file.path(perim_dir, paste0(city_tag, "_perimeter.gpkg"))
-perim_lyr  <- tools::toTitleCase(city_tag)   # e.g., "barcelona" -> "Barcelona"
-if (!dir.exists(perim_dir)) dir.create(perim_dir, recursive = TRUE)
+perim_file <- file.path(dir_city, paste0(city_tag, "_perimeter.gpkg"))
+perim_lyr  <- "barcelona_perimeter"
 
-# -------------------- SMALL HELPERS ------------------------------------------
+# -------------------- HELPERS -------------------------------------------------
 gpkg_has_layer <- function(path, layer){
   if (!file.exists(path)) return(FALSE)
   lyr_ok <- tryCatch(layer %in% sf::st_layers(path)$name, error = function(e) FALSE)
@@ -307,114 +293,68 @@ gpkg_has_layer <- function(path, layer){
   n > 0
 }
 
-need_build <- function(path, layer, force = FALSE){
-  force || !gpkg_has_layer(path, layer)
-}
-
-read_or_build_perimeter <- function(city_tag_lower, english_name, force = FALSE){
-  if (!force && file.exists(perim_file) && gpkg_has_layer(perim_file, perim_lyr)) {
+read_or_build_perimeter <- function(force = FALSE){
+  if (!force && gpkg_has_layer(perim_file, perim_lyr)) {
     message("↪ Using cached perimeter: ", basename(perim_file))
-    return(sf::st_transform(sf::st_read(perim_file, layer = perim_lyr, quiet = TRUE), 4326))
+    return(st_read(perim_file, layer = perim_lyr, quiet = TRUE) |> st_transform(4326))
   }
-  message("→ Building perimeter for ", english_name, " …")
-  bbox <- tryCatch(osmdata::getbb(paste0(english_name, ", Spain"), format_out = "polygon"), error = function(e) NULL)
-  if (is.null(bbox)) bbox <- tryCatch(osmdata::getbb(english_name, format_out = "polygon"), error = function(e) NULL)
-  if (is.null(bbox)) stop("Could not get bbox for ", english_name)
-
-  q <- osmdata::opq(bbox = bbox) |>
-    add_osm_feature(key = "boundary", value = "administrative") |>
-    add_osm_feature(key = "name", value = tools::toTitleCase(city_tag_lower), value_exact = FALSE) |>
-    add_osm_feature(key = "admin_level", value = "8")
-  od <- osmdata::osmdata_sf(q)
-  p <- od$osm_multipolygons
-  if (is.null(p) || !nrow(p)) stop("Could not build perimeter for ", english_name)
-
-  p <- p[1, , drop = FALSE] |> sf::st_cast("MULTIPOLYGON")
-  if (!all(sf::st_is_valid(p))) p <- sf::st_make_valid(p)
-  p <- sf::st_transform(p, 4326)
-
-  sf::st_write(p, perim_file, layer = perim_lyr, driver = "GPKG", append = FALSE, quiet = TRUE)
+  message("→ Building perimeter for Barcelona …")
+  bb <- osmdata::getbb("Barcelona, Spain")
+  od <- osmdata::opq(bb) |>
+    add_osm_feature("boundary","administrative") |>
+    add_osm_feature("admin_level","8") |>
+    add_osm_feature("name","Barcelona") |>
+    osmdata::osmdata_sf()
+  perim <- od$osm_multipolygons
+  if (is.null(perim) || nrow(perim) == 0) perim <- od$osm_polygons
+  if ("wikidata" %in% names(perim) && any(perim$wikidata == "Q1492"))
+    perim <- perim[perim$wikidata == "Q1492", ] else perim <- perim[which.max(st_area(perim)), ]
+  perim <- st_make_valid(perim) |> st_cast("MULTIPOLYGON") |> st_set_crs(4326)
+  st_write(perim, perim_file, layer = perim_lyr, driver = "GPKG", append = FALSE, quiet = TRUE)
   message("✓ Saved perimeter: ", basename(perim_file))
-  p
+  perim
 }
 
-# Highway filter (your original selection)
-my_vectortranslate <- c(
-  "-select", "osm_id,highway",
-  "-where",
-  paste0(
-    "highway IN ('living_street','pedestrian','cycleway','motorway','trunk','primary','secondary','tertiary','unclassified','residential','motorway_link','trunk_link','primary_link','secondary_link','tertiary_link','service','track','bus_guideway','escape','raceway','busway')"
-  )
-)
-
-fetch_crop_write <- function(area, version_code, perimeter, out_gpkg, out_layer, force = FALSE){
+fetch_crop_write <- function(version_code, perimeter, out_gpkg, out_layer, force = FALSE){
   if (!force && gpkg_has_layer(out_gpkg, out_layer)) {
-    message("↪ Using cached: ", basename(out_gpkg))
-    return(invisible(out_gpkg))
+    message("↪ Using cached: ", basename(out_gpkg)); return(invisible(out_gpkg))
   }
-
-  message("→ Downloading lines for ", area, " @ ", version_code, " …")
-  ln <- tryCatch(
-    osmextract::oe_get(
-      area,
-      version = version_code,
-      vectortranslate_options = my_vectortranslate,
-      layer = "lines",
-      quiet = FALSE
-    ),
-    error = function(e) {
-      message("  … failed for area=", area, " (", e$message, ")")
-      NULL
-    }
+  message("→ Downloading Spain lines @ ", version_code, " …")
+  ln <- oe_get(
+    place   = "spain",              # robust provider file
+    version = version_code,
+    layer   = "lines",
+    boundary = st_bbox(perimeter),  # clip to BCN bbox at source
+    boundary_type = "clipsrc",
+    extra_tags = c("cycleway","cycleway:left","cycleway:right","cycleway:both",
+                   "bicycle","bicycle:lanes","oneway","lanes","segregated",
+                   "foot","access","maxspeed","source"),
+    quiet   = FALSE
   )
+  # keep lines only
+  is_line <- st_geometry_type(ln) %in% c("LINESTRING","MULTILINESTRING")
+  ln <- ln[is_line, ]
+  stopifnot(nrow(ln) > 0)
 
-  # fallback: try region if subregion fails (or vice versa)
-  if (is.null(ln) || !nrow(ln)) {
-    alt <- if (identical(area, oe_area_subregion)) oe_area_region else oe_area_subregion
-    if (!identical(alt, area)) {
-      message("   Trying alternate area: ", alt)
-      ln <- tryCatch(
-        osmextract::oe_get(
-          alt,
-          version = version_code,
-          vectortranslate_options = my_vectortranslate,
-          layer = "lines",
-          quiet = FALSE
-        ),
-        error = function(e) NULL
-      )
-    }
-  }
-  if (is.null(ln) || !nrow(ln)) stop("No lines returned for version ", version_code)
-
-  # keep line geometries & crop
-  ln <- ln[sf::st_geometry_type(ln$geometry) %in% c("LINESTRING","MULTILINESTRING"), ]
-  if (!nrow(ln)) stop("No LINESTRING/MULTILINESTRING after filter.")
   message("→ Clipping to city perimeter …")
-  ln <- suppressWarnings(sf::st_intersection(sf::st_make_valid(ln), sf::st_make_valid(perimeter)))
-  if (!nrow(ln)) stop("No lines remain after clipping.")
+  perim_valid <- st_make_valid(perimeter)
+  ln <- st_intersection(st_make_valid(ln), perim_valid)
+  stopifnot(nrow(ln) > 0)
 
   message("→ Writing ", basename(out_gpkg), " (", nrow(ln), " features) …")
-  sf::st_write(ln, out_gpkg, layer = out_layer, driver = "GPKG", append = FALSE, quiet = TRUE)
+  st_write(ln, out_gpkg, layer = out_layer, driver = "GPKG", append = FALSE, quiet = TRUE)
   invisible(out_gpkg)
 }
 
-# -------------------- RUN (LAZY) ---------------------------------------------
-city_perimeter <- read_or_build_perimeter(city_tag, tools::toTitleCase(city_tag), force = FORCE_PERIM)
+# -------------------- RUN -----------------------------------------------------
+city_perimeter <- read_or_build_perimeter(force = FORCE_PERIM)
 
-invisible(fetch_crop_write(oe_area_subregion, ver_code_15, city_perimeter, gpkg15, lyr15, force = FORCE_DOWNLOAD))
-invisible(fetch_crop_write(oe_area_subregion, ver_code_23, city_perimeter, gpkg23, lyr23, force = FORCE_DOWNLOAD))
+invisible(fetch_crop_write(ver_code_15, city_perimeter, gpkg15, lyr15, force = FORCE_DOWNLOAD))
+invisible(fetch_crop_write(ver_code_23, city_perimeter, gpkg23, lyr23, force = FORCE_DOWNLOAD))
 
-# Summary
-msg <- function(ok, path, layer){
-  paste0(if (ok) "✓ " else "✗ ",
-         basename(path), " [layer: ", layer, "]")
-}
-message(
-  "\nStatus:\n",
-  msg(gpkg_has_layer(gpkg15, lyr15), gpkg15, lyr15), "\n",
-  msg(gpkg_has_layer(gpkg23, lyr23), gpkg23, lyr23)
-)
+message("\nStatus:\n",
+        if (gpkg_has_layer(gpkg15, lyr15)) "✓ " else "✗ ", basename(gpkg15), " [", lyr15, "]\n",
+        if (gpkg_has_layer(gpkg23, lyr23)) "✓ " else "✗ ", basename(gpkg23), " [", lyr23, "]")
 ```
 
 ```{r}
@@ -432,7 +372,7 @@ tol_m    <- 10
 min_len  <- 10
 
 # ---- dirs ----
-dir_city <- "data"
+dir_city <- "data/processed"
 proc_dir <- "data/processed"
 if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
 
@@ -465,49 +405,38 @@ cyc23_n <- .cache(
 ```
 
 ```{r}
-#| label: 08-perimeter
-#| eval: false
-#| include: false
-# Run once to write the perimeter file; keep eval=FALSE if it's already saved.
-
-perimeter_path  <- "data/barcelona_perimeter.gpkg"
-perimeter_layer <- "barcelona_perimeter"
-
-if (!file.exists(perimeter_path)) {
-  bb <- osmdata::getbb("Barcelona, Spain")
-  od <- osmdata::opq(bb) |>
-    osmdata::add_osm_feature("boundary","administrative") |>
-    osmdata::add_osm_feature("admin_level","8") |>
-    osmdata::add_osm_feature("name","Barcelona") |>
-    osmdata::osmdata_sf()
-
-  perim <- od$osm_multipolygons
-  if (is.null(perim) || nrow(perim) == 0) perim <- od$osm_polygons
-  if ("wikidata" %in% names(perim) && any(perim$wikidata == "Q1492"))
-    perim <- perim[perim$wikidata == "Q1492", ] else perim <- perim[which.max(sf::st_area(perim)), ]
-
-  perim <- sf::st_make_valid(perim) |> sf::st_cast("MULTIPOLYGON") |> sf::st_set_crs(4326)
-  dir.create("data", showWarnings = FALSE, recursive = TRUE)
-  sf::st_write(perim, perimeter_path, layer = perimeter_layer, driver = "GPKG", append = FALSE, quiet = TRUE)
-}
-
-# Keep both CRS versions handy if you like:
-city_perimeter_wgs  <- sf::st_read(perimeter_path, layer = perimeter_layer, quiet = TRUE) |> sf::st_transform(4326)  # for leaflet
-city_perimeter_work <- sf::st_transform(city_perimeter_wgs, crs_work)  # for any metric ops
-```
-
-```{r}
 #| label: 09-download-lines
 #| eval: false
 #| include: false
 # Run once per version; keep eval=FALSE if files exist.
 
-perimeter_path <- "data/barcelona_perimeter.gpkg"
-stopifnot(file.exists(perimeter_path))
-city_perimeter <- sf::st_read(perimeter_path, layer = "barcelona_perimeter", quiet = TRUE)
-if (is.na(sf::st_crs(city_perimeter)$epsg) || sf::st_crs(city_perimeter)$epsg != 4326) {
-  city_perimeter <- sf::st_transform(city_perimeter, 4326)
+suppressPackageStartupMessages(library(sf))
+
+perimeter_path <- "data/processed/barcelona_perimeter.gpkg"
+if (!file.exists(perimeter_path)) {
+  stop("Perimeter file not found: ", perimeter_path,
+       "\nRebuild it in the OSM download chunk or call read_or_build_perimeter(...).")
 }
+
+# Detect existing layer(s)
+layers <- st_layers(perimeter_path)$name
+stopifnot(length(layers) > 0)
+
+# If our standard layer is absent, read the first one and rewrite with a fixed name
+target_layer <- "barcelona_perimeter"
+if (!(target_layer %in% layers)) {
+  message("Standardising perimeter layer name to '", target_layer, "'.")
+  tmp <- st_read(perimeter_path, layer = layers[1], quiet = TRUE)
+  st_write(tmp, perimeter_path, layer = target_layer,
+           driver = "GPKG", append = FALSE, quiet = TRUE)
+}
+
+# Read with the fixed name and ensure WGS84
+city_perimeter <- st_read(perimeter_path, layer = target_layer, quiet = TRUE)
+if (is.na(st_crs(city_perimeter)$epsg) || st_crs(city_perimeter)$epsg != 4326) {
+  city_perimeter <- st_transform(city_perimeter, 4326)
+}
+
 
 allowed_highway <- c(
   "living_street","pedestrian","cycleway","motorway","trunk","primary","secondary",
@@ -552,8 +481,8 @@ fetch_and_crop_data <- function(version, perimeter, output_file) {
 }
 
 # fetch_and_crop_data("170101", city_perimeter, "data/barcelona_170101_lines.gpkg")
-fetch_and_crop_data("160101", city_perimeter, "data/barcelona_15_lines.gpkg")
-fetch_and_crop_data("240101", city_perimeter, "data/barcelona_23_lines.gpkg")
+fetch_and_crop_data("160101", city_perimeter, "data/processed/barcelona_15_lines.gpkg")
+fetch_and_crop_data("240101", city_perimeter, "data/processed/barcelona_23_lines.gpkg")
 message("Done: Barcelona (files in data/)")
 ```
 
@@ -564,13 +493,13 @@ message("Done: Barcelona (files in data/)")
 #| include: false
 
 # union -> buffer is faster than buffer -> union
-rds_buf19 <- file.path(proc_dir, sprintf("%s_%s_buf_tol%sm.rds", city_tag, ver19, tol_m))
+rds_buf15 <- file.path(proc_dir, sprintf("%s_%s_buf_tol%sm.rds", city_tag, ver15, tol_m))
 rds_buf23 <- file.path(proc_dir, sprintf("%s_%s_buf_tol%sm.rds", city_tag, ver23, tol_m))
 
-buf19 <- .cache(
-  rds_buf19,
-  build  = function() sf::st_buffer(sf::st_union(sf::st_geometry(cyc19_n)), tol_m),
-  inputs = rds_cyc19
+buf15 <- .cache(
+  rds_buf15,
+  build  = function() sf::st_buffer(sf::st_union(sf::st_geometry(cyc15_n)), tol_m),
+  inputs = rds_cyc15
 )
 buf23 <- .cache(
   rds_buf23,
@@ -592,21 +521,21 @@ rds_removed <- file.path(proc_dir, sprintf("%s_removed_tol%sm_min%sm.rds", city_
 added <- .cache(
   rds_added,
   build  = function(){
-    diff <- sf::st_difference(sf::st_union(sf::st_geometry(cyc23_n)), buf19)
+    diff <- sf::st_difference(sf::st_union(sf::st_geometry(cyc23_n)), buf15)
     process_difference(diff, sf::st_crs(cyc23_n)) |> len_ok(min_len)
   },
-  inputs = c(rds_cyc23, rds_buf19)
+  inputs = c(rds_cyc23, rds_buf15)
 )
 removed <- .cache(
   rds_removed,
   build  = function(){
-    diff <- sf::st_difference(sf::st_union(sf::st_geometry(cyc19_n)), buf23)
-    process_difference(diff, sf::st_crs(cyc19_n)) |> len_ok(min_len)
+    diff <- sf::st_difference(sf::st_union(sf::st_geometry(cyc15_n)), buf23)
+    process_difference(diff, sf::st_crs(cyc15_n)) |> len_ok(min_len)
   },
-  inputs = c(rds_cyc19, rds_buf23)
+  inputs = c(rds_cyc15, rds_buf23)
 )
 
-message("CI nets — 2019 segs: ", nrow(cyc19_n),
+message("CI nets — 2015 segs: ", nrow(cyc15_n),
         " | 2023 segs: ", nrow(cyc23_n),
         " | Added segs: ", nrow(added),
         " | Removed segs: ", nrow(removed))
@@ -752,7 +681,7 @@ barcelona_tracts <- .cache(
 
     # ---- coerce types + keep only needed years ----
     tracts_pop <- dplyr::mutate(tracts_pop, Year = as.character(Year))
-    keep_years <- c("2015","2019","2022")
+    keep_years <- c("2015", "2022")
     tracts_pop <- dplyr::filter(tracts_pop, Year %in% keep_years)
 
     # ---- wide pop table ----
@@ -773,8 +702,7 @@ barcelona_tracts <- .cache(
       x,
       area_km2  = area_km2,
       dens_2015 = dplyr::if_else(area_km2 > 0, pop_2015 / area_km2, NA_real_),
-      dens_2019 = dplyr::if_else(area_km2 > 0, pop_2019 / area_km2, NA_real_),
-      dens_2022 = dplyr::if_else(area_km2 > 0, pop_2022 / area_km2, NA_real_)
+     dens_2022 = dplyr::if_else(area_km2 > 0, pop_2022 / area_km2, NA_real_)
     )
 
     # ---- distance to Plaça Catalunya (planar) ----
@@ -859,7 +787,7 @@ knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
 
 <!-- <figure style="text-align:center"> -->
 <!--   <iframe src="maps/stratification.html" width="100%" height="650" style="border:0" loading="lazy" -->
-<!--           title="Spatial distribution of validation points across the nine density–centrality strata in Barcelona (2019–2023)."></iframe> -->
+<!--           title="Spatial distribution of validation points across the nine density–centrality strata in Barcelona (2015–2023)."></iframe> -->
 <!--   <figcaption>Figure 2: Stratified tracts (density × centrality) used for samplying.</figcaption> -->
 <!-- </figure> -->
 
@@ -913,9 +841,9 @@ to_lonlat_tbl <- function(pts_sf){
 
 # 3) Columns for manual validation
 add_validation_cols <- function(df){
-  df$present_2019    <- NA
+  df$present_2015    <- NA
   df$present_2023    <- NA
-  df$verifiable_2019 <- NA
+  df$verifiable_2015 <- NA
   df$verifiable_2023 <- NA
   df$notes           <- NA_character_
   df
@@ -925,7 +853,7 @@ add_validation_cols <- function(df){
 coerce_for_bind <- function(df){
   chr <- c("class","interval","gsv_link","notes","source")
   num <- c("lon","lat")
-  log <- c("present_2019","present_2023","verifiable_2019","verifiable_2023")
+  log <- c("present_2015","present_2023","verifiable_2015","verifiable_2023")
   for (v in chr) if (v %in% names(df)) df[[v]] <- as.character(df[[v]])
   for (v in num) if (v %in% names(df)) df[[v]] <- as.numeric(df[[v]])
   for (v in log) if (v %in% names(df)) df[[v]] <- as.logical(df[[v]])
@@ -1208,9 +1136,9 @@ stopifnot(
 )
 
 # tables for export
-add_tbl <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval="2019→2023", source="ADD_FLAG",    class="ADD")    |> add_validation_cols() |> coerce_for_bind()
-rem_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval="2019→2023", source="REMOVE_FLAG", class="REMOVE") |> add_validation_cols() |> coerce_for_bind()
-gen_tbl <- to_lonlat_tbl(nonci_pts)   |> dplyr::mutate(interval="2019→2023", source="NONCI_2023",  class="NONCI")  |> add_validation_cols() |> coerce_for_bind()
+add_tbl <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval="2015→2023", source="ADD_FLAG",    class="ADD")    |> add_validation_cols() |> coerce_for_bind()
+rem_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval="2015→2023", source="REMOVE_FLAG", class="REMOVE") |> add_validation_cols() |> coerce_for_bind()
+gen_tbl <- to_lonlat_tbl(nonci_pts)   |> dplyr::mutate(interval="2015→2023", source="NONCI_2023",  class="NONCI")  |> add_validation_cols() |> coerce_for_bind()
 
 # final stack
 samples_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, gen_tbl)
@@ -1265,7 +1193,7 @@ print(by_stratum)
 outdir <- "outputs"; dir.create(outdir, FALSE, TRUE)
 outfile <- file.path(
   outdir,
-  paste0(city_tag, "_samples_2019_2023_", format(Sys.time(), "%Y%m%d-%H%M"), ".xlsx")
+  paste0(city_tag, "_samples_2015_2023_", format(Sys.time(), "%Y%m%d-%H%M"), ".xlsx")
 )
 wb <- openxlsx::createWorkbook()
 
@@ -1316,7 +1244,7 @@ ensure_export_cols <- function(df){
   df[, wanted, drop = FALSE]
 }
 
-# writer: styles 2019/2023 headers, starts at row 1, adds dropdowns, hides D–G
+# writer: styles 2015/2023 headers, starts at row 1, adds dropdowns, hides D–G
 write_one <- function(df, sheet, freeze_cols = 3){
   df <- ensure_export_cols(df)
 
@@ -1355,7 +1283,7 @@ write_one <- function(df, sheet, freeze_cols = 3){
 openxlsx::setColWidths(wb, sheet, cols = 4:7, widths = 0)
 
 
-  # --- header styling: highlight 2019 & 2023; grey 2018 & 2024 ----------------
+  # --- header styling: highlight 2015 & 2023; grey 2018 & 2024 ----------------
   col_p14 <- match("present_2014", names(df))
   col_p15 <- match("present_2015", names(df))
   col_p23 <- match("present_2023", names(df))
@@ -1445,7 +1373,7 @@ openxlsx::saveWorkbook(wb, outfile, overwrite = TRUE)
 
 <!-- <figure style="text-align:center"> -->
 <!--   <iframe src="maps/ci_change.html" width="100%" height="650" style="border:0" loading="lazy" -->
-<!--           title="Cycling infrastructure change in Barcelona (2019–2023)"></iframe> -->
+<!--           title="Cycling infrastructure change in Barcelona (2015–2023)"></iframe> -->
 <!--   <figcaption>Figure 3: Distribution of validation points (with GSV links).</figcaption> -->
 <!-- </figure> -->
 
@@ -1570,7 +1498,7 @@ stroke     <- "#666666"
 tract_stroke <- "#000000"
 tract_fill   <- "#FFFFFF"
 
-col_2019_net    <- "#666666"
+col_2015_net    <- "#666666"
 col_added_net   <- "#D95F02"
 col_removedNet  <- "#FFFFFF"
 col_removedHalo <- "#000000"
@@ -1639,10 +1567,10 @@ if (inherits(gnet_wgs,"sf") && nrow(gnet_wgs)) {
 }
 
 # ---- Optional network context ------------------------------------------------
-if (exists("cyc19_n") && inherits(cyc19_n,"sf") && nrow(cyc19_n)) {
+if (exists("cyc15_n") && inherits(cyc15_n,"sf") && nrow(cyc15_n)) {
   m <- m %>% addPolylines(
-    data = sf::st_transform(cyc19_n, 4326), group = "2019 net",
-    weight = 2, color = col_2019_net, opacity = 0.7,
+    data = sf::st_transform(cyc15_n, 4326), group = "2015 net",
+    weight = 2, color = col_2015_net, opacity = 0.7,
     options = pathOptions(pane = "nets")
   )
 }
@@ -1726,13 +1654,13 @@ m <- m %>%
     baseGroups = c("Positron"),
     overlayGroups = c(
       "Barcelona boundary", "Tracts", "Area labels",
-      "2019 net","Added net","Removed net","2023 net",
+      "2015 net","Added net","Removed net","2023 net",
       "General (non-CI) net",
       "ADD pts","REMOVE pts","NONCI pts" #,"CI_STABLE pts"
     ),
     options = layersControlOptions(collapsed = TRUE)
   ) %>%
-  hideGroup(c("2019 net","Area labels","Added net","Removed net","2023 net","General (non-CI) net")) %>%
+  hideGroup(c("2015 net","Area labels","Added net","Removed net","2023 net","General (non-CI) net")) %>%
   fitBounds(bounds[1], bounds[2], bounds[3], bounds[4])
 
 # ---- Force popup links to open in a new tab ----------------------------------
@@ -1768,17 +1696,17 @@ m
 #| label: 18-validation-points-fig
 #| eval: false
 #| fig-align: center
-#| fig-cap: "Figure 3: Spatial distribution of validation points across the nine density–centrality strata in Barcelona (2019–2023)."
+#| fig-cap: "Figure 3: Spatial distribution of validation points across the nine density–centrality strata in Barcelona (2015–2023)."
 #| include: false
 knitr::include_graphics("figs/validation_points_boundary.png")
 ```
 
 ##### 4. Inspect & classify (GSV)
 
-[📊 Download validation workbook (Excel)](outputs/barcelona_samples_2019_2023.xlsx)
+[📊 Download validation workbook (Excel)](outputs/barcelona_samples_2015_2023.xlsx)
 
 Each validation point links to two GSV panoramas  
-(“2019” = imagery from ≈2018–2019, “2023” = imagery from ≈2023–2024).  
+(“2015” = imagery from ≈2018–2015, “2023” = imagery from ≈2023–2024).  
 For each year, record whether cycling infrastructure is present (Y), absent (N), or not verifiable (NA).
 
 - **ADD (OSM claims a new lane)**  
@@ -1850,14 +1778,14 @@ as_wgs_poly <- function(x){
 }
 
 # ---- colours -----------------------------------------------------------------
-col_2019         <- "#7F7F7F"
+col_2015         <- "#7F7F7F"
 col_added        <- "#E69F00"
 col_removed      <- "#FFFFFF"
 col_removed_halo <- "#000000"
 col_2023         <- "#0072B2"
 col_nonci        <- "red"
 
-alpha_2019  <- 0.65
+alpha_2015  <- 0.65
 alpha_added <- 0.95
 alpha_2023  <- 0.60
 alpha_nonci <- 0.40
@@ -1865,7 +1793,7 @@ alpha_halo  <- 0.25
 
 # ---- prep layers safely ------------------------------------------------------
 perim_wgs   <- if (exists("city_perimeter")) as_wgs_poly(city_perimeter) else NULL
-cyc19_wgs   <- if (exists("cyc19_n"))  as_wgs_lines(cyc19_n)  else NULL
+cyc15_wgs   <- if (exists("cyc15_n"))  as_wgs_lines(cyc15_n)  else NULL
 added_wgs   <- if (exists("added"))    as_wgs_lines(added)    else NULL
 removed_wgs <- if (exists("removed"))  as_wgs_lines(removed)  else NULL
 cyc23_wgs   <- if (exists("cyc23_n"))  as_wgs_lines(cyc23_n)  else NULL
@@ -1877,7 +1805,7 @@ get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) 
 bb <- get_bbox(perim_wgs)
 if (is.null(bb)) {
   cands <- Filter(Negate(is.null), list(
-    get_bbox(cyc19_wgs), get_bbox(added_wgs),
+    get_bbox(cyc15_wgs), get_bbox(added_wgs),
     get_bbox(removed_wgs), get_bbox(cyc23_wgs),
     get_bbox(nonci_wgs)
   ))
@@ -1909,27 +1837,27 @@ if (!is.null(perim_wgs)) {
   )
 }
 
-if (!is.null(cyc19_wgs)) {
+if (!is.null(cyc15_wgs)) {
   m <- m %>% addPolylines(
-    data = cyc19_wgs, group = "2019 CI",
-    weight = 2, color = col_2019, opacity = alpha_2019
+    data = cyc15_wgs, group = "2015 CI",
+    weight = 2, color = col_2015, opacity = alpha_2015
   )
 }
 
 if (!is.null(removed_wgs)) {
   m <- m %>% addPolylines(
-    data = removed_wgs, group = "Removed (19→23)",
+    data = removed_wgs, group = "Removed (15→23)",
     weight = 2, color = col_removed_halo, opacity = alpha_halo
   )
   m <- m %>% addPolylines(
-    data = removed_wgs, group = "Removed (19→23)",
+    data = removed_wgs, group = "Removed (15→23)",
     weight = 2.5, color = col_removed, opacity = 1.0
   )
 }
 
 if (!is.null(added_wgs)) {
   m <- m %>% addPolylines(
-    data = added_wgs, group = "Added (19→23)",
+    data = added_wgs, group = "Added (15→23)",
     weight = 2, color = col_added, opacity = alpha_added
   )
 }
@@ -1954,15 +1882,15 @@ if (!is.null(nonci_wgs)) {
 m = m %>%
   addLayersControl(
     baseGroups = c("Positron"),
-    overlayGroups = c("boundary","2019 CI","Added (19→23)","Removed (19→23)","2023 CI","General (non-CI) 2023"),
+    overlayGroups = c("boundary","2015 CI","Added (15→23)","Removed (15→23)","2023 CI","General (non-CI) 2023"),
     options = layersControlOptions(collapsed = TRUE)
   ) %>%
   hideGroup(c("2023 CI","General (non-CI) 2023")) %>%
   fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
   addLegend(
     position = "bottomright", title = "Layers",
-    colors = unname(c(col_2019, col_added, col_removed)),
-    labels = c("2019 CI","Added (19→23)","Removed (19→23)"),
+    colors = unname(c(col_2015, col_added, col_removed)),
+    labels = c("2015 CI","Added (15→23)","Removed (15→23)"),
     opacity = 1
   )
 
@@ -1974,14 +1902,14 @@ saveWidget(m, "maps/infra_change.html", selfcontained = TRUE)      # puts JS/CSS
 
 <figure style="text-align:center">
   <div style="height:1em;"></div>
-  <figcaption>Figure 4: OSM-detected changes in Barcelona, 2019–2023.</figcaption>
+  <figcaption>Figure 4: OSM-detected changes in Barcelona, 2015–2023.</figcaption>
 </figure>
 
 ```{r}
 #| label: 19-change-fig
 #| eval: false
 #| fig-align: center
-#| fig-cap: "Figure 4: Cycling-infrastructure changes detected in OpenStreetMap between 2019 and 2023 in Barcelona. Additions and removals are shown by type and spatial distribution."
+#| fig-cap: "Figure 4: Cycling-infrastructure changes detected in OpenStreetMap between 2015 and 2023 in Barcelona. Additions and removals are shown by type and spatial distribution."
 #| include: false
 
 knitr::include_graphics("figs/change_map.png")
@@ -2028,11 +1956,11 @@ snap_like <- function(a, b, tol){
 #| warning: false
 #| include: false
 
-# Ensure 2019/2023 CI networks exist (use your objects if already built)
-if (!exists("cyc19_n")) {
-  src19 <- if (exists("cyc19")) cyc19 else if (exists("l19")) l19 else stop("Need cyc19 or l19")
-  if (exists("pick_cycle_strict")) src19 <- pick_cycle_strict(src19)
-  cyc19_n <- to_lines_work(src19, crs_work)
+# Ensure 2015/2023 CI networks exist (use your objects if already built)
+if (!exists("cyc15_n")) {
+  src15 <- if (exists("cyc15")) cyc15 else if (exists("l15")) l15 else stop("Need cyc15 or l15")
+  if (exists("pick_cycle_strict")) src15 <- pick_cycle_strict(src15)
+  cyc15_n <- to_lines_work(src15, crs_work)
 }
 if (!exists("cyc23_n")) {
   src23 <- if (exists("cyc23")) cyc23 else if (exists("l23")) l23 else stop("Need cyc23 or l23")
@@ -2042,15 +1970,15 @@ if (!exists("cyc23_n")) {
 
 # Recompute only if missing
 if (!exists("added") || !inherits(added,"sf")) {
-  cyc19_buf <- sf::st_buffer(sf::st_geometry(cyc19_n), tol_m) |> sf::st_union()
-  added <- sf::st_difference(sf::st_geometry(cyc23_n), cyc19_buf) |>
+  cyc15_buf <- sf::st_buffer(sf::st_geometry(cyc15_n), tol_m) |> sf::st_union()
+  added <- sf::st_difference(sf::st_geometry(cyc23_n), cyc15_buf) |>
            sf::st_collection_extract("LINESTRING", warn = FALSE) |>
            sf::st_sf(crs = crs_work)
   added <- added[!sf::st_is_empty(added), , drop = FALSE]
 }
 if (!exists("removed") || !inherits(removed,"sf")) {
   cyc23_buf <- sf::st_buffer(sf::st_geometry(cyc23_n), tol_m) |> sf::st_union()
-  removed <- sf::st_difference(sf::st_geometry(cyc19_n), cyc23_buf) |>
+  removed <- sf::st_difference(sf::st_geometry(cyc15_n), cyc23_buf) |>
              sf::st_collection_extract("LINESTRING", warn = FALSE) |>
              sf::st_sf(crs = crs_work)
   removed <- removed[!sf::st_is_empty(removed), , drop = FALSE]
@@ -2069,24 +1997,24 @@ if (!exists("removed") || !inherits(removed,"sf")) {
 #| message: false
 #| warning: false
 
-# assumes chunks 01 (len_km helper) and 02 (added/removed + cyc19_n/cyc23_n) ran
-tot_2019   <- len_km(cyc19_n)
+# assumes chunks 01 (len_km helper) and 02 (added/removed + cyc15_n/cyc23_n) ran
+tot_2015   <- len_km(cyc15_n)
 tot_2023   <- len_km(cyc23_n)
 km_added   <- len_km(added)
 km_removed <- len_km(removed)
 
 consistency <- tibble::tibble(
-  Metric = c("Total 2019 (km)", "Total 2023 (km)", "Net growth (km)",
+  Metric = c("Total 2015 (km)", "Total 2023 (km)", "Net growth (km)",
              "Added (km)", "Removed (km)", "Added − Removed (km)",
              "Gap: (Added−Removed) − Net"),
-  Value  = c(round(tot_2019,1), round(tot_2023,1), round(tot_2023 - tot_2019,1),
+  Value  = c(round(tot_2015,1), round(tot_2023,1), round(tot_2023 - tot_2015,1),
              round(km_added,1), round(km_removed,1), round(km_added - km_removed,1),
-             round((km_added - km_removed) - (tot_2023 - tot_2019), 1))
+             round((km_added - km_removed) - (tot_2023 - tot_2015), 1))
 )
 
 knitr::kable(
   consistency,
-  caption = "Table 1: Consistency between yearly totals and differencing estimates (2019–2023, Barcelona)",
+  caption = "Table 1: Consistency between yearly totals and differencing estimates (2015–2023, Barcelona)",
   align = c("l","r")
 )
 ```
@@ -2103,14 +2031,14 @@ knitr::kable(
 
 # ---- Ensure change layers exist (build if needed) ----------------------------
 if (!exists("added") || !inherits(added, "sf") || !exists("removed") || !inherits(removed, "sf")) {
-  stopifnot(exists("cyc19_n"), exists("cyc23_n"), exists("tol_m"))
+  stopifnot(exists("cyc15_n"), exists("cyc23_n"), exists("tol_m"))
   crs_work <- sf::st_crs(cyc23_n)
-  cyc19_buf <- sf::st_buffer(sf::st_union(sf::st_geometry(cyc19_n)), tol_m)
+  cyc15_buf <- sf::st_buffer(sf::st_union(sf::st_geometry(cyc15_n)), tol_m)
   cyc23_buf <- sf::st_buffer(sf::st_union(sf::st_geometry(cyc23_n)), tol_m)
-  added <- sf::st_difference(sf::st_geometry(cyc23_n), cyc19_buf) |>
+  added <- sf::st_difference(sf::st_geometry(cyc23_n), cyc15_buf) |>
            sf::st_collection_extract("LINESTRING", warn = FALSE) |>
            sf::st_sf(crs = crs_work)
-  removed <- sf::st_difference(sf::st_geometry(cyc19_n), cyc23_buf) |>
+  removed <- sf::st_difference(sf::st_geometry(cyc15_n), cyc23_buf) |>
              sf::st_collection_extract("LINESTRING", warn = FALSE) |>
              sf::st_sf(crs = crs_work)
   added   <- added[!sf::st_is_empty(added), , drop = FALSE]
@@ -2218,7 +2146,7 @@ stratum_out <- stratum_summary %>%
 
 knitr::kable(
   stratum_out,
-  caption = "Table 2: OSM-estimated additions and removals (2019–2023) by density × centrality stratum",
+  caption = "Table 2: OSM-estimated additions and removals (2015–2023) by density × centrality stratum",
   align = c("l","r","r","r","r")
 )
 ```
@@ -2238,7 +2166,7 @@ knitr::kable(
 #| warning: false
 
 # EXACT file you uploaded
-FILE <- "outputs/barcelona_samples_2019_2023_filled.xlsx"
+FILE <- "outputs/barcelona_samples_2015_2023_filled.xlsx"
 
 # helper: “yes” normalizer
 is_yes <- function(x){
@@ -2255,23 +2183,23 @@ safe_read_exact <- function(path, sheet_name){
                  error = function(e) tibble::tibble())
   if (!nrow(df)) {
     return(tibble::tibble(
-      present_2019    = character(),
+      present_2015    = character(),
       present_2023    = character(),
-      verifiable_2019 = logical(),
+      verifiable_2015 = logical(),
       verifiable_2023 = logical(),
       stratum         = character()
     ))
   }
   names(df) <- trimws(names(df))
   if (!"stratum" %in% names(df))         df$stratum <- "All"
-  if (!"verifiable_2019" %in% names(df)) df$verifiable_2019 <- TRUE
+  if (!"verifiable_2015" %in% names(df)) df$verifiable_2015 <- TRUE
   if (!"verifiable_2023" %in% names(df)) df$verifiable_2023 <- TRUE
 
   dplyr::mutate(
     df,
-    present_2019    = tolower(trimws(as.character(.data$present_2019))),
+    present_2015    = tolower(trimws(as.character(.data$present_2015))),
     present_2023    = tolower(trimws(as.character(.data$present_2023))),
-    verifiable_2019 = ifelse(is.na(.data$verifiable_2019), FALSE, is_yes(.data$verifiable_2019) | (.data$verifiable_2019 == TRUE)),
+    verifiable_2015 = ifelse(is.na(.data$verifiable_2015), FALSE, is_yes(.data$verifiable_2015) | (.data$verifiable_2015 == TRUE)),
     verifiable_2023 = ifelse(is.na(.data$verifiable_2023), FALSE, is_yes(.data$verifiable_2023) | (.data$verifiable_2023 == TRUE)),
     stratum         = as.character(.data$stratum)
   )
@@ -2290,7 +2218,7 @@ suppressPackageStartupMessages({
 
 # -------- 0) Pick Excel (reuse FILE if already defined) ----------------------
 if (!exists("FILE")) {
-  pat  <- paste0("^", city_tag, "_samples_2019_2023_\\d{8}-\\d{4}\\.xlsx$")
+  pat  <- paste0("^", city_tag, "_samples_2015_2023_\\d{8}-\\d{4}\\.xlsx$")
   cand <- list.files("outputs", pattern = pat, full.names = TRUE)
   stopifnot(length(cand) > 0)
   FILE <- cand[which.max(file.info(cand)$mtime)]
@@ -2305,9 +2233,9 @@ is_yes <- function(x){
 empty_sheet <- function(){
   tibble(
     tract_id        = character(),
-    present_2019    = character(),
+    present_2015    = character(),
     present_2023    = character(),
-    verifiable_2019 = logical(),
+    verifiable_2015 = logical(),
     verifiable_2023 = logical(),
     stratum         = character()
   )
@@ -2331,19 +2259,19 @@ safe_read_exact <- function(path, sheet_name){
   names(df) <- trimws(names(df))
 
   if (!"tract_id"        %in% names(df)) df$tract_id        <- NA_character_
-  if (!"present_2019"    %in% names(df)) df$present_2019    <- NA
+  if (!"present_2015"    %in% names(df)) df$present_2015    <- NA
   if (!"present_2023"    %in% names(df)) df$present_2023    <- NA
   if (!"stratum"         %in% names(df)) df$stratum         <- NA_character_
-  if (!"verifiable_2019" %in% names(df)) df$verifiable_2019 <- TRUE
+  if (!"verifiable_2015" %in% names(df)) df$verifiable_2015 <- TRUE
   if (!"verifiable_2023" %in% names(df)) df$verifiable_2023 <- TRUE
 
   dplyr::mutate(
     df,
     tract_id        = as.character(tract_id),
-    present_2019    = tolower(stringr::str_trim(as.character(present_2019))),
+    present_2015    = tolower(stringr::str_trim(as.character(present_2015))),
     present_2023    = tolower(stringr::str_trim(as.character(present_2023))),
-    verifiable_2019 = ifelse(is.na(verifiable_2019), FALSE,
-                             verifiable_2019 == TRUE | is_yes(verifiable_2019)),
+    verifiable_2015 = ifelse(is.na(verifiable_2015), FALSE,
+                             verifiable_2015 == TRUE | is_yes(verifiable_2015)),
     verifiable_2023 = ifelse(is.na(verifiable_2023), FALSE,
                              verifiable_2023 == TRUE | is_yes(verifiable_2023)),
     stratum         = ifelse(stringr::str_trim(as.character(stratum)) == "", NA, as.character(stratum))
@@ -2414,7 +2342,7 @@ usable_tbl <- bind_rows(
   mutate(rem_tbl,   class = "REMOVE"),
   mutate(nonci_tbl, class = "NONCI")
 ) %>%
-  filter(verifiable_2019, verifiable_2023)
+  filter(verifiable_2015, verifiable_2023)
 
 # -------- 6) SUMMARY (stratum × class) ---------------------------------------
 summary_stratum_class <- usable_tbl %>%
@@ -2465,7 +2393,7 @@ suppressPackageStartupMessages({
 
 # Use existing FILE if set; otherwise pick newest
 if (!exists("FILE")) {
-  pat  <- paste0("^", city_tag, "_samples_2019_2023_\\d{8}-\\d{4}\\.xlsx$")
+  pat  <- paste0("^", city_tag, "_samples_2015_2023_\\d{8}-\\d{4}\\.xlsx$")
   xls  <- list.files("outputs", pattern = pat, full.names = TRUE)
   stopifnot(length(xls) > 0)
   FILE <- xls[which.max(file.info(xls)$mtime)]
@@ -2494,17 +2422,17 @@ safe_read_exact <- function(path, sheet){
   }
   names(df) <- trimws(names(df))
 
-  need <- c("present_2019","present_2023")
+  need <- c("present_2015","present_2023")
   for (mc in setdiff(need, names(df))) df[[mc]] <- NA_character_
 
-  if (!"verifiable_2019" %in% names(df)) df$verifiable_2019 <- "yes"
+  if (!"verifiable_2015" %in% names(df)) df$verifiable_2015 <- "yes"
   if (!"verifiable_2023" %in% names(df)) df$verifiable_2023 <- "yes"
 
   df %>%
     mutate(
-      present_2019    = norm_yn(present_2019),
+      present_2015    = norm_yn(present_2015),
       present_2023    = norm_yn(present_2023),
-      verifiable_2019 = is_yes(verifiable_2019),
+      verifiable_2015 = is_yes(verifiable_2015),
       verifiable_2023 = is_yes(verifiable_2023)
     )
 }
@@ -2516,29 +2444,29 @@ gen <- safe_read_exact(FILE, "NONCI")   # NONCI provides FNs
 
 # ---------- Confusion rules (usable = verifiable both years) -----------------
 add_v <- add %>%
-  filter(verifiable_2019, verifiable_2023) %>%
-  filter(!is.na(present_2019), !is.na(present_2023)) %>%
+  filter(verifiable_2015, verifiable_2023) %>%
+  filter(!is.na(present_2015), !is.na(present_2023)) %>%
   mutate(
-    tp = (present_2019 == "no"  & present_2023 == "yes"),
-    fp = (present_2019 == "no"  & present_2023 == "no") |
-         (present_2019 == "yes" & present_2023 == "yes")
+    tp = (present_2015 == "no"  & present_2023 == "yes"),
+    fp = (present_2015 == "no"  & present_2023 == "no") |
+         (present_2015 == "yes" & present_2023 == "yes")
   )
 
 rem_v <- rem %>%
-  filter(verifiable_2019, verifiable_2023) %>%
-  filter(!is.na(present_2019), !is.na(present_2023)) %>%
+  filter(verifiable_2015, verifiable_2023) %>%
+  filter(!is.na(present_2015), !is.na(present_2023)) %>%
   mutate(
-    tp = (present_2019 == "yes" & present_2023 == "no"),
-    fp = (present_2019 == "no"  & present_2023 == "no") |
-         (present_2019 == "yes" & present_2023 == "yes")
+    tp = (present_2015 == "yes" & present_2023 == "no"),
+    fp = (present_2015 == "no"  & present_2023 == "no") |
+         (present_2015 == "yes" & present_2023 == "yes")
   )
 
 gen_v <- gen %>%
-  filter(verifiable_2019, verifiable_2023) %>%
-  filter(!is.na(present_2019), !is.na(present_2023)) %>%
+  filter(verifiable_2015, verifiable_2023) %>%
+  filter(!is.na(present_2015), !is.na(present_2023)) %>%
   mutate(
-    fn_add = (present_2019 == "no"  & present_2023 == "yes"),
-    fn_rem = (present_2019 == "yes" & present_2023 == "no")
+    fn_add = (present_2015 == "no"  & present_2023 == "yes"),
+    fn_rem = (present_2015 == "yes" & present_2023 == "no")
   )
 
 # ---------- Counts ------------------------------------------------------------
