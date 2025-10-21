@@ -134,7 +134,7 @@ to_lines_work <- function(x, crs) {
 ```
 
 ```{r}
-#| label: 3-flowchart-build
+#| label: 03-flowchart-build
 #| eval: false
 #| include: false
 
@@ -405,89 +405,7 @@ cyc23_n <- .cache(
 ```
 
 ```{r}
-#| label: 09-download-lines
-#| eval: false
-#| include: false
-# Run once per version; keep eval=FALSE if files exist.
-
-suppressPackageStartupMessages(library(sf))
-
-perimeter_path <- "data/processed/barcelona_perimeter.gpkg"
-if (!file.exists(perimeter_path)) {
-  stop("Perimeter file not found: ", perimeter_path,
-       "\nRebuild it in the OSM download chunk or call read_or_build_perimeter(...).")
-}
-
-# Detect existing layer(s)
-layers <- st_layers(perimeter_path)$name
-stopifnot(length(layers) > 0)
-
-# If our standard layer is absent, read the first one and rewrite with a fixed name
-target_layer <- "barcelona_perimeter"
-if (!(target_layer %in% layers)) {
-  message("Standardising perimeter layer name to '", target_layer, "'.")
-  tmp <- st_read(perimeter_path, layer = layers[1], quiet = TRUE)
-  st_write(tmp, perimeter_path, layer = target_layer,
-           driver = "GPKG", append = FALSE, quiet = TRUE)
-}
-
-# Read with the fixed name and ensure WGS84
-city_perimeter <- st_read(perimeter_path, layer = target_layer, quiet = TRUE)
-if (is.na(st_crs(city_perimeter)$epsg) || st_crs(city_perimeter)$epsg != 4326) {
-  city_perimeter <- st_transform(city_perimeter, 4326)
-}
-
-
-allowed_highway <- c(
-  "living_street","pedestrian","cycleway","motorway","trunk","primary","secondary",
-  "tertiary","unclassified","residential","motorway_link","trunk_link","primary_link",
-  "secondary_link","tertiary_link","service","track","bus_guideway","escape","raceway","busway"
-)
-
-fetch_and_crop_data <- function(version, perimeter, output_file) {
-  if (file.exists(output_file)) {
-    message("↪ Skipping (exists): ", basename(output_file)); return(invisible(NULL))
-  }
-  lines_data <- tryCatch({
-    oe_get(
-      place   = "spain",
-      version = version,
-      layer   = "lines",
-      boundary = st_bbox(perimeter), boundary_type = "clipsrc",
-      extra_tags = c("cycleway","cycleway:left","cycleway:right","bicycle","route"),
-      quiet = FALSE
-    )
-  }, error = function(e) { message("Error fetching ", version, ": ", e$message); return(NULL) })
-
-  if (is.null(lines_data) || nrow(lines_data) == 0) {
-    message("No data returned for version ", version); return(invisible(NULL))
-  }
-
-  is_line <- sf::st_geometry_type(lines_data) %in% c("LINESTRING","MULTILINESTRING")
-  lines_data <- lines_data[is_line, ]
-  if (nrow(lines_data) == 0) { message("No LINESTRINGs for version ", version); return(invisible(NULL)) }
-
-  if ("highway" %in% names(lines_data)) {
-    lines_data <- dplyr::filter(lines_data, highway %in% allowed_highway)
-  }
-
-  perim_valid <- sf::st_make_valid(perimeter)
-  lines_data <- lines_data[sf::st_intersects(lines_data, perim_valid, sparse = FALSE), ]
-  lines_data <- sf::st_intersection(lines_data, perim_valid)
-
-  out_layer <- sub("\\.gpkg$", "", basename(output_file))
-  sf::st_write(lines_data, output_file, layer = out_layer, driver = "GPKG", append = FALSE, quiet = TRUE)
-  message("✓ Saved ", basename(output_file), " (", nrow(lines_data), " features)")
-}
-
-# fetch_and_crop_data("170101", city_perimeter, "data/barcelona_170101_lines.gpkg")
-fetch_and_crop_data("160101", city_perimeter, "data/processed/barcelona_15_lines.gpkg")
-fetch_and_crop_data("240101", city_perimeter, "data/processed/barcelona_23_lines.gpkg")
-message("Done: Barcelona (files in data/)")
-```
-
-```{r}
-#| label: 10-build-ci-change
+#| label: 08-build-ci-change
 #| message: false
 #| warning: false
 #| include: false
@@ -542,13 +460,12 @@ message("CI nets — 2015 segs: ", nrow(cyc15_n),
 ```
 
 ```{r}
-#| label: 11-built-nonci-network-2023
+#| label: 09-built-nonci-network-2023
 #| message: false
 #| warning: false
 #| include: false
 
 suppressPackageStartupMessages({ library(sf); library(dplyr) })
-sf::sf_use_s2(FALSE)  # planar ops for robust difference
 
 # ---- options ---------------------------------------------------------------
 reuse_cached <- TRUE  # <- set FALSE only if you want to force a rebuild
@@ -660,7 +577,7 @@ if (reuse_cached && file.exists(rds_nonci) && file.exists(rds_nonciW)) {
 - The midpoint of each segment serves as the validation location
 
 ```{r}
-#| label: 12-tracts-load
+#| label: 10-tracts-load
 #| message: false
 #| warning: false
 #| include: false
@@ -722,7 +639,7 @@ barcelona_tracts <- .cache(
 ```
 
 ```{r}
-#| label: 13-tracts-stratify
+#| label: 11-tracts-stratify
 #| message: false
 #| warning: false
 #| include: false
@@ -746,7 +663,7 @@ sampled_tracts <- barcelona_tracts |>
 ```
 
 ```{r}
-#| label: 14-bivar-map-build
+#| label: 12-bivar-map-build
 #| include: false
 
 barcelona_tracts <- barcelona_tracts |> 
@@ -774,7 +691,7 @@ bivar_map <- ggplot() +
 ```
 
 ```{r}
-#| label: 14-bivar-map-fig
+#| label: 13-bivar-map-fig
 #| echo: false
 #| fig-align: center
 knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
@@ -792,7 +709,7 @@ knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
 <!-- </figure> -->
 
 ```{r}
-#| label: 15-validation-helpers
+#| label: 14-validation-helpers
 #| include: false
 #| message: false
 #| warning: false
@@ -899,157 +816,81 @@ sample_lines_by_tract <- function(lines_sf, tracts_sf, n_per, replace = FALSE, m
 ```
 
 ```{r}
-#| label: 16a-feasibility-diagnostic
+#| label: 15-feasibility-diagnostic
 #| eval: false
 #| message: false
 #| warning: false
 #| include: false
 
-suppressPackageStartupMessages({
-  library(dplyr); library(tidyr); library(purrr); library(sf); library(knitr)
-})
-
-stopifnot(exists("sampled_tracts"), exists("added"), exists("removed"), exists("l23"), exists("crs_work"))
-
-# --- helpers -----------------------------------------------------------------
-normalize_tract_id <- function(s){
-  nm <- names(s); nml <- tolower(nm)
-  candidates <- c("tract_id","tractid","geoid","geoid10","geoid20","id","code","name","objectid","fid")
-  hit <- which(nml %in% candidates)
-  if (length(hit) > 0) s$tract_id <- as.character(s[[ nm[hit[1]] ]]) else s$tract_id <- sprintf("tract_%04d", seq_len(nrow(s)))
-  s
-}
-as_lines_valid <- function(x){
-  if (!inherits(x, "sf") || !nrow(x)) return(x[0, , drop = FALSE])
-  x <- st_transform(x, crs_work)
-  x <- st_make_valid(x)
-  keep <- st_geometry_type(x, by_geometry = TRUE) %in% c("LINESTRING","MULTILINESTRING")
-  x <- x[keep, , drop = FALSE]
-  if (!nrow(x)) return(x)
-  suppressWarnings(st_cast(x, "LINESTRING"))
-}
-len_m <- function(x) as.numeric(st_length(x))
-
-top_n_cap <- function(v, k, cap){
-  if (!length(v)) return(0L)
-  sum(sort(pmin(v, cap), decreasing = TRUE)[seq_len(min(k, length(v)))])
-}
-
-# --- inputs aligned -----------------------------------------------------------
-tracts <- normalize_tract_id(sampled_tracts) |> st_transform(crs_work)
-if (!"stratum" %in% names(tracts)) tracts$stratum <- factor("all") else tracts$stratum <- droplevels(as.factor(tracts$stratum))
-
-added_l   <- as_lines_valid(added)
-removed_l <- as_lines_valid(removed)
-
-# general (NONCI) pool from current 2023 network
-if (exists("general23_n") && inherits(general23_n, "sf") && nrow(general23_n)) {
-  nonci_l <- as_lines_valid(general23_n)
-} else {
-  nonci_l <- l23 |> st_transform(crs_work) |> pick_noncycle_strict() |> st_make_valid()
-  keep <- st_geometry_type(nonci_l, by_geometry = TRUE) %in% c("LINESTRING","MULTILINESTRING")
-  nonci_l <- nonci_l[keep, , drop = FALSE]
-  if (nrow(nonci_l)) suppressWarnings(nonci_l <- st_cast(nonci_l, "LINESTRING"))
-}
-
-# --- optional minimum length filter ------------------------------------------
-MIN_LEN_M <- get0("MIN_LEN_M", ifnotfound = 0)
-if (MIN_LEN_M > 0) {
-  if (nrow(added_l))   added_l   <- added_l[ len_m(added_l)   >= MIN_LEN_M, , drop = FALSE]
-  if (nrow(removed_l)) removed_l <- removed_l[ len_m(removed_l) >= MIN_LEN_M, , drop = FALSE]
-  if (nrow(nonci_l))   nonci_l   <- nonci_l[ len_m(nonci_l)   >= MIN_LEN_M, , drop = FALSE]
-}
-
-# --- count candidates per tract ----------------------------------------------
-count_in_tracts <- function(lines, tracts, nm){
-  if (!inherits(lines,"sf") || !nrow(lines)) {
-    return(tracts |> st_drop_geometry() |> transmute(tract_id, !!nm := 0L))
-  }
-  j <- st_intersects(tracts, lines)
-  tibble(
-    tract_id = tracts$tract_id,
-    !!nm := map_int(j, length)
-  )
-}
-
-cnt_add <- count_in_tracts(added_l,   tracts, "n_add")
-cnt_rem <- count_in_tracts(removed_l, tracts, "n_remove")
-cnt_non <- count_in_tracts(nonci_l,   tracts, "n_nonci")
-
-cov_tract <- tracts |>
-  st_drop_geometry() |>
-  select(tract_id, stratum) |>
-  left_join(cnt_add, by = "tract_id") |>
-  left_join(cnt_rem, by = "tract_id") |>
-  left_join(cnt_non, by = "tract_id")
-
-# --- quotas from your sampling chunk -----------------------------------------
-PERTRACT_ADD   <- get0("PERTRACT_ADD",   ifnotfound = 2L)
-PERTRACT_REM   <- get0("PERTRACT_REM",   ifnotfound = 2L)
-PERTRACT_NONCI <- get0("PERTRACT_NONCI", ifnotfound = 1L)
+# --- use the same parameters as chunk 16 (fallbacks if not set yet) ----------
+PERTRACT_ADD    <- get0("PERTRACT_ADD",    ifnotfound = 2L)
+PERTRACT_REM    <- get0("PERTRACT_REM",    ifnotfound = 2L)
+PERTRACT_NONCI  <- get0("PERTRACT_NONCI",  ifnotfound = 1L)
+MIN_LEN_M       <- get0("MIN_LEN_M",       ifnotfound = 15L)
 TRACTS_PER_STRATUM <- 6L
 
-# tract-level feasibility
-tract_tbl <- cov_tract |>
+# --- tracts in work CRS -------------------------------------------------------
+tracts <- sf::st_transform(sampled_tracts, crs_work)
+if (!"stratum" %in% names(tracts)) tracts$stratum <- factor("all")
+
+# --- helper: count usable pieces per tract (cut + LINESTRING + min length) ---
+count_hits_strict <- function(lines, tracts_sf, min_len_m = 0L){
+  if (!inherits(lines, "sf") || !nrow(lines)) return(integer(nrow(tracts_sf)))
+  L <- sf::st_transform(lines, sf::st_crs(tracts_sf))
+  vapply(seq_len(nrow(tracts_sf)), function(i){
+    piece <- suppressWarnings(sf::st_intersection(L, tracts_sf[i, ]))
+    piece <- suppressWarnings(sf::st_collection_extract(piece, "LINESTRING", warn = FALSE))
+    if (!nrow(piece)) return(0L)
+    if (min_len_m > 0) piece <- piece[as.numeric(sf::st_length(piece)) >= min_len_m, , drop = FALSE]
+    nrow(piece)
+  }, integer(1))
+}
+
+# --- per-tract counts under SAME rules as sampling ---------------------------
+by_tract <- tracts |>
   mutate(
-    can_ADD    = n_add    >= PERTRACT_ADD,
-    can_REMOVE = n_remove >= PERTRACT_REM,
-    can_NONCI  = n_nonci  >= PERTRACT_NONCI
+    n_add    = count_hits_strict(added,       tracts, MIN_LEN_M),
+    n_remove = count_hits_strict(removed,     tracts, MIN_LEN_M),
+    n_nonci  = count_hits_strict(general23_n, tracts, MIN_LEN_M)
   ) |>
-  transmute(
-    tract_id, stratum,
-    `ADD candidates`    = n_add,
-    `REMOVE candidates` = n_remove,
-    `NONCI candidates`  = n_nonci,
-    `Meets ADD quota`    = if_else(can_ADD, "Yes", "No"),
-    `Meets REMOVE quota` = if_else(can_REMOVE, "Yes", "No"),
-    `Meets NONCI quota`  = if_else(can_NONCI, "Yes", "No")
-  )
+  sf::st_drop_geometry()
 
-kable(tract_tbl, caption = "Candidate availability and quota feasibility per tract")
+# --- per-stratum aggregation: available (no cap) and available_capped --------
+raw_sum <- function(v) sum(v, na.rm = TRUE)
+cap_sum <- function(v, cap) sum(pmin(v, cap), na.rm = TRUE)
 
-# stratum-level: can 6 tracts meet quotas?
-feas_by_stratum <- cov_tract |>
+feasibility <- by_tract |>
   group_by(stratum) |>
   summarise(
-    tracts_in_stratum = n(),
-    tracts_meeting_ADD_quota    = sum(n_add    >= PERTRACT_ADD),
-    tracts_meeting_REMOVE_quota = sum(n_remove >= PERTRACT_REM),
-    tracts_meeting_NONCI_quota  = sum(n_nonci  >= PERTRACT_NONCI),
-    # upper bound with current tracts: pick the best 6 tracts by capped availability
-    max_ADD_points_from_top6    = top_n_cap(n_add,    TRACTS_PER_STRATUM, PERTRACT_ADD),
-    max_REMOVE_points_from_top6 = top_n_cap(n_remove, TRACTS_PER_STRATUM, PERTRACT_REM),
-    max_NONCI_points_from_top6  = top_n_cap(n_nonci,  TRACTS_PER_STRATUM, PERTRACT_NONCI)
+    ADD_available            = raw_sum(n_add),
+    ADD_available_capped     = cap_sum(n_add,    PERTRACT_ADD),
+    REMOVE_available         = raw_sum(n_remove),
+    REMOVE_available_capped  = cap_sum(n_remove, PERTRACT_REM),
+    NONCI_available          = raw_sum(n_nonci),
+    NONCI_available_capped   = cap_sum(n_nonci,  PERTRACT_NONCI),
+    .groups = "drop"
   ) |>
   mutate(
-    target_ADD    = TRACTS_PER_STRATUM * PERTRACT_ADD,
-    target_REMOVE = TRACTS_PER_STRATUM * PERTRACT_REM,
-    target_NONCI  = TRACTS_PER_STRATUM * PERTRACT_NONCI,
-    shortfall_ADD    = pmax(0L, target_ADD    - max_ADD_points_from_top6),
-    shortfall_REMOVE = pmax(0L, target_REMOVE - max_REMOVE_points_from_top6),
-    shortfall_NONCI  = pmax(0L, target_NONCI  - max_NONCI_points_from_top6)
+    ADD_target    = TRACTS_PER_STRATUM * PERTRACT_ADD,
+    REMOVE_target = TRACTS_PER_STRATUM * PERTRACT_REM,
+    NONCI_target  = TRACTS_PER_STRATUM * PERTRACT_NONCI
+  ) |>
+  select(
+    stratum,
+    ADD_target,    ADD_available,    ADD_available_capped,
+    REMOVE_target, REMOVE_available, REMOVE_available_capped,
+    NONCI_target,  NONCI_available,  NONCI_available_capped
   ) |>
   arrange(stratum)
 
-kable(feas_by_stratum, caption = "Feasibility by stratum: can 6 tracts meet quotas? Targets vs best possible with current candidates")
+# --- optional totals row across the 54 tracts --------------------------------
+totals <- feasibility |>
+  summarise(stratum = "TOTAL", across(-stratum, ~sum(.x, na.rm = TRUE)))
+feasibility <- bind_rows(feasibility, totals)
 
-# overall headline
-headline <- feas_by_stratum |>
-  summarise(
-    total_target_ADD    = sum(target_ADD),
-    total_possible_ADD  = sum(max_ADD_points_from_top6),
-    total_target_REMOVE = sum(target_REMOVE),
-    total_possible_REMOVE = sum(max_REMOVE_points_from_top6),
-    total_target_NONCI  = sum(target_NONCI),
-    total_possible_NONCI = sum(max_NONCI_points_from_top6)
-  ) |>
-  mutate(
-    shortfall_ADD    = pmax(0L, total_target_ADD    - total_possible_ADD),
-    shortfall_REMOVE = pmax(0L, total_target_REMOVE - total_possible_REMOVE),
-    shortfall_NONCI  = pmax(0L, total_target_NONCI  - total_possible_NONCI)
-  )
+# --- console print ------------------------------------------------------------
+print(feasibility, n = Inf, width = Inf)
 
-kable(headline, caption = "Overall: targets vs best possible with existing tracts and quotas")
 ```
 
 ```{r}
@@ -1222,11 +1063,11 @@ ensure_export_cols <- function(df){
     )
   }
 
-  # presence fields (edges + anchors)
-  if (!"present_2014" %in% names(df)) df$present_2014 <- NA
-  if (!"present_2015" %in% names(df)) df$present_2015 <- NA
-  if (!"present_2023" %in% names(df)) df$present_2023 <- NA
-  if (!"present_2024" %in% names(df)) df$present_2024 <- NA
+  # presence fields (include 2016 and 2022)
+  for (nm in c("present_2014","present_2015","present_2016",
+               "present_2022","present_2023","present_2024")) {
+    if (!nm %in% names(df)) df[[nm]] <- NA
+  }
 
   # clickable label column
   if (!"GSV" %in% names(df)) df$GSV <- NA_character_
@@ -1235,14 +1076,18 @@ ensure_export_cols <- function(df){
   if ("tract_id" %in% names(df)) df$tract_id <- as.character(df$tract_id)
   if ("stratum"  %in% names(df)) df$stratum  <- as.character(df$stratum)
 
-  # final order for export (chronological presence)
+  # FINAL ORDER (Order A): follow-up first, then baseline
   wanted <- c(
     "id","class","tract_id","stratum","lon","lat","gsv_link","GSV",
-    "present_2014","present_2015","present_2023","present_2024","notes"
+    "present_2023","present_2024","present_2022",
+    "present_2015","present_2014","present_2016",
+    "notes"
   )
+
   for (nm in setdiff(wanted, names(df))) df[[nm]] <- NA
   df[, wanted, drop = FALSE]
 }
+
 
 # writer: styles 2015/2023 headers, starts at row 1, adds dropdowns, hides D–G
 write_one <- function(df, sheet, freeze_cols = 3){
@@ -1280,12 +1125,13 @@ write_one <- function(df, sheet, freeze_cols = 3){
   }
 
   # hide columns D–G by setting width to 0 (works across openxlsx versions)
-openxlsx::setColWidths(wb, sheet, cols = 4:7, widths = 0)
+  openxlsx::setColWidths(wb, sheet, cols = 4:7, widths = 0)
 
-
-  # --- header styling: highlight 2015 & 2023; grey 2018 & 2024 ----------------
+  # --- header styling: highlight 2015 & 2023; grey 2014, 2016, 2022 & 2024 ---
   col_p14 <- match("present_2014", names(df))
   col_p15 <- match("present_2015", names(df))
+  col_p16 <- match("present_2016", names(df))
+  col_p22 <- match("present_2022", names(df))
   col_p23 <- match("present_2023", names(df))
   col_p24 <- match("present_2024", names(df))
 
@@ -1295,6 +1141,8 @@ openxlsx::setColWidths(wb, sheet, cols = 4:7, widths = 0)
   if (!is.na(col_p15)) openxlsx::addStyle(wb, sheet, style = sty_main, rows = 1, cols = col_p15, gridExpand = TRUE)
   if (!is.na(col_p23)) openxlsx::addStyle(wb, sheet, style = sty_main, rows = 1, cols = col_p23, gridExpand = TRUE)
   if (!is.na(col_p14)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 1, cols = col_p14, gridExpand = TRUE)
+  if (!is.na(col_p16)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 1, cols = col_p16, gridExpand = TRUE)
+  if (!is.na(col_p22)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 1, cols = col_p22, gridExpand = TRUE)
   if (!is.na(col_p24)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 1, cols = col_p24, gridExpand = TRUE)
 
   # --- validation dropdowns (cross-version safe) ------------------------------
@@ -1316,6 +1164,8 @@ openxlsx::setColWidths(wb, sheet, cols = 4:7, widths = 0)
   }
   safe_validate(col_p14, r0:r1, PRESENCE_LIST)
   safe_validate(col_p15, r0:r1, PRESENCE_LIST)
+  safe_validate(col_p16, r0:r1, PRESENCE_LIST)
+  safe_validate(col_p22, r0:r1, PRESENCE_LIST)
   safe_validate(col_p23, r0:r1, PRESENCE_LIST)
   safe_validate(col_p24, r0:r1, PRESENCE_LIST)
 }
@@ -1369,6 +1219,7 @@ write_one(gen_tbl, "NONCI")
 
 openxlsx::saveWorkbook(wb, outfile, overwrite = TRUE)
 
+
 ```
 
 <!-- <figure style="text-align:center"> -->
@@ -1378,7 +1229,7 @@ openxlsx::saveWorkbook(wb, outfile, overwrite = TRUE)
 <!-- </figure> -->
 
 ```{r}
-#| label: 18b-validation-map-points-interactive
+#| label: 18-validation-map-points-interactive
 #| echo: false
 #| message: false
 #| warning: false
@@ -1693,7 +1544,7 @@ m
 </figure>
 
 ```{r}
-#| label: 18-validation-points-fig
+#| label: 18b-validation-points-fig
 #| eval: false
 #| fig-align: center
 #| fig-cap: "Figure 3: Spatial distribution of validation points across the nine density–centrality strata in Barcelona (2015–2023)."
@@ -1702,7 +1553,7 @@ knitr::include_graphics("figs/validation_points_boundary.png")
 ```
 
 ##### 4. Inspect & classify (GSV)
-
+I mean
 [📊 Download validation workbook (Excel)](outputs/barcelona_samples_2015_2023.xlsx)
 
 Each validation point links to two GSV panoramas  
@@ -1833,7 +1684,7 @@ m <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
 if (!is.null(perim_wgs)) {
   m <- m %>% addPolygons(
     data = perim_wgs, group = "Boundary",
-    weight = 1, color = "#222222", fill = FALSE, fillOpacity = 0
+    weight = 1, color = "#111827", fill = FALSE, fillOpacity = 0
   )
 }
 
