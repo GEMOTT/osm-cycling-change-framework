@@ -37,7 +37,7 @@ bibliography: wp1.bib
 
 Urban transformations such as new bike lanes reshape mobility and health, yet standardised datasets tracking infrastructure change over time remain scarce.
 
-OpenStreetMap (OSM) offers open, historical data but its reliability for detecting change is still uncertain.  
+OpenStreetMap (OSM) offers open, historical data but its reliability for detecting change is still uncertain.
 
 **Aim**: Assess whether OSM reliably reflects new or removed bike lanes in Barcelona (2015–2023) using Google Street View (GSV) as ground truth, as a basis for scalable validation in other cities.
 
@@ -45,9 +45,9 @@ OpenStreetMap (OSM) offers open, historical data but its reliability for detecti
 
 ### Data sources
 
-- 🗺 **OSM:** collaborative vector data tagged by infrastructure type  
-- 📸 **GSV:** dated street-level imagery
-- 🧩 **Urban tracts:** spatial units classified by population density and centrality
+-   🗺 **OSM:** collaborative vector data tagged by infrastructure type\
+-   📸 **GSV:** dated street-level imagery
+-   🧩 **Urban tracts:** spatial units classified by population density and centrality
 
 ### Methods
 
@@ -171,7 +171,7 @@ digraph {
   D [width=6.8, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
       <TR><TD><B>4) Inspect &amp; classify (GSV)</B></TD></TR>
-      <TR><TD>Windows: 2014–2015 · 2023–2024<BR/>Assign present/absent, verifiable → TP/FP/FN</TD></TR>
+      <TR><TD>Windows: 2014–2016 · 2022–2024<BR/>Assign present/absent, verifiable → TP/FP/FN</TD></TR>
     </TABLE>
   >]
 
@@ -195,66 +195,46 @@ rsvg_png(charToRaw(svg_txt), file = "figs/osm_gsv_flowchart.png", width = 1800, 
 
 ```{r}
 #| label: 04-fig-workflow
-#| fig-cap: "Figure 1: Main workflow steps (2015–2023)."
 #| fig-align: right
 #| out-width: 100%
 #| echo: false
 knitr::include_graphics("figs/osm_gsv_flowchart.png")
 ```
 
+<figure style="text-align:center">
+
+::: {style="height:1em;"}
+:::
+
+<figcaption>Figure 1: Main workflow steps (2015–2023).</figcaption>
+
+</figure>
+
 ##### 1. Extract OSM data
 
-- Snapshots: **2016-01-01** (≈2015) and **2024-01-01** (≈2023)
+-   Snapshots: **2016-01-01** (≈2015) and **2024-01-01** (≈2023)
 
-- Define Cycling-Infrastructure (CI) network  
-  Segments tagged as cycling infrastructure, including:  
-  `highway=cycleway`, `cycleway=*`, `cycleway:left/right/both=*`, `bicycle_road=yes`,  
-  or `path/footway/track` with `bicycle=designated/permissive`.
+-   Cycling-Infrastructure (CI) network definition
+  Segment is classified as CI if either:
+      + `highway = cycleway`, or
+      + any of `cycleway`, `cycleway:left`, `cycleway:right`, `cycleway:both` is in `{lane, track, opposite_lane, opposite_track}`
 
-- Define general (NONCI) network  
-  Street segments not carrying CI tags and belonging to:  
-  `primary`, `secondary`, `tertiary`, `unclassified`, `residential`, `primary_link`, `secondary_link`, `tertiary_link`, `living_street`, `pedestrian`.
+<!-- Footway and path segments are excluded even if bicycle access is allowed. Tags such as `bicycle_road=yes`, `share_busway`, or `separate` are also not included. All of these are excluded because they do not guarantee the presence of a distinct, physically built cycling facility on the carriageway, which is the basis of our CI definition. -->
+
+-   General (NONCI) network definition
+    Segments that do *not* meet the CI rule above and whose `highway` is one of:
+    `primary`, `secondary`, `tertiary`, `unclassified`, `residential`, `primary_link`, `secondary_link`, `tertiary_link`, `living_street`, `pedestrian`.
 
 ##### 2. Calculate geometric differences
 
-- **ADDED**: CI in 2023 but not 2015
+-   **ADDED**: CI in 2023 but not 2015
 
-- **REMOVED**: CI in 2015 but not 2023
+-   **REMOVED**: CI in 2015 but not 2023
 
 <!-- - Buffered differencing + short-segment filtering   -->
 
 ```{r}
-#| label: 05-data-extraction-helpers
-#| include: false
-
-# Cycle infra selector (strict)
-pick_cycle_strict <- function(x){
-  stopifnot(inherits(x,"sf")); if (!nrow(x)) return(x)
-  highway      <- .get_chr(x, "highway")
-  bicycle      <- .get_chr(x, "bicycle")
-  bicycle_road <- .get_chr(x, "bicycle_road")
-
-  lane_cols <- c("cycleway","cycleway:both","cycleway:left","cycleway:right")
-  lane_vals <- c("lane","track","opposite_lane","opposite_track","separate")
-
-  n <- nrow(x); has_lane <- rep(FALSE, n)
-  for (col in lane_cols) if (col %in% names(x)) {
-    v <- .get_chr(x, col)
-    has_lane <- has_lane | (!is.na(v) & v %in% lane_vals)
-  }
-
-  is_cycleway        <- !is.na(highway) & highway == "cycleway"
-  is_designated_path <- (!is.na(highway) & highway %in% c("path","footway","track")) &
-                        (!is.na(bicycle) & bicycle %in% c("designated","yes"))
-  is_bicycle_road    <- !is.na(bicycle_road) & bicycle_road == "yes"
-
-  keep <- is_cycleway | has_lane | is_designated_path | is_bicycle_road
-  x[keep, , drop = FALSE]
-}
-```
-
-```{r}
-#| label: 06-download-osm-from-oe
+#| label: 05-download-osm-lines
 #| message: true
 #| warning: false
 #| include: false
@@ -326,11 +306,14 @@ fetch_crop_write <- function(version_code, perimeter, out_gpkg, out_layer, force
     layer   = "lines",
     boundary = st_bbox(perimeter),  # clip to BCN bbox at source
     boundary_type = "clipsrc",
-    extra_tags = c("cycleway","cycleway:left","cycleway:right","cycleway:both",
-                   "bicycle","bicycle:lanes","oneway","lanes","segregated",
-                   "foot","access","maxspeed","source"),
-    quiet   = FALSE
-  )
+    extra_tags = c(
+  "cycleway","cycleway:left","cycleway:right","cycleway:both",
+  "bicycle",            # keep this — your selector needs it
+  "bicycle_road","oneway:bicycle","segregated"
+)
+,
+      quiet = FALSE
+    )
   # keep lines only
   is_line <- st_geometry_type(ln) %in% c("LINESTRING","MULTILINESTRING")
   ln <- ln[is_line, ]
@@ -358,7 +341,60 @@ message("\nStatus:\n",
 ```
 
 ```{r}
-#| label: 07-parameters-io
+#| include: false
+# Cycle infra selector (physical-only)
+# Includes: highway=cycleway; and roads with cycleway* = lane/track/opposite_*
+# Excludes: footway/path; ignores bicycle_road unless there is a lane/track tag
+pick_cycle_strict <- function(x){
+  # 1) Sanity checks and early return
+  stopifnot(inherits(x, "sf"))           # require an sf object
+  if (!nrow(x)) return(x[0, ])           # if empty, return empty sf with same cols
+
+  # 2) Safe accessor: return a character vector for tag 'nm' (or all-NA if missing)
+  .get_chr <- function(x, nm) {
+    if (nm %in% names(x)) as.character(x[[nm]]) else rep(NA_character_, nrow(x))
+  }
+
+  # 3) Read the 'highway' tag to know the base feature type
+  highway <- .get_chr(x, "highway")
+
+  # 4) Columns that may store cycling provision on carriageways
+  lane_cols <- c("cycleway", "cycleway:both", "cycleway:left", "cycleway:right")
+
+  # 5) Values that count as *physical* provision on the carriageway
+  #    - 'lane' = painted lane
+  #    - 'track' = protected track on-road
+  #    - 'opposite_*' = contraflow versions
+  #    If you want to avoid double counting when a separate way exists,
+  #    do NOT include 'separate' here.
+  lane_vals <- c("lane", "track", "opposite_lane", "opposite_track")
+  # lane_vals <- c("lane", "track", "opposite_lane", "opposite_track", "separate")  # optional
+
+  # 6) Rowwise test: does ANY cycleway* column equal one of the 'lane_vals'?
+  n <- nrow(x)
+  has_lane <- rep(FALSE, n)               # start with FALSE for every row
+  for (col in lane_cols) if (col %in% names(x)) {
+    v <- .get_chr(x, col)                 # safely read the column as character
+    # TRUE where this column is a non-NA value in lane_vals
+    has_lane <- has_lane | (!is.na(v) & v %in% lane_vals)
+  }
+  # After the loop, has_lane[i] is TRUE if any cycleway* field matched for row i.
+
+  # 7) Dedicated bikeways are mapped as their own ways
+  is_cycleway <- !is.na(highway) & highway == "cycleway"
+
+  # 8) Keep rule:
+  #    - keep if dedicated bikeway OR a road with a lane/track
+  #    - exclude footways and paths (strict, physical road infra only)
+  keep <- (is_cycleway | has_lane) & !(highway %in% c("footway", "path"))
+
+  # 9) Return only the kept features, preserving sf class
+  x[keep, , drop = FALSE]
+}
+```
+
+```{r}
+#| label: 07-build-ci-networks
 #| message: false
 #| warning: false
 #| include: false
@@ -391,21 +427,31 @@ l23 <- sf::st_read(gpkg23, layer = lyr23, quiet = TRUE)
 rds_cyc15 <- file.path(proc_dir, sprintf("%s_%s_cyc_n.rds", city_tag, ver15))
 rds_cyc23 <- file.path(proc_dir, sprintf("%s_%s_cyc_n.rds", city_tag, ver23))
 
+cyc23_n <- .cache(
+  rds_cyc23,
+  build = function() l23 |>
+    pick_cycle_strict() |>                  # ← no argument here
+    sf::st_transform(crs_work) |>
+    normalize_lines_safe(),
+  inputs = gpkg23
+)
+
 cyc15_n <- .cache(
   rds_cyc15,
-  build  = function() l15 |> pick_cycle_strict() |> sf::st_transform(crs_work) |> normalize_lines_safe(),
+  build = function() l15 |>
+    pick_cycle_strict() |>                  # ← no argument here
+    sf::st_transform(crs_work) |>
+    normalize_lines_safe(),
   inputs = gpkg15
 )
 
-cyc23_n <- .cache(
-  rds_cyc23,
-  build  = function() l23 |> pick_cycle_strict() |> sf::st_transform(crs_work) |> normalize_lines_safe(),
-  inputs = gpkg23
-)
+# Sanitiy check
+len_km <- function(x) round(as.numeric(sum(sf::st_length(x)))/1000, 1)
+cat("2023 bike lanes km:", len_km(cyc23_n), "\n")
 ```
 
 ```{r}
-#| label: 08-build-ci-change
+#| label: 08-ci-change-added-removed
 #| message: false
 #| warning: false
 #| include: false
@@ -460,7 +506,7 @@ message("CI nets — 2015 segs: ", nrow(cyc15_n),
 ```
 
 ```{r}
-#| label: 09-built-nonci-network-2023
+#| label: 09-build-nonci-network-2015-2023
 #| message: false
 #| warning: false
 #| include: false
@@ -468,32 +514,41 @@ message("CI nets — 2015 segs: ", nrow(cyc15_n),
 suppressPackageStartupMessages({ library(sf); library(dplyr) })
 
 # ---- options ---------------------------------------------------------------
-reuse_cached <- TRUE  # <- set FALSE only if you want to force a rebuild
+reuse_cached <- TRUE  # set FALSE to force rebuild
 
 # ---- prerequisites ----------------------------------------------------------
-stopifnot(exists("l23"), exists("crs_work"), exists("cyc23_n"), exists("tol_m"))
+stopifnot(
+  exists("l23"), exists("l15"),
+  exists("crs_work"),
+  exists("cyc23_n"), exists("cyc15_n"),
+  exists("tol_m")
+)
 if (!exists("proc_dir")) proc_dir <- "data/processed"
 if (!dir.exists(proc_dir)) dir.create(proc_dir, TRUE)
 if (!exists("city_tag")) city_tag <- "barcelona"
 if (!exists("ver23"))    ver23    <- "23"
+if (!exists("ver15"))    ver15    <- "15"
 if (!exists("min_len"))  min_len  <- 10
 
-# ---- cache paths (keep your original names) ---------------------------------
-rds_nonci  <- file.path(proc_dir, sprintf("%s_%s_nonci_work.rds",    city_tag, ver23))
-rds_nonciW <- file.path(proc_dir, sprintf("%s_%s_general_nonci.rds", city_tag, ver23))
+# ---- cache paths ------------------------------------------------------------
+rds_nonci_1523  <- file.path(proc_dir, sprintf("%s_%s_%s_nonci_work.rds",    city_tag, ver15, ver23))
+rds_nonciW_1523 <- file.path(proc_dir, sprintf("%s_%s_%s_general_nonci.rds", city_tag, ver15, ver23))
 
-# If you also cached the CI buffer in chunk 09, we’ll prefer to reuse it
-rds_buf23  <- file.path(proc_dir, sprintf("%s_%s_buf_tol%sm.rds", city_tag, ver23, tol_m))
+# optional: reuse per-year CI buffers if present
+rds_buf23 <- file.path(proc_dir, sprintf("%s_%s_buf_tol%sm.rds", city_tag, ver23, tol_m))
+rds_buf15 <- file.path(proc_dir, sprintf("%s_%s_buf_tol%sm.rds", city_tag, ver15, tol_m))
 
-# ---- FAST PATH: load & return if caches exist -------------------------------
-if (reuse_cached && file.exists(rds_nonci) && file.exists(rds_nonciW)) {
-  nonci23      <- readRDS(rds_nonci)
-  general23_n  <- readRDS(rds_nonciW)
-  message("Non-CI 2023 (loaded from cache) — rows: ", nrow(nonci23),
-          " | km: ", round(sum(as.numeric(st_length(nonci23)))/1000, 1))
+# ---- FAST PATH --------------------------------------------------------------
+if (reuse_cached && file.exists(rds_nonci_1523) && file.exists(rds_nonciW_1523)) {
+  nonci1523     <- readRDS(rds_nonci_1523)
+  general1523_n <- readRDS(rds_nonciW_1523)
+  message(
+    "Non-CI 2015&2023 (loaded) — rows: ", nrow(nonci1523),
+    " | km: ", round(sum(as.numeric(st_length(nonci1523)))/1000, 1)
+  )
 } else {
 
-  # ---- helper for line hygiene (your original) ------------------------------
+  # ---- helper: line hygiene -------------------------------------------------
   normalize_lines_safe <- function(x){
     if (!inherits(x,"sf") || !nrow(x)) return(x[0, ])
     x <- sf::st_make_valid(x)
@@ -505,76 +560,91 @@ if (reuse_cached && file.exists(rds_nonci) && file.exists(rds_nonciW)) {
     x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE]
   }
 
-  # ---- 1) Base roads --------------------------------------------------------
+  # ---- 1) Base roads (same filter you used) ---------------------------------
   base_roads <- c(
     "primary","secondary","tertiary","unclassified",
-    "residential", "primary_link","secondary_link",
+    "residential","primary_link","secondary_link",
     "tertiary_link","living_street","pedestrian"
   )
 
+  # Build the base from 2023 snapshot in work CRS
   base23 <- l23 |>
     sf::st_transform(crs_work) |>
     dplyr::filter(.data$highway %in% base_roads) |>
     normalize_lines_safe()
-
   stopifnot(inherits(base23,"sf"), nrow(base23) > 0)
 
-  # ---- 2) CI buffer (reuse if available; else build once) -------------------
+  # ---- 2) Build or load CI buffers for each year ----------------------------
+  # 2023 buffer
   if (file.exists(rds_buf23)) {
     buf23 <- readRDS(rds_buf23)
     if (sf::st_crs(buf23) != sf::st_crs(base23)) buf23 <- sf::st_transform(buf23, sf::st_crs(base23))
   } else {
-    ci_geom <- sf::st_transform(cyc23_n, sf::st_crs(base23)) |> sf::st_geometry()
-    buf23 <- sf::st_buffer(sf::st_union(ci_geom), tol_m) |> sf::st_make_valid()
-    # optional: cache it for next time
+    ci23_geom <- sf::st_transform(cyc23_n, sf::st_crs(base23)) |> sf::st_geometry()
+    buf23 <- sf::st_buffer(sf::st_union(ci23_geom), tol_m) |> sf::st_make_valid()
     try(saveRDS(buf23, rds_buf23), silent = TRUE)
   }
 
-  # ---- 3) Remove only the streets that actually overlap the buffer ----------
-  touch <- lengths(sf::st_intersects(base23, buf23, sparse = TRUE)) > 0
-  keep  <- base23[!touch, , drop = FALSE]
-  cut   <- if (any(touch)) sf::st_difference(base23[touch, , drop = FALSE], buf23) else base23[0,]
-
-  # line-only + hygiene
-  cut <- normalize_lines_safe(cut)
-
-  # combine + drop tiny fragments if requested
-  nonci23 <- dplyr::bind_rows(keep, cut)
-  if (nrow(nonci23) && min_len > 0) {
-    nonci23 <- nonci23[as.numeric(sf::st_length(nonci23)) >= min_len, , drop = FALSE]
+  # 2015 buffer
+  if (file.exists(rds_buf15)) {
+    buf15 <- readRDS(rds_buf15)
+    if (sf::st_crs(buf15) != sf::st_crs(base23)) buf15 <- sf::st_transform(buf15, sf::st_crs(base23))
+  } else {
+    ci15_geom <- sf::st_transform(cyc15_n, sf::st_crs(base23)) |> sf::st_geometry()
+    buf15 <- sf::st_buffer(sf::st_union(ci15_geom), tol_m) |> sf::st_make_valid()
+    try(saveRDS(buf15, rds_buf15), silent = TRUE)
   }
 
-  # ---- 5) WGS84 for mapping -------------------------------------------------
-  general23_n <- nonci23 |>
+  # Union of both buffers = any CI in 2015 or 2023
+  buf_any <- sf::st_make_valid(sf::st_union(buf15, buf23))
+
+  # ---- 3) Remove streets that overlap ANY CI in 2015 or 2023 ----------------
+  touch_any <- lengths(sf::st_intersects(base23, buf_any, sparse = TRUE)) > 0
+  keep_any  <- base23[!touch_any, , drop = FALSE]  # fully outside both buffers
+  cut_any   <- if (any(touch_any)) sf::st_difference(base23[touch_any, , drop = FALSE], buf_any) else base23[0,]
+
+  cut_any <- normalize_lines_safe(cut_any)
+
+  # Combine and drop tiny fragments if requested
+  nonci1523 <- dplyr::bind_rows(keep_any, cut_any)
+  if (nrow(nonci1523) && min_len > 0) {
+    nonci1523 <- nonci1523[as.numeric(sf::st_length(nonci1523)) >= min_len, , drop = FALSE]
+  }
+
+  # ---- 4) WGS84 for mapping -------------------------------------------------
+  general1523_n <- nonci1523 |>
     sf::st_transform(4326) |>
     sf::st_make_valid() |>
     sf::st_simplify(dTolerance = 2)
 
-  # ---- 6) Save caches -------------------------------------------------------
-  try(saveRDS(nonci23,   rds_nonci),  silent = TRUE)
-  try(saveRDS(general23_n, rds_nonciW), silent = TRUE)
+  # ---- 5) Save caches -------------------------------------------------------
+  try(saveRDS(nonci1523,     rds_nonci_1523),  silent = TRUE)
+  try(saveRDS(general1523_n, rds_nonciW_1523), silent = TRUE)
 
-  # ---- 7) Log ---------------------------------------------------------------
-  message("Non-CI 2023 built — rows: ", nrow(nonci23),
-          " | km: ", round(sum(as.numeric(sf::st_length(nonci23)))/1000, 1))
+  # ---- 6) Log ---------------------------------------------------------------
+  message(
+    "Non-CI 2015&2023 built — rows: ", nrow(nonci1523),
+    " | km: ", round(sum(as.numeric(sf::st_length(nonci1523)))/1000, 1)
+  )
 }
+
 ```
 
 ##### 3. Design sampling
 
-- 9 strata: density × centrality (3 × 3)
+-   9 strata: density × centrality (3 × 3)
 
-- 6 tracts per stratum (54 total), randomly selected
+-   6 tracts per stratum (54 total), randomly selected
 
-- Within each tract, up to:
+-   Within each tract, up to:
 
-    + 2 ADD segments (expected new lanes)
+    -   2 ADD segments (expected new lanes)
 
-    + 2 REMOVE segments (expected removals)
+    -   2 REMOVE segments (expected removals)
 
-    + 1 NONCI segment (no expected change, control)
+    -   1 NONCI segment (no expected change, control)
 
-- The midpoint of each segment serves as the validation location
+-   The midpoint of each segment serves as the validation location
 
 ```{r}
 #| label: 10-tracts-load
@@ -698,14 +768,22 @@ knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
 ```
 
 <figure style="text-align:center">
-  <div style="height:1em;"></div>
-  <figcaption>Figure 2: Stratified tracts (density × centrality) used for samplying.</figcaption>
+
+::: {style="height:1em;"}
+:::
+
+<figcaption>Figure 2: Stratified tracts (density × centrality) used for samplying.</figcaption>
+
 </figure>
 
 <!-- <figure style="text-align:center"> -->
+
 <!--   <iframe src="maps/stratification.html" width="100%" height="650" style="border:0" loading="lazy" -->
+
 <!--           title="Spatial distribution of validation points across the nine density–centrality strata in Barcelona (2015–2023)."></iframe> -->
+
 <!--   <figcaption>Figure 2: Stratified tracts (density × centrality) used for samplying.</figcaption> -->
+
 <!-- </figure> -->
 
 ```{r}
@@ -851,7 +929,7 @@ by_tract <- tracts |>
   mutate(
     n_add    = count_hits_strict(added,       tracts, MIN_LEN_M),
     n_remove = count_hits_strict(removed,     tracts, MIN_LEN_M),
-    n_nonci  = count_hits_strict(general23_n, tracts, MIN_LEN_M)
+    n_nonci  = count_hits_strict(general1523_n, tracts, MIN_LEN_M)
   ) |>
   sf::st_drop_geometry()
 
@@ -895,7 +973,6 @@ print(feasibility, n = Inf, width = Inf)
 
 ```{r}
 #| label: 16-validation-sampling
-#| eval: true
 #| echo: false
 #| message: false
 #| warning: false
@@ -933,8 +1010,8 @@ if (!"stratum" %in% names(tracts)) {
 }
 
 # GENERAL pool (non-CI 2023)
-if (exists("general23_n") && inherits(general23_n, "sf") && nrow(general23_n)) {
-  noncycle23 <- sf::st_transform(general23_n, crs_work)
+if (exists("general1523_n") && inherits(general1523_n, "sf") && nrow(general1523_n)) {
+  noncycle23 <- sf::st_transform(general1523_n, crs_work)
 } else {
   noncycle23 <- l23 |>
     sf::st_transform(crs_work) |>
@@ -1031,6 +1108,10 @@ print(by_stratum)
 #| eval: true
 
 # --- setup -------------------------------------------------------
+suppressPackageStartupMessages({
+  library(openxlsx); library(sf); library(dplyr)
+})
+
 outdir <- "outputs"; dir.create(outdir, FALSE, TRUE)
 outfile <- file.path(
   outdir,
@@ -1076,20 +1157,77 @@ ensure_export_cols <- function(df){
   if ("tract_id" %in% names(df)) df$tract_id <- as.character(df$tract_id)
   if ("stratum"  %in% names(df)) df$stratum  <- as.character(df$stratum)
 
-  # FINAL ORDER (Order A): follow-up first, then baseline
+  # FINAL ORDER (follow-up first, then baseline, then notes)
   wanted <- c(
     "id","class","tract_id","stratum","lon","lat","gsv_link","GSV",
     "present_2023","present_2024","present_2022",
     "present_2015","present_2014","present_2016",
     "notes"
   )
-
   for (nm in setdiff(wanted, names(df))) df[[nm]] <- NA
   df[, wanted, drop = FALSE]
 }
 
+add_fused_formula_cols <- function(wb, sheet, n_rows, header_row = 2, na_token = '"NA"'){
+  hdr <- openxlsx::readWorkbook(wb, sheet = sheet, rows = header_row, colNames = FALSE)
+  nm  <- as.character(hdr[1, ])
 
-# writer: styles 2015/2023 headers, starts at row 1, adds dropdowns, hides D–G
+  required <- c("present_2023","present_2024","present_2022",
+                "present_2015","present_2014","present_2016","notes")
+  miss <- setdiff(required, nm)
+  if (length(miss)) stop("Missing expected columns on sheet '", sheet, "': ", paste(miss, collapse = ", "))
+
+  i23 <- match("present_2023", nm); i24 <- match("present_2024", nm); i22 <- match("present_2022", nm)
+  i15 <- match("present_2015", nm); i14 <- match("present_2014", nm); i16 <- match("present_2016", nm)
+  inotes <- match("notes", nm)
+
+  # insert immediately AFTER 'notes'
+  col_fu <- inotes + 1
+  col_bl <- inotes + 2
+
+  openxlsx::writeData(
+    wb, sheet,
+    x = data.frame(present_followup = NA, present_baseline = NA),
+    startCol = col_fu, startRow = header_row, colNames = TRUE
+  )
+
+  C   <- openxlsx::int2col
+  c23 <- C(i23); c24 <- C(i24); c22 <- C(i22)
+  c15 <- C(i15); c14 <- C(i14); c16 <- C(i16)
+
+  r1 <- header_row + 1
+  rN <- header_row + n_rows
+
+  if (n_rows > 0) {
+    # Build the template strings ONCE, then sprintf per row
+    tmpl_fu <- paste0(
+      'IF(OR(%1$s%2$d=1,%1$s%2$d="1",%1$s%2$d=0,%1$s%2$d="0"),%1$s%2$d,',
+      'IF(OR(%3$s%2$d=1,%3$s%2$d="1",%3$s%2$d=0,%3$s%2$d="0"),%3$s%2$d,',
+      'IF(OR(%4$s%2$d=1,%4$s%2$d="1",%4$s%2$d=0,%4$s%2$d="0"),%4$s%2$d,%5$s)))'
+    )
+    tmpl_bl <- paste0(
+      'IF(OR(%1$s%2$d=1,%1$s%2$d="1",%1$s%2$d=0,%1$s%2$d="0"),%1$s%2$d,',
+      'IF(OR(%3$s%2$d=1,%3$s%2$d="1",%3$s%2$d=0,%3$s%2$d="0"),%3$s%2$d,',
+      'IF(OR(%4$s%2$d=1,%4$s%2$d="1",%4$s%2$d=0,%4$s%2$d="0"),%4$s%2$d,%5$s)))'
+    )
+
+    for (r in r1:rN) {
+      f_fu <- sprintf(tmpl_fu, c23, r, c24, c22, na_token)
+      f_bl <- sprintf(tmpl_bl, c15, r, c14, c16, na_token)
+      openxlsx::writeFormula(wb, sheet, x = f_fu, startCol = col_fu, startRow = r)
+      openxlsx::writeFormula(wb, sheet, x = f_bl, startCol = col_bl, startRow = r)
+    }
+  }
+
+  # header styling and widths
+  sty_head <- openxlsx::createStyle(fgFill = "#E2F0D9", textDecoration = "bold")
+  openxlsx::addStyle(wb, sheet, style = sty_head, rows = header_row, cols = c(col_fu, col_bl), gridExpand = TRUE)
+  openxlsx::setColWidths(wb, sheet, cols = c(col_fu, col_bl), widths = 18)
+}
+
+
+
+# writer: styles grouped headers, inputs, and adds computed finals after notes
 write_one <- function(df, sheet, freeze_cols = 3){
   df <- ensure_export_cols(df)
 
@@ -1098,36 +1236,36 @@ write_one <- function(df, sheet, freeze_cols = 3){
     tabColour = switch(sheet, "ADD"="green","REMOVE"="red","NONCI"="orange","CI_STATIC"="blue","grey")
   )
 
-  # write header + data at row 1
-  openxlsx::writeData(wb, sheet, df, startRow = 1, startCol = 1, withFilter = FALSE)
+  # Write headers at row 2 and data from row 3
+  openxlsx::writeData(wb, sheet, df, startRow = 2, startCol = 1, colNames = TRUE, withFilter = FALSE)
 
-  # clickable GSV (first data row is row 2)
+  # clickable GSV (first data row is row 3)
   if (nrow(df)) {
     openxlsx::writeFormula(
       wb, sheet,
       x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
       startCol = match("GSV", names(df)),
-      startRow = 2
+      startRow = 3
     )
   }
 
   # widths and freeze panes
   w <- rep("auto", ncol(df)); w[1] <- 12
   openxlsx::setColWidths(wb, sheet, cols = 1:ncol(df), widths = w)
-  openxlsx::freezePane(wb, sheet, firstActiveRow = 2, firstActiveCol = freeze_cols + 1)
+  openxlsx::freezePane(wb, sheet, firstActiveRow = 3, firstActiveCol = freeze_cols + 1)
 
-  # ensure GSV column is just wide enough for "Open GSV" and centred
+  # centre "Open GSV"
   gsv_col <- match("GSV", names(df))
   if (!is.na(gsv_col)) {
-    openxlsx::setColWidths(wb, sheet, cols = gsv_col, widths = nchar("Open GSV") + 2)  # ≈10
+    openxlsx::setColWidths(wb, sheet, cols = gsv_col, widths = nchar("Open GSV") + 2)
     style_center <- openxlsx::createStyle(halign = "center")
-    openxlsx::addStyle(wb, sheet, style = style_center, rows = 1:(nrow(df)+1), cols = gsv_col, gridExpand = TRUE)
+    openxlsx::addStyle(wb, sheet, style = style_center, rows = 2:(nrow(df)+2), cols = gsv_col, gridExpand = TRUE)
   }
 
-  # hide columns D–G by setting width to 0 (works across openxlsx versions)
+  # hide columns D–G (tract_id, stratum, lon, lat)
   openxlsx::setColWidths(wb, sheet, cols = 4:7, widths = 0)
 
-  # --- header styling: highlight 2015 & 2023; grey 2014, 2016, 2022 & 2024 ---
+  # ---- header styling for year windows --------------------------------------
   col_p14 <- match("present_2014", names(df))
   col_p15 <- match("present_2015", names(df))
   col_p16 <- match("present_2016", names(df))
@@ -1135,39 +1273,52 @@ write_one <- function(df, sheet, freeze_cols = 3){
   col_p23 <- match("present_2023", names(df))
   col_p24 <- match("present_2024", names(df))
 
-  sty_main <- openxlsx::createStyle(fgFill = "#FFF2CC", textDecoration = "bold")  # warm highlight
-  sty_edge <- openxlsx::createStyle(fgFill = "#F2F2F2")                            # subtle grey
+  sty_main <- openxlsx::createStyle(fgFill = "#FFF2CC", textDecoration = "bold")
+  sty_edge <- openxlsx::createStyle(fgFill = "#F2F2F2")
 
-  if (!is.na(col_p15)) openxlsx::addStyle(wb, sheet, style = sty_main, rows = 1, cols = col_p15, gridExpand = TRUE)
-  if (!is.na(col_p23)) openxlsx::addStyle(wb, sheet, style = sty_main, rows = 1, cols = col_p23, gridExpand = TRUE)
-  if (!is.na(col_p14)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 1, cols = col_p14, gridExpand = TRUE)
-  if (!is.na(col_p16)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 1, cols = col_p16, gridExpand = TRUE)
-  if (!is.na(col_p22)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 1, cols = col_p22, gridExpand = TRUE)
-  if (!is.na(col_p24)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 1, cols = col_p24, gridExpand = TRUE)
+  if (!is.na(col_p15)) openxlsx::addStyle(wb, sheet, style = sty_main, rows = 2, cols = col_p15, gridExpand = TRUE)
+  if (!is.na(col_p23)) openxlsx::addStyle(wb, sheet, style = sty_main, rows = 2, cols = col_p23, gridExpand = TRUE)
+  if (!is.na(col_p14)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 2, cols = col_p14, gridExpand = TRUE)
+  if (!is.na(col_p16)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 2, cols = col_p16, gridExpand = TRUE)
+  if (!is.na(col_p22)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 2, cols = col_p22, gridExpand = TRUE)
+  if (!is.na(col_p24)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 2, cols = col_p24, gridExpand = TRUE)
 
-  # --- validation dropdowns (cross-version safe) ------------------------------
-  r0 <- 2
-  r1 <- 1 + max(1, nrow(df))
+  # ---- top group header row (row 1) -----------------------------------------
+  sty_group <- openxlsx::createStyle(fgFill = "#D9E1F2", textDecoration = "bold", halign = "center", valign = "center")
 
-  safe_validate <- function(cols, rows, vals){
-    if (is.na(cols)) return(invisible(NULL))
-    try(
-      openxlsx::dataValidation(
-        wb, sheet, cols = cols, rows = rows,
-        type = "list",
-        value = paste(vals, collapse = ","),
-        allowBlank = TRUE,
-        showError = TRUE
-      ),
-      silent = TRUE
-    )
+  # Follow-up group: 2023 over [present_2023, present_2024, present_2022]
+  if (all(!is.na(c(col_p23, col_p24, col_p22)))) {
+    openxlsx::writeData(wb, sheet, x = "2023", startRow = 1, startCol = col_p23, colNames = FALSE)
+    openxlsx::mergeCells(wb, sheet, rows = 1, cols = col_p23:col_p22)
+    openxlsx::addStyle(wb, sheet, style = sty_group, rows = 1, cols = col_p23:col_p22, gridExpand = TRUE)
   }
-  safe_validate(col_p14, r0:r1, PRESENCE_LIST)
-  safe_validate(col_p15, r0:r1, PRESENCE_LIST)
-  safe_validate(col_p16, r0:r1, PRESENCE_LIST)
-  safe_validate(col_p22, r0:r1, PRESENCE_LIST)
-  safe_validate(col_p23, r0:r1, PRESENCE_LIST)
-  safe_validate(col_p24, r0:r1, PRESENCE_LIST)
+
+  # Baseline group: 2015 over [present_2015, present_2014, present_2016]
+  if (all(!is.na(c(col_p15, col_p14, col_p16)))) {
+    openxlsx::writeData(wb, sheet, x = "2015", startRow = 1, startCol = col_p15, colNames = FALSE)
+    openxlsx::mergeCells(wb, sheet, rows = 1, cols = col_p15:col_p16)
+    openxlsx::addStyle(wb, sheet, style = sty_group, rows = 1, cols = col_p15:col_p16, gridExpand = TRUE)
+  }
+
+  # ---- presence inputs: plain text, start empty (avoid LibreOffice 509) -----
+  presence_cols <- grep("^present_(2014|2015|2016|2022|2023|2024)$", names(df))
+  if (length(presence_cols)) {
+    sty_text <- openxlsx::createStyle(numFmt = "@")
+    openxlsx::addStyle(
+      wb, sheet, style = sty_text,
+      rows = 3:(nrow(df) + 2), cols = presence_cols, gridExpand = TRUE
+    )
+    # ensure blanks instead of NA for inputs
+    for (j in presence_cols) {
+      v <- df[[j]]
+      v[!is.na(v)] <- as.character(v[!is.na(v)])
+      v[is.na(v)]  <- ""
+      openxlsx::writeData(wb, sheet, v, startRow = 3, startCol = j, colNames = FALSE)
+    }
+  }
+
+  # ---- add the two calculated columns (after notes) --------------------------
+  add_fused_formula_cols(wb, sheet, n_rows = nrow(df), header_row = 2, na_token = '"NA"')
 }
 
 # keep one tract_id and stratum on points
@@ -1201,6 +1352,11 @@ added_pts   <- canon_id_stratum(add_id_if_missing(added_pts,   tracts), tracts)
 removed_pts <- canon_id_stratum(add_id_if_missing(removed_pts, tracts), tracts)
 nonci_pts   <- canon_id_stratum(add_id_if_missing(nonci_pts,   tracts), tracts)
 
+# You already have these helpers in your project:
+# - to_lonlat_tbl()
+# - add_validation_cols()
+# - coerce_for_bind()
+
 mk_tbl <- function(p, src, cls){
   to_lonlat_tbl(p) |>
     dplyr::mutate(interval = "2015→2023", source = src, class = cls) |>
@@ -1218,14 +1374,16 @@ write_one(rem_tbl, "REMOVE")
 write_one(gen_tbl, "NONCI")
 
 openxlsx::saveWorkbook(wb, outfile, overwrite = TRUE)
-
-
 ```
 
 <!-- <figure style="text-align:center"> -->
+
 <!--   <iframe src="maps/ci_change.html" width="100%" height="650" style="border:0" loading="lazy" -->
+
 <!--           title="Cycling infrastructure change in Barcelona (2015–2023)"></iframe> -->
+
 <!--   <figcaption>Figure 3: Distribution of validation points (with GSV links).</figcaption> -->
+
 <!-- </figure> -->
 
 ```{r}
@@ -1298,9 +1456,9 @@ get_boundary_wgs <- function(){
 }
 bnd_wgs <- get_boundary_wgs()
 
-# ---- Non-CI network: expect 'nonci23' from earlier chunk --------------------
-stopifnot(exists("nonci23"), inherits(nonci23, "sf"))
-gnet_wgs <- nonci23 |>
+# ---- Non-CI network: expect 'nonci1523' from earlier chunk --------------------
+stopifnot(exists("nonci1523"), inherits(nonci1523, "sf"))
+gnet_wgs <- nonci1523 |>
   sf::st_make_valid() |>
   sf::st_transform(4326)
 
@@ -1531,16 +1689,20 @@ function(el, x){
 m <- m %>% addLegend(
   position = "bottomright",
   colors = c(col_add_pt, col_rem_pt, col_gen_pt),
-  labels = c("ADD points", "REMOVE points", "NONCI points"),
-  title = "Validation Points",
+  labels = c("ADD", "REMOVE", "NONCI"),
+  title = "Validation points",
   opacity = 0.95
 )
 m
 ```
 
 <figure style="text-align:center">
-  <div style="height:1em;"></div>
-  <figcaption>Figure 3: Distribution of validation points (with GSV links).</figcaption>
+
+::: {style="height:1em;"}
+:::
+
+<figcaption>Figure 3: Distribution of validation points (with GSV links).</figcaption>
+
 </figure>
 
 ```{r}
@@ -1553,46 +1715,60 @@ knitr::include_graphics("figs/validation_points_boundary.png")
 ```
 
 ##### 4. Inspect & classify (GSV)
-I mean
-[📊 Download validation workbook (Excel)](outputs/barcelona_samples_2015_2023.xlsx)
 
-Each validation point links to two GSV panoramas  
-(“2015” = imagery from ≈2018–2015, “2023” = imagery from ≈2023–2024).  
-For each year, record whether cycling infrastructure is present (Y), absent (N), or not verifiable (NA).
+- We inspected two periods for each point: a **follow-up (~2023)** and a **baseline (~2015)**.
 
-- **ADD (OSM claims a new lane)**  
-  True Positive (TP) if N→Y  
-  False Positive (FP) if any other verifiable pattern
-  NA if any year is NA
+- For each period we first opened the **anchor year** (2023 / 2015).
 
-- **REMOVE (OSM claims a removal)**  
-  TP if Y→N  
-  FP if any other verifiable pattern  
-  NA if any year is NA
+- If the anchor year could not be coded, we **moved the peg within that same year**.
 
-- **NONCI (no change expected)**  
-  Used to find False Negatives (FN: real change with no OSM claim)
+- If the year remained not verifiable, we **moved to the next rescue year** in the predefined order
+
+    + Follow-up: 2023 → 2024 → 2022
+
+    + Baseline: 2015 → 2014 → 2016
+
+- We stopped as soon as one year gave a clear 1 or 0. We did not combine information across years.
+
+- If no year in the sequence could be coded, that period was NA.
+
+Codes: **1 = CI visible · 0 = clearly absent · NA = not verifiable**
+
+Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel workbook)**.
+
+-   **ADD (OSM claims a new lane)**\
+    True Positive (TP) if 0→1\
+    False Positive (FP) if any other verifiable pattern\
+    NA if any year is NA
+
+-   **REMOVE (OSM claims a removal)**\
+    TP if 1→0\
+    FP if any other verifiable pattern\
+    NA if any year is NA
+
+-   **NONCI (no change expected)**\
+    Used to find False Negatives (FN: real change with no OSM claim)
 
 <!-- - Keep only points verifiable for both years -->
 
 ##### 5. Evaluate performance
 
-- **Precision = TP / (TP + FP)**  
-  Percentage of correct detections among all OSM detections.
+-   **Precision = TP / (TP + FP)**\
+    Percentage of correct detections among all OSM detections.
 
-- **Recall = TP / (TP + FN)**  
-  Percentage of correct detections among all real changes (detected or missed).
+-   **Recall = TP / (TP + FN)**\
+    Percentage of correct detections among all real changes (detected or missed).
 
-- **F1 = 2 · Precision · Recall / (Precision + Recall)**  
-  Balanced indicator combining both metrics.
+-   **F1 = 2 · Precision · Recall / (Precision + Recall)**\
+    Balanced indicator combining both metrics.
 
 ## Results
 
 #### Network change detected by OSM
 
-- OSM cycling network grew **214.9 → 264.0 km (+23%)**
+-   OSM cycling network grew **165.3 → 264.1 km (+60%)**
 
-- Segment differencing results: **65.5 km added, 23.4 km removed**
+-   Segment differencing results: **134.5 km added, 33.7 km removed**
 
 <!-- - Strong internal consistency between totals and changes -->
 
@@ -1603,10 +1779,13 @@ For each year, record whether cycling infrastructure is present (Y), absent (N),
 #| warning: false
 #| paged-print: false
 
-suppressPackageStartupMessages(library(leaflet))
-suppressPackageStartupMessages(library(sf))
+suppressPackageStartupMessages({
+  library(leaflet)
+  library(sf)
+  library(htmlwidgets)
+})
 
-# ---- helper: force WGS84 LINESTRING / POLYGON and skip empties --------------
+# ---- helpers -----------------------------------------------------------------
 as_wgs_lines <- function(x){
   if (!inherits(x, "sf") || !nrow(x)) return(NULL)
   x <- st_make_valid(x)
@@ -1615,17 +1794,25 @@ as_wgs_lines <- function(x){
   if (!nrow(x)) return(NULL)
   x <- suppressWarnings(st_cast(x, "LINESTRING"))
   x <- x[!st_is_empty(st_geometry(x)), , drop = FALSE]
-  if (!nrow(x)) return(NULL)
   st_transform(x, 4326)
 }
 
-as_wgs_poly <- function(x){
-  if (!inherits(x, "sf") || !nrow(x)) return(NULL)
-  x <- st_make_valid(x)
-  keep <- st_geometry_type(x) %in% c("POLYGON","MULTIPOLYGON")
-  x <- x[keep, , drop = FALSE]
-  if (!nrow(x)) return(NULL)
-  st_transform(x, 4326)
+# exterior-ring only, like map 18
+get_boundary_wgs <- function(){
+  b <- NULL
+  if (exists("city_perimeter") && inherits(city_perimeter,"sf") && nrow(city_perimeter)) {
+    b <- city_perimeter
+  } else if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
+    b <- sf::st_union(tracts) |> sf::st_as_sf()
+  } else {
+    return(NULL)
+  }
+  b <- sf::st_make_valid(b)
+  b <- sf::st_cast(b, "MULTIPOLYGON", warn = FALSE)
+  polys <- sf::st_cast(b, "POLYGON", warn = FALSE)
+  rings <- sf::st_sfc(lapply(sf::st_geometry(polys), sf::st_exterior_ring), crs = sf::st_crs(polys))
+  bnd  <- sf::st_as_sf(data.frame(id = seq_along(rings)), geometry = rings)
+  sf::st_transform(bnd, 4326)
 }
 
 # ---- colours -----------------------------------------------------------------
@@ -1642,98 +1829,80 @@ alpha_2023  <- 0.60
 alpha_nonci <- 0.40
 alpha_halo  <- 0.25
 
-# ---- prep layers safely ------------------------------------------------------
-perim_wgs   <- if (exists("city_perimeter")) as_wgs_poly(city_perimeter) else NULL
-cyc15_wgs   <- if (exists("cyc15_n"))  as_wgs_lines(cyc15_n)  else NULL
-added_wgs   <- if (exists("added"))    as_wgs_lines(added)    else NULL
-removed_wgs <- if (exists("removed"))  as_wgs_lines(removed)  else NULL
-cyc23_wgs   <- if (exists("cyc23_n"))  as_wgs_lines(cyc23_n)  else NULL
-nonci_wgs   <- if (exists("general23_n")) as_wgs_lines(general23_n) else NULL
+# ---- prep layers -------------------------------------------------------------
+bnd_wgs      <- get_boundary_wgs()
+cyc15_wgs    <- if (exists("cyc15_n"))         as_wgs_lines(cyc15_n)         else NULL
+added_wgs    <- if (exists("added"))           as_wgs_lines(added)           else NULL
+removed_wgs  <- if (exists("removed"))         as_wgs_lines(removed)         else NULL
+cyc23_wgs    <- if (exists("cyc23_n"))         as_wgs_lines(cyc23_n)         else NULL
+nonci_wgs    <- if (exists("general1523_n"))   as_wgs_lines(general1523_n)   else NULL
 
-# ---- bounds (prefer perimeter, else any layer, else fallback) ----------------
+# ---- bounds (prefer boundary; else any layer; else fallback) -----------------
 get_bbox <- function(obj) if (!is.null(obj) && inherits(obj,"sf") && nrow(obj)) st_bbox(obj) else NULL
-
-bb <- get_bbox(perim_wgs)
+bb <- if (!is.null(bnd_wgs) && nrow(bnd_wgs)) get_bbox(bnd_wgs) else NULL
 if (is.null(bb)) {
-  cands <- Filter(Negate(is.null), list(
-    get_bbox(cyc15_wgs), get_bbox(added_wgs),
-    get_bbox(removed_wgs), get_bbox(cyc23_wgs),
-    get_bbox(nonci_wgs)
-  ))
+  cands <- Filter(Negate(is.null), lapply(list(cyc15_wgs, added_wgs, removed_wgs, cyc23_wgs, nonci_wgs), get_bbox))
   if (length(cands)) {
     mins <- do.call(pmin, lapply(cands, function(b) c(b["xmin"], b["ymin"])))
     maxs <- do.call(pmax, lapply(cands, function(b) c(b["xmax"], b["ymax"])))
-    # numeric named vector (not a list)
-    bb <- c(xmin = as.numeric(mins[1]),
-            ymin = as.numeric(mins[2]),
-            xmax = as.numeric(maxs[1]),
-            ymax = as.numeric(maxs[2]))
+    bb <- c(xmin = as.numeric(mins[1]), ymin = as.numeric(mins[2]),
+            xmax = as.numeric(maxs[1]), ymax = as.numeric(maxs[2]))
   } else {
-    bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45) # BCN-ish fallback
+    bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
   }
 }
-
 bounds <- as.numeric(bb[c("xmin","ymin","xmax","ymax")])
-names(bounds) <- NULL
-stopifnot(length(bounds) == 4, all(is.finite(bounds)))
 
-# ---- map ---------------------------------------------------------------------
+# ---- map (match map 18 panes, boundary, and toggle) --------------------------
 m <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
-  addProviderTiles("CartoDB.Positron", group = "Positron")
+  addProviderTiles("CartoDB.Positron", group = "Positron") %>%
+  addMapPane("nets",     zIndex = 420) %>%
+  addMapPane("boundary", zIndex = 430)
 
-if (!is.null(perim_wgs)) {
-  m <- m %>% addPolygons(
-    data = perim_wgs, group = "Boundary",
-    weight = 1, color = "#111827", fill = FALSE, fillOpacity = 0
+# Barcelona boundary outline (toggleable)
+if (!is.null(bnd_wgs) && nrow(bnd_wgs)) {
+  m <- m %>% addPolylines(
+    data    = bnd_wgs,
+    group   = "Barcelona boundary",
+    color   = "#111827", weight = 1, opacity = 0.95,
+    options = pathOptions(pane = "boundary")
   )
 }
 
+# Networks
 if (!is.null(cyc15_wgs)) {
-  m <- m %>% addPolylines(
-    data = cyc15_wgs, group = "2015 CI",
-    weight = 2, color = col_2015, opacity = alpha_2015
-  )
+  m <- m %>% addPolylines(data = cyc15_wgs, group = "2015 CI",
+                          weight = 2, color = col_2015, opacity = alpha_2015,
+                          options = pathOptions(pane = "nets"))
 }
-
 if (!is.null(removed_wgs)) {
-  m <- m %>% addPolylines(
-    data = removed_wgs, group = "Removed (15→23)",
-    weight = 2, color = col_removed_halo, opacity = alpha_halo
-  )
-  m <- m %>% addPolylines(
-    data = removed_wgs, group = "Removed (15→23)",
-    weight = 2.5, color = col_removed, opacity = 1.0
-  )
+  m <- m %>% addPolylines(data = removed_wgs, group = "Removed (15→23)",
+                          weight = 2, color = col_removed_halo, opacity = alpha_halo,
+                          options = pathOptions(pane = "nets")) %>%
+             addPolylines(data = removed_wgs, group = "Removed (15→23)",
+                          weight = 2.5, color = col_removed, opacity = 1.0,
+                          options = pathOptions(pane = "nets"))
 }
-
 if (!is.null(added_wgs)) {
-  m <- m %>% addPolylines(
-    data = added_wgs, group = "Added (15→23)",
-    weight = 2, color = col_added, opacity = alpha_added
-  )
+  m <- m %>% addPolylines(data = added_wgs, group = "Added (15→23)",
+                          weight = 2, color = col_added, opacity = alpha_added,
+                          options = pathOptions(pane = "nets"))
 }
-
 if (!is.null(cyc23_wgs)) {
-  m <- m %>% addPolylines(
-    data = cyc23_wgs, group = "2023 CI",
-    weight = 2, color = col_2023, opacity = alpha_2023
-  )
+  m <- m %>% addPolylines(data = cyc23_wgs, group = "2023 CI",
+                          weight = 2, color = col_2023, opacity = alpha_2023,
+                          options = pathOptions(pane = "nets"))
 }
-
 if (!is.null(nonci_wgs)) {
-  m <- m %>% addPolylines(
-    data = nonci_wgs, group = "General (non-CI) 2023",
-    weight = 1, color = col_nonci, opacity = alpha_nonci,
-    smoothFactor = 0.5
-  )
+  m <- m %>% addPolylines(data = nonci_wgs, group = "General (non-CI) 2023",
+                          weight = 1, color = col_nonci, opacity = alpha_nonci,
+                          options = pathOptions(pane = "nets"), smoothFactor = 0.5)
 }
 
-
-
-m = m %>%
+m <- m %>%
   addLayersControl(
     baseGroups = c("Positron"),
-    overlayGroups = c("boundary","2015 CI","Added (15→23)","Removed (15→23)","2023 CI","General (non-CI) 2023"),
+    overlayGroups = c("Barcelona boundary","2015 CI","Added (15→23)","Removed (15→23)","2023 CI","General (non-CI) 2023"),
     options = layersControlOptions(collapsed = TRUE)
   ) %>%
   hideGroup(c("2023 CI","General (non-CI) 2023")) %>%
@@ -1748,12 +1917,17 @@ m = m %>%
 m
 
 dir.create("maps", showWarnings = FALSE)
-saveWidget(m, "maps/infra_change.html", selfcontained = TRUE)      # puts JS/CSS deps here
+saveWidget(m, "maps/infra_change.html", selfcontained = TRUE)
+
 ```
 
 <figure style="text-align:center">
-  <div style="height:1em;"></div>
-  <figcaption>Figure 4: OSM-detected changes in Barcelona, 2015–2023.</figcaption>
+
+::: {style="height:1em;"}
+:::
+
+<figcaption>Figure 4: OSM-detected changes in Barcelona, 2015–2023.</figcaption>
+
 </figure>
 
 ```{r}
@@ -1771,8 +1945,6 @@ knitr::include_graphics("figs/change_map.png")
 #| message: false
 #| warning: false
 #| include: false
-
-
 
 # Parameters (keeps your values if already defined)
 if (!exists("crs_work")) crs_work <- 25831
@@ -1870,9 +2042,9 @@ knitr::kable(
 )
 ```
 
-- Additions concentrated in dense, central tracts (D3_C3, D3_C2, D2_C1 ≈ 46 %)
+- Additions concentrated in dense–central tracts (D1_C2, D1_C3, D3_C2 ≈ 52 %)
 
-- Removals more scattered, mostly intermediate-density tracts
+- Removals concentrated in intermediate-density tracts (D2_C2, D2_C3, D2_C1)
 
 ```{r}
 #| label: 23-strata-table
@@ -2004,11 +2176,11 @@ knitr::kable(
 
 #### Validation results
 
-- 129 points across 9 strata 
+-   105 points across 9 strata
 
-- 34 ADD · 7 REMOVE · 88 NONCI
+-   43 ADD · 12 REMOVE · 50 NONCI
 
-- 84 usable (both years verifiable)
+-   101 usable (both years coded)
 
 ```{r}
 #| label: 24-pick-excel
@@ -2017,44 +2189,64 @@ knitr::kable(
 #| warning: false
 
 # EXACT file you uploaded
-FILE <- "outputs/barcelona_samples_2015_2023_filled.xlsx"
+FILE <- "outputs/barcelona_samples_2015_2023_filled_evt.xlsx"
 
-# helper: “yes” normalizer
-is_yes <- function(x){
+# helper: presence normaliser for finals (accepts 1/0 numeric or text; "NA"/blank -> NA)
+norm_presence_final <- function(x){
   x <- tolower(trimws(as.character(x)))
-  x %in% c("yes","y","true","1","sí","si","s\u00ed")
+  dplyr::case_when(
+    x %in% c("1") ~ 1L,
+    x %in% c("0") ~ 0L,
+    TRUE          ~ NA_integer_
+  )
 }
 
 # reader that:
-# - reads the exact sheet you ask for (ADD/REMOVE/NONCI)
-# - if verifiable_* columns are missing, defaults them to TRUE (so rows aren’t dropped)
+# - reads the exact sheet (ADD/REMOVE/NONCI), skipping the group header row
+# - prefers 'present_followup' & 'present_baseline'
+# - if verifiable_* missing, derive as non-missing finals
 # - if stratum missing, sets "All"
 safe_read_exact <- function(path, sheet_name){
-  df <- tryCatch(readxl::read_xlsx(path, sheet = sheet_name),
+  df <- tryCatch(readxl::read_xlsx(path, sheet = sheet_name, skip = 1, .name_repair = "minimal"),
                  error = function(e) tibble::tibble())
   if (!nrow(df)) {
     return(tibble::tibble(
-      present_2015    = character(),
-      present_2023    = character(),
+      present_2015    = integer(),
+      present_2023    = integer(),
       verifiable_2015 = logical(),
       verifiable_2023 = logical(),
       stratum         = character()
     ))
   }
   names(df) <- trimws(names(df))
+
+  # If finals exist, use them; otherwise fall back to old columns if present (safety)
+  has_finals <- all(c("present_followup","present_baseline") %in% names(df))
+  if (has_finals) {
+    df$present_2023 <- norm_presence_final(df$present_followup)
+    df$present_2015 <- norm_presence_final(df$present_baseline)
+  } else {
+    # fallback (very rare now)
+    for (nm in c("present_2023","present_2015")) if (!nm %in% names(df)) df[[nm]] <- NA_integer_
+    df$present_2023 <- norm_presence_final(df$present_2023)
+    df$present_2015 <- norm_presence_final(df$present_2015)
+  }
+
   if (!"stratum" %in% names(df))         df$stratum <- "All"
-  if (!"verifiable_2015" %in% names(df)) df$verifiable_2015 <- TRUE
-  if (!"verifiable_2023" %in% names(df)) df$verifiable_2023 <- TRUE
+  if (!"verifiable_2015" %in% names(df)) df$verifiable_2015 <- !is.na(df$present_2015)
+  if (!"verifiable_2023" %in% names(df)) df$verifiable_2023 <- !is.na(df$present_2023)
 
   dplyr::mutate(
     df,
-    present_2015    = tolower(trimws(as.character(.data$present_2015))),
-    present_2023    = tolower(trimws(as.character(.data$present_2023))),
-    verifiable_2015 = ifelse(is.na(.data$verifiable_2015), FALSE, is_yes(.data$verifiable_2015) | (.data$verifiable_2015 == TRUE)),
-    verifiable_2023 = ifelse(is.na(.data$verifiable_2023), FALSE, is_yes(.data$verifiable_2023) | (.data$verifiable_2023 == TRUE)),
-    stratum         = as.character(.data$stratum)
-  )
+    present_2015    = as.integer(.data$present_2015),
+    present_2023    = as.integer(.data$present_2023),
+    verifiable_2015 = .data$verifiable_2015 == TRUE,
+    verifiable_2023 = .data$verifiable_2023 == TRUE,
+    stratum         = as.character(dplyr::coalesce(.data$stratum, "All"))
+  ) %>%
+    dplyr::select(dplyr::any_of(c("tract_id","present_2015","present_2023","verifiable_2015","verifiable_2023","stratum")))
 }
+
 ```
 
 ```{r}
@@ -2075,65 +2267,10 @@ if (!exists("FILE")) {
   FILE <- cand[which.max(file.info(cand)$mtime)]
 }
 
-# -------- 1) Helpers ---------------------------------------------------------
-is_yes <- function(x){
-  x <- tolower(str_trim(as.character(x)))
-  x %in% c("yes","y","true","1","sí","si","s\u00ed")
-}
-
-empty_sheet <- function(){
-  tibble(
-    tract_id        = character(),
-    present_2015    = character(),
-    present_2023    = character(),
-    verifiable_2015 = logical(),
-    verifiable_2023 = logical(),
-    stratum         = character()
-  )
-}
-
-safe_read_exact <- function(path, sheet_name){
-  df <- tryCatch(readxl::read_xlsx(path, sheet = sheet_name, .name_repair = "minimal"),
-                 error = function(e) tibble::tibble())
-  if (!nrow(df)) return(empty_sheet())
-
-  nm0 <- trimws(names(df))
-  bad_header <- length(nm0) == 0 ||
-                any(nm0 == "" | grepl("^\\.\\.\\.", nm0)) ||
-                grepl("Tolerance windows", nm0[1], fixed = TRUE)
-  if (bad_header) {
-    df <- tryCatch(readxl::read_xlsx(path, sheet = sheet_name, skip = 2, .name_repair = "minimal"),
-                   error = function(e) tibble::tibble())
-    if (!nrow(df)) return(empty_sheet())
-  }
-
-  names(df) <- trimws(names(df))
-
-  if (!"tract_id"        %in% names(df)) df$tract_id        <- NA_character_
-  if (!"present_2015"    %in% names(df)) df$present_2015    <- NA
-  if (!"present_2023"    %in% names(df)) df$present_2023    <- NA
-  if (!"stratum"         %in% names(df)) df$stratum         <- NA_character_
-  if (!"verifiable_2015" %in% names(df)) df$verifiable_2015 <- TRUE
-  if (!"verifiable_2023" %in% names(df)) df$verifiable_2023 <- TRUE
-
-  dplyr::mutate(
-    df,
-    tract_id        = as.character(tract_id),
-    present_2015    = tolower(stringr::str_trim(as.character(present_2015))),
-    present_2023    = tolower(stringr::str_trim(as.character(present_2023))),
-    verifiable_2015 = ifelse(is.na(verifiable_2015), FALSE,
-                             verifiable_2015 == TRUE | is_yes(verifiable_2015)),
-    verifiable_2023 = ifelse(is.na(verifiable_2023), FALSE,
-                             verifiable_2023 == TRUE | is_yes(verifiable_2023)),
-    stratum         = ifelse(stringr::str_trim(as.character(stratum)) == "", NA, as.character(stratum))
-  )
-}
-
-# -------- 2) Build a tract_id -> stratum lookup ------------------------------
+# -------- 1) Stratum lookup (unchanged) --------------------------------------
 get_stratum_lookup <- function(){
   tr <- if (exists("tracts_work")) tracts_work else if (exists("tracts")) tracts else NULL
   if (is.null(tr)) return(NULL)
-
   nm <- names(tr)
   id_col <- dplyr::case_when(
     "tract_id"    %in% nm ~ "tract_id",
@@ -2141,11 +2278,9 @@ get_stratum_lookup <- function(){
     "codi_seccio" %in% nm ~ "codi_seccio",
     TRUE ~ nm[1]
   )
-
   has_stratum <- "stratum" %in% nm
   dens_col <- if ("density_class"    %in% nm) "density_class" else if ("dens_class" %in% nm) "dens_class" else NA
   cent_col <- if ("centrality_class" %in% nm) "centrality_class" else if ("centr_class"%in% nm) "centr_class" else NA
-
   out <- tr %>% st_drop_geometry() %>% as_tibble()
   if (!has_stratum && !is.na(dens_col) && !is.na(cent_col)) {
     out <- out %>%
@@ -2156,7 +2291,6 @@ get_stratum_lookup <- function(){
       )
   }
   if (!("stratum" %in% names(out))) return(NULL)
-
   out %>%
     transmute(
       tract_id = as.character(.data[[id_col]]),
@@ -2164,7 +2298,6 @@ get_stratum_lookup <- function(){
     ) %>%
     distinct()
 }
-
 strata_lkp <- get_stratum_lookup()
 
 fill_stratum <- function(df){
@@ -2178,16 +2311,17 @@ fill_stratum <- function(df){
   }
 }
 
-# -------- 3) READ sheets (exact names) ---------------------------------------
+# -------- 2) READ sheets via the simplified reader from chunk 24 -------------
+# (reuses safe_read_exact defined in chunk 24)
 add_tbl   <- safe_read_exact(FILE, "ADD")     %>% fill_stratum()
 rem_tbl   <- safe_read_exact(FILE, "REMOVE")  %>% fill_stratum()
 nonci_tbl <- safe_read_exact(FILE, "NONCI")   %>% fill_stratum()
 
-# -------- 4) Universe of strata so zeros show up -----------------------------
+# -------- 3) Universe of strata so zeros show up -----------------------------
 all_strata <- sort(unique(c(add_tbl$stratum, rem_tbl$stratum, nonci_tbl$stratum)))
 if (!length(all_strata)) all_strata <- "All"
 
-# -------- 5) USABLE rows (verifiable both years) -----------------------------
+# -------- 4) USABLE rows (verifiable both years) -----------------------------
 usable_tbl <- bind_rows(
   mutate(add_tbl,   class = "ADD"),
   mutate(rem_tbl,   class = "REMOVE"),
@@ -2195,7 +2329,7 @@ usable_tbl <- bind_rows(
 ) %>%
   filter(verifiable_2015, verifiable_2023)
 
-# -------- 6) SUMMARY (stratum × class) ---------------------------------------
+# -------- 5) SUMMARY (stratum × class) ---------------------------------------
 summary_stratum_class <- usable_tbl %>%
   count(stratum, class, name = "n") %>%
   complete(
@@ -2225,7 +2359,7 @@ summary_stratum_class_full <- bind_rows(
 
 knitr::kable(
   summary_stratum_class_full,
-  caption = "Table 3: Validation points by class and stratum",
+  caption = "Table 3: Validation points by class and stratum  (usable points only)",
   align   = c("l","r","r","r","r"),
   digits  = 0
 )
@@ -2239,7 +2373,7 @@ knitr::kable(
 #| paged-print: false
 
 suppressPackageStartupMessages({
-  library(readxl); library(dplyr); library(tibble); library(stringr)
+  library(readxl); library(dplyr); library(tibble)
 })
 
 # Use existing FILE if set; otherwise pick newest
@@ -2250,74 +2384,69 @@ if (!exists("FILE")) {
   FILE <- xls[which.max(file.info(xls)$mtime)]
 }
 
-# ---------- helpers -----------------------------------------------------------
-is_yes <- function(x){
-  y <- tolower(str_trim(as.character(x)))
-  y %in% c("yes","y","true","1","sí","si","s\u00ed","present","presenta","presente")
+# --- small reader that uses finals directly ----------------------------------
+norm_presence_final <- function(x){
+  x <- tolower(trimws(as.character(x)))
+  dplyr::case_when(
+    x %in% c("1") ~ 1L,
+    x %in% c("0") ~ 0L,
+    TRUE          ~ NA_integer_
+  )
 }
-is_no <- function(x){
-  y <- tolower(str_trim(as.character(x)))
-  y %in% c("no","n","false","0","absent","absenta","ausente")
-}
-norm_yn <- function(x){
-  ifelse(is_yes(x), "yes",
-         ifelse(is_no(x), "no", NA_character_))
-}
-
-safe_read_exact <- function(path, sheet){
-  df <- tryCatch(read_xlsx(path, sheet = sheet, .name_repair = "minimal"),
+read_sheet_prefer_final <- function(path, sheet){
+  df <- tryCatch(readxl::read_xlsx(path, sheet = sheet, skip = 1, .name_repair = "minimal"),
                  error = function(e) tibble())
-  nm <- trimws(names(df))
-  if (!nrow(df) || any(nm == "" | grepl("^\\.\\.\\.", nm)) || grepl("Tolerance windows", nm[1], fixed = TRUE)) {
-    df <- read_xlsx(path, sheet = sheet, skip = 2, .name_repair = "minimal")
+  if (!nrow(df)) return(tibble(present_2015 = integer(), present_2023 = integer(), verifiable_2015 = logical(), verifiable_2023 = logical()))
+  nm <- names(df)
+  if (all(c("present_followup","present_baseline") %in% nm)) {
+    df$present_2023 <- norm_presence_final(df$present_followup)
+    df$present_2015 <- norm_presence_final(df$present_baseline)
+  } else {
+    for (k in c("present_2015","present_2023")) if (!k %in% nm) df[[k]] <- NA_integer_
+    df$present_2015 <- norm_presence_final(df$present_2015)
+    df$present_2023 <- norm_presence_final(df$present_2023)
   }
-  names(df) <- trimws(names(df))
-
-  need <- c("present_2015","present_2023")
-  for (mc in setdiff(need, names(df))) df[[mc]] <- NA_character_
-
-  if (!"verifiable_2015" %in% names(df)) df$verifiable_2015 <- "yes"
-  if (!"verifiable_2023" %in% names(df)) df$verifiable_2023 <- "yes"
-
+  if (!"verifiable_2015" %in% nm) df$verifiable_2015 <- !is.na(df$present_2015)
+  if (!"verifiable_2023" %in% nm) df$verifiable_2023 <- !is.na(df$present_2023)
   df %>%
-    mutate(
-      present_2015    = norm_yn(present_2015),
-      present_2023    = norm_yn(present_2023),
-      verifiable_2015 = is_yes(verifiable_2015),
-      verifiable_2023 = is_yes(verifiable_2023)
+    transmute(
+      present_2015    = as.integer(present_2015),
+      present_2023    = as.integer(present_2023),
+      verifiable_2015 = verifiable_2015 == TRUE,
+      verifiable_2023 = verifiable_2023 == TRUE
     )
 }
 
-# ---------- read EXACT sheets (no mapping) -----------------------------------
-add <- safe_read_exact(FILE, "ADD")
-rem <- safe_read_exact(FILE, "REMOVE")
-gen <- safe_read_exact(FILE, "NONCI")   # NONCI provides FNs
+# ---------- read EXACT sheets -------------------------------------------------
+add <- read_sheet_prefer_final(FILE, "ADD")
+rem <- read_sheet_prefer_final(FILE, "REMOVE")
+gen <- read_sheet_prefer_final(FILE, "NONCI")   # NONCI provides FNs
 
-# ---------- Confusion rules (usable = verifiable both years) -----------------
+# ---------- Confusion rules (usable = verifiable both years + non-missing) ---
 add_v <- add %>%
   filter(verifiable_2015, verifiable_2023) %>%
   filter(!is.na(present_2015), !is.na(present_2023)) %>%
   mutate(
-    tp = (present_2015 == "no"  & present_2023 == "yes"),
-    fp = (present_2015 == "no"  & present_2023 == "no") |
-         (present_2015 == "yes" & present_2023 == "yes")
+    tp = (present_2015 == 0L & present_2023 == 1L),
+    fp = (present_2015 == 0L & present_2023 == 0L) |
+         (present_2015 == 1L & present_2023 == 1L)
   )
 
 rem_v <- rem %>%
   filter(verifiable_2015, verifiable_2023) %>%
   filter(!is.na(present_2015), !is.na(present_2023)) %>%
   mutate(
-    tp = (present_2015 == "yes" & present_2023 == "no"),
-    fp = (present_2015 == "no"  & present_2023 == "no") |
-         (present_2015 == "yes" & present_2023 == "yes")
+    tp = (present_2015 == 1L & present_2023 == 0L),
+    fp = (present_2015 == 0L & present_2023 == 0L) |
+         (present_2015 == 1L & present_2023 == 1L)
   )
 
 gen_v <- gen %>%
   filter(verifiable_2015, verifiable_2023) %>%
   filter(!is.na(present_2015), !is.na(present_2023)) %>%
   mutate(
-    fn_add = (present_2015 == "no"  & present_2023 == "yes"),
-    fn_rem = (present_2015 == "yes" & present_2023 == "no")
+    fn_add = (present_2015 == 0L & present_2023 == 1L),
+    fn_rem = (present_2015 == 1L & present_2023 == 0L)
   )
 
 # ---------- Counts ------------------------------------------------------------
@@ -2342,7 +2471,7 @@ metric <- function(tp, fp, fn){
 }
 p_ci <- function(x, n){
   if (is.na(x) || is.na(n) || n == 0) return(c(NA_real_, NA_real_))
-  round(suppressWarnings(prop.test(x, n, correct = FALSE)$conf.int), 3)
+  suppressWarnings(prop.test(x, n, correct = FALSE)$conf.int)
 }
 
 m_add <- metric(TP_add, FP_add, FN_add)
@@ -2357,6 +2486,8 @@ tot_prec_ci <- p_ci(TP_T,   TP_T   + FP_T)
 tot_rec_ci  <- p_ci(TP_T,   TP_T   + FN_T)
 
 # ---------- Output table ------------------------------------------------------
+fmt_ci <- function(est, ci) if (all(is.finite(ci))) sprintf("%.3f [%.3f–%.3f]", est, ci[1], ci[2]) else sprintf("%.3f [NA–NA]", est)
+
 t_class <- tibble(
   Class        = c("ADD","REMOVE","Pooled"),
   `n (usable)` = c(n_add_usable, n_rem_usable, n_tot_usable),
@@ -2365,15 +2496,15 @@ t_class <- tibble(
   FN           = c(FN_add, FN_rem, FN_T),
   Precision    = sprintf("%.3f", c(m_add$precision, m_rem$precision, m_tot$precision)),
   `Precision (95% CI)` = c(
-    sprintf("%.3f [%.3f–%.3f]", m_add$precision, add_prec_ci[1], add_prec_ci[2]),
-    sprintf("%.3f [%.3f–%.3f]", m_rem$precision, rem_prec_ci[1], rem_prec_ci[2]),
-    sprintf("%.3f [%.3f–%.3f]", m_tot$precision, tot_prec_ci[1], tot_prec_ci[2])
+    fmt_ci(m_add$precision, add_prec_ci),
+    fmt_ci(m_rem$precision, rem_prec_ci),
+    fmt_ci(m_tot$precision, tot_prec_ci)
   ),
   Recall       = sprintf("%.3f", c(m_add$recall, m_rem$recall, m_tot$recall)),
   `Recall (95% CI)` = c(
-    sprintf("%.3f [%.3f–%.3f]", m_add$recall, add_rec_ci[1], add_rec_ci[2]),
-    sprintf("%.3f [%.3f–%.3f]", m_rem$recall, rem_rec_ci[1], rem_rec_ci[2]),
-    sprintf("%.3f [%.3f–%.3f]", m_tot$recall, tot_rec_ci[1], tot_rec_ci[2])
+    fmt_ci(m_add$recall, add_rec_ci),
+    fmt_ci(m_rem$recall, rem_rec_ci),
+    fmt_ci(m_tot$recall, tot_rec_ci)
   ),
   F1           = sprintf("%.3f", c(m_add$f1, m_rem$f1, m_tot$f1))
 )
@@ -2384,32 +2515,29 @@ knitr::kable(
   align   = c("l","r","r","r","r","r","r","r","r","r"),
   digits  = 3
 )
+
 ```
 
 ## Interpretation and calibration
 
 #### Interpretation
 
-- OSM **captures most new bike lanes** but is less consistent in detecting removals.
+- OSM captures almost all **additions** (high recall ≈ 0.97), but with some false positives (precision ≈ 0.77).
+For **removals**, OSM detects few true cases and produces many false removals (precision ≈ 0.25), despite near-perfect recall on the few true removals observed.
 
-- Common issues: re-tagging (changes in OSM attributes without real alterations), small geometry edits, and *map churn* (frequent re-editing that creates apparent additions or removals)
+- Errors often arise from re-tagging, micro-geometry edits, or short-lived mapping churn that produces artificial additions or removals.
 
-- Overall → good proxy for additions, and a moderate/weak proxy for removals, slightly overestimates total growth
+- Overall, **OSM is a good proxy for additions** and a **weak proxy for removals**, and tends to **slightly overstate net growth**.
 
 #### Calibration potential
 
-- These validation metrics not only show how reliable OSM is, but also provide a way to **calibrate its estimates**.
+-   These validation metrics not only show how reliable OSM is, but also provide a way to **calibrate its estimates**.
 
-> Example: if precision = 0.77, multiply OSM-detected additions by 0.77 for truer estimate.
+> Example: if precision = 0.77, multiplying OSM-detected additions by 0.77 yields a closer estimate of true additions.
 
-- Stratified metrics allow **spatial calibration**, improving cross-city comparability
+-   Stratified metrics allow **spatially specific calibration**, improving cross-city comparability
 
-<!-- ## Next steps -->
+## Supplements
 
-<!-- - Extend comparison **2015 → 2023** (longer, richer trend) -->
-
-<!-- - Add **second researcher** for inter-rater reliability -->
-
-<!-- - Scale to **other ATRAPA cities** (Paris, Warsaw, Milan, …)? -->
-
-<!-- - Integrate **calibration factors** into future indicators? -->
+#### [S1: full GSV protocol](outputs/procedure-gsv-coding.docx) 
+#### [S2: Validation workbook (Excel)](outputs/barcelona_samples_2015_2023.xlsx)
