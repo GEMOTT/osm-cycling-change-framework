@@ -234,11 +234,8 @@ A segment is classified as **(CI)** if **any** of the following conditions hold:
 
 A segment is classified as **NONCI** if:
 
-- It **does not** meet the CI rule above, **and**  
-- `highway` ∈ `{primary, secondary, tertiary, unclassified, residential, primary_link, secondary_link, tertiary_link, living_street, pedestrian}`, **and**  
-- It is **not**:
-  - a shared path (`highway ∈ {path, footway, track}` with `bicycle ∈ {designated, yes}`), or  
-  - a local/shared bikeway (`cycleway* ∈ {shared, designated}` without one of the CI rules above).
+- It **does not** meet the CI rule above, **and** `highway` ∈ `{primary, secondary, tertiary, unclassified, residential, primary_link, secondary_link, tertiary_link, living_street, pedestrian}`  
+
 
 ##### 2. Calculate geometric differences
 
@@ -623,9 +620,6 @@ added <- added_eval
 #| warning: false
 #| include: false
 
-suppressPackageStartupMessages({ library(sf); library(dplyr) })
-
-# ---- options ---------------------------------------------------------------
 reuse_cached <- TRUE  # set FALSE to force rebuild
 
 # ---- prerequisites ----------------------------------------------------------
@@ -671,98 +665,78 @@ if (reuse_cached && file.exists(rds_nonci_1523) && file.exists(rds_nonciW_1523))
     x <- suppressWarnings(sf::st_cast(x, "LINESTRING"))
     x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE]
   }
-  get_chr <- function(x, nm) if (nm %in% names(x)) as.character(x[[nm]]) else rep(NA_character_, nrow(x))
 
-  # ---- 1) Base roads + exclude local/shared bikeways ------------------------
-  # Shared paths are excluded by design because base_roads does not include path/footway/track
+  # ---- 1) Base roads (same filter you used) ---------------------------------
   base_roads <- c(
     "primary","secondary","tertiary","unclassified",
     "residential","primary_link","secondary_link",
     "tertiary_link","living_street","pedestrian"
   )
 
+  # Build the base from 2023 snapshot in work CRS
   base23 <- l23 |>
     sf::st_transform(crs_work) |>
     dplyr::filter(.data$highway %in% base_roads) |>
     normalize_lines_safe()
 
-  # Exclude "local/shared bikeways": any cycleway* column in {shared, designated}
-  if (nrow(base23)) {
-    cyc_cols <- names(base23)[grepl("^cycleway", names(base23), ignore.case = TRUE)]
-    if (length(cyc_cols)) {
-      is_local_shared <- rep(FALSE, nrow(base23))
-      for (col in cyc_cols) {
-        v <- tolower(get_chr(base23, col))
-        is_local_shared <- is_local_shared | (!is.na(v) & v %in% c("shared","designated"))
-      }
-      base23 <- base23[!is_local_shared, , drop = FALSE]
-    }
-  }
+  stopifnot(inherits(base23,"sf"), nrow(base23) > 0)
 
-  stopifnot(inherits(base23,"sf"))
-  if (!nrow(base23)) {
-    warning("After excluding local/shared bikeways, base23 is empty.")
-    nonci1523     <- base23
-    general1523_n <- sf::st_transform(base23, 4326)
-    try(saveRDS(nonci1523,     rds_nonci_1523),  silent = TRUE)
-    try(saveRDS(general1523_n, rds_nonciW_1523), silent = TRUE)
-    message("Non-CI 2015&2023 built — rows: 0 | km: 0.0")
+  # ---- 2) Build or load CI buffers for each year ----------------------------
+  # 2023 buffer
+  if (file.exists(rds_buf23)) {
+    buf23 <- readRDS(rds_buf23)
+    if (sf::st_crs(buf23) != sf::st_crs(base23)) buf23 <- sf::st_transform(buf23, sf::st_crs(base23))
   } else {
+    ci23_geom <- sf::st_transform(cyc23_n, sf::st_crs(base23)) |> sf::st_geometry()
+    buf23 <- sf::st_buffer(sf::st_union(ci23_geom), tol_m) |> sf::st_make_valid()
 
-    # ---- 2) Build or load CI buffers for each year --------------------------
-    # 2023 buffer
-    if (file.exists(rds_buf23)) {
-      buf23 <- readRDS(rds_buf23)
-      if (sf::st_crs(buf23) != sf::st_crs(base23)) buf23 <- sf::st_transform(buf23, sf::st_crs(base23))
-    } else {
-      ci23_geom <- sf::st_transform(cyc23_n, sf::st_crs(base23)) |> sf::st_geometry()
-      buf23 <- sf::st_buffer(sf::st_union(ci23_geom), tol_m) |> sf::st_make_valid()
-      try(saveRDS(buf23, rds_buf23), silent = TRUE)
-    }
-
-    # 2015 buffer
-    if (file.exists(rds_buf15)) {
-      buf15 <- readRDS(rds_buf15)
-      if (sf::st_crs(buf15) != sf::st_crs(base23)) buf15 <- sf::st_transform(buf15, sf::st_crs(base23))
-    } else {
-      ci15_geom <- sf::st_transform(cyc15_n, sf::st_crs(base23)) |> sf::st_geometry()
-      buf15 <- sf::st_buffer(sf::st_union(ci15_geom), tol_m) |> sf::st_make_valid()
-      try(saveRDS(buf15, rds_buf15), silent = TRUE)
-    }
-
-    # Union of both buffers = any CI in 2015 or 2023
-    buf_any <- sf::st_make_valid(sf::st_union(buf15, buf23))
-
-    # ---- 3) Remove streets that overlap ANY CI in 2015 or 2023 --------------
-    touch_any <- lengths(sf::st_intersects(base23, buf_any, sparse = TRUE)) > 0
-    keep_any  <- base23[!touch_any, , drop = FALSE]  # fully outside both buffers
-    cut_any   <- if (any(touch_any)) sf::st_difference(base23[touch_any, , drop = FALSE], buf_any) else base23[0,]
-    cut_any <- normalize_lines_safe(cut_any)
-
-    # Combine and drop tiny fragments if requested
-    nonci1523 <- dplyr::bind_rows(keep_any, cut_any)
-    if (nrow(nonci1523) && min_len > 0) {
-      nonci1523 <- nonci1523[as.numeric(sf::st_length(nonci1523)) >= min_len, , drop = FALSE]
-    }
-
-    # ---- 4) WGS84 for mapping ------------------------------------------------
-    general1523_n <- nonci1523 |>
-      sf::st_transform(4326) |>
-      sf::st_make_valid() |>
-      sf::st_simplify(dTolerance = 2)
-
-    # ---- 5) Save caches ------------------------------------------------------
-    try(saveRDS(nonci1523,     rds_nonci_1523),  silent = TRUE)
-    try(saveRDS(general1523_n, rds_nonciW_1523), silent = TRUE)
-
-    # ---- 6) Log --------------------------------------------------------------
-    message(
-      "Non-CI 2015&2023 built — rows: ", nrow(nonci1523),
-      " | km: ", round(sum(as.numeric(sf::st_length(nonci1523)))/1000, 1)
-    )
+    try(saveRDS(buf23, rds_buf23), silent = TRUE)
   }
+
+  # 2015 buffer
+  if (file.exists(rds_buf15)) {
+    buf15 <- readRDS(rds_buf15)
+    if (sf::st_crs(buf15) != sf::st_crs(base23)) buf15 <- sf::st_transform(buf15, sf::st_crs(base23))
+  } else {
+    ci15_geom <- sf::st_transform(cyc15_n, sf::st_crs(base23)) |> sf::st_geometry()
+    buf15 <- sf::st_buffer(sf::st_union(ci15_geom), tol_m) |> sf::st_make_valid()
+    try(saveRDS(buf15, rds_buf15), silent = TRUE)
+  }
+
+  # Union of both buffers = any CI in 2015 or 2023
+  buf_any <- sf::st_make_valid(sf::st_union(buf15, buf23))
+
+  # ---- 3) Remove streets that overlap ANY CI in 2015 or 2023 ----------------
+  touch_any <- lengths(sf::st_intersects(base23, buf_any, sparse = TRUE)) > 0
+  keep_any  <- base23[!touch_any, , drop = FALSE]  # fully outside both buffers
+  cut_any   <- if (any(touch_any)) sf::st_difference(base23[touch_any, , drop = FALSE], buf_any) else base23[0,]
+
+  cut_any <- normalize_lines_safe(cut_any)
+
+  # Combine and drop tiny fragments if requested
+  nonci1523 <- dplyr::bind_rows(keep_any, cut_any)
+  if (nrow(nonci1523) && min_len > 0) {
+    nonci1523 <- nonci1523[as.numeric(sf::st_length(nonci1523)) >= min_len, , drop = FALSE]
+  }
+
+  # ---- 4) WGS84 for mapping -------------------------------------------------
+  general1523_n <- nonci1523 |>
+    sf::st_transform(4326) |>
+    sf::st_make_valid() |>
+    sf::st_simplify(dTolerance = 2)
+
+  # ---- 5) Save caches -------------------------------------------------------
+  try(saveRDS(nonci1523,     rds_nonci_1523),  silent = TRUE)
+  try(saveRDS(general1523_n, rds_nonciW_1523), silent = TRUE)
+
+  # ---- 6) Log ---------------------------------------------------------------
+  message(
+    "Non-CI 2015&2023 built — rows: ", nrow(nonci1523),
+    " | km: ", round(sum(as.numeric(sf::st_length(nonci1523)))/1000, 1)
+  )
 }
 ```
+
 
 ##### 3. Design sampling
 
@@ -1907,21 +1881,21 @@ knitr::include_graphics("figs/validation_points_boundary.png")
 
 ##### 4. Inspect & classify (GSV)
 
--   We inspected two periods for each point: a **follow-up (\~2023)** and a **baseline (\~2015)**.
+-   Each sampled segment was inspected in two periods: a **follow-up (≈2023)** and a **baseline (≈2015)**.  
 
--   For each period we first opened the **anchor year** (2023 / 2015).
+-   For each period, we first opened the **anchor year** (2023 or 2015).  
 
--   If the anchor year could not be coded, we **moved the peg within that same year**.
+-   If the anchor year image **could not be coded** (e.g. peg misplaced, view obstructed), we **adjusted the peg within that same year** to verify the segment from a nearby panorama.  
 
--   If the year remained not verifiable, we **moved to the next rescue year** in the predefined order
+-   If the segment remained **not verifiable**, we consulted the **next rescue years** in the predefined order:  
+    -   Follow-up: 2023 → 2024 → 2022  
+    -   Baseline: 2015 → 2014 → 2016  
 
-    -   Follow-up: 2023 → 2024 → 2022
+-   We **stopped as soon as one year** provided a clear presence (1) or absence (0). Information from different years was **not combined**.  
 
-    -   Baseline: 2015 → 2014 → 2016
+-   When an **unexpected discrepancy** with OSM was found, the **neighbour years** (e.g. 2022 or 2024 for follow-up; 2014 or 2016 for baseline) were also checked to ensure that the apparent disagreement was not due to **a time lag between the real change and the GSV image month/year**.  
 
--   We stopped as soon as one year gave a clear 1 or 0. We did not combine information across years.
-
--   If no year in the sequence could be coded, that period was NA.
+-   If no year in the sequence could be coded, the period was recorded as **NA**.  
 
 Codes: **1 = CI visible · 0 = clearly absent · NA = not verifiable**
 
@@ -1945,10 +1919,12 @@ Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel work
 ##### 5. Evaluate performance
 
 -   **Precision = TP / (TP + FP)**\
-    Percentage of correct detections among all OSM detections.
+    Percentage of OSM changes that were correct. 
+    (How many OSM-detected changes are real)
 
 -   **Recall = TP / (TP + FN)**\
-    Percentage of correct detections among all real changes (detected or missed).
+    Percentage of real changes detected by OS.
+    (How many real changes OSM detected)
 
 -   **F1 = 2 · Precision · Recall / (Precision + Recall)**\
     Balanced indicator combining both metrics.
@@ -1957,9 +1933,9 @@ Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel work
 
 #### Network change detected by OSM
 
--   OSM cycling network grew **165.3 → 264.1 km (+60%)**
+-   OSM cycling network grew **153.6 → 288.4 km (+88%)**
 
--   Segment differencing results: **134.5 km added, 33.7 km removed**
+-   Segment differencing results: **156.0 km added, 24.8 km removed**
 
 <!-- - Strong internal consistency between totals and changes -->
 
@@ -2233,9 +2209,9 @@ knitr::kable(
 )
 ```
 
--   Additions concentrated in dense–central tracts (D1_C2, D1_C3, D3_C2 ≈ 52 %)
+-   **Additions** were concentrated in **dense–central tracts** (D1_C2, D1_C3, D3_C2), which together accounted for **≈58%** of total added length.  
 
--   Removals concentrated in intermediate-density tracts (D2_C2, D2_C3, D2_C1)
+-   **Removals** were concentrated in **intermediate-density tracts** (D2_C1, D2_C3, D1_C2), representing **≈62%** of total removed length.  
 
 ```{r}
 #| label: 23-strata-table
@@ -2367,11 +2343,11 @@ knitr::kable(
 
 #### Validation results
 
--   105 points across 9 strata
+- 105 sampled points across 9 strata 
+(48 ADD · 8 REMOVE · 49 NONCI)
 
--   43 ADD · 12 REMOVE · 50 NONCI
-
--   101 usable (both years coded)
+- 97 usable validation points (both periods coded)  
+(44 ADD · 7 REMOVE · 46 NONCI)
 
 ```{r}
 #| label: 24-pick-excel
@@ -2380,7 +2356,7 @@ knitr::kable(
 #| warning: false
 
 # EXACT file you uploaded
-FILE <- "outputs/barcelona_samples_2015_2023_filled_evt.xlsx"
+FILE <- "outputs/barcelona_samples_2015_2023_filled_evt_20251103.xlsx"
 
 # helper: presence normaliser for finals (accepts 1/0 numeric or text; "NA"/blank -> NA)
 norm_presence_final <- function(x){
@@ -2525,12 +2501,12 @@ summary_stratum_class <- usable_tbl %>%
   count(stratum, class, name = "n") %>%
   complete(
     stratum = all_strata,
-    class   = c("REMOVE","ADD","NONCI"),
+    class   = c("ADD", "REMOVE", "NONCI"),
     fill    = list(n = 0L)
   ) %>%
   pivot_wider(names_from = class, values_from = n, values_fill = 0L)
 
-wanted_cols <- c("stratum","REMOVE","ADD","NONCI")
+wanted_cols <- c("stratum","ADD", "REMOVE","NONCI")
 for (cc in setdiff(wanted_cols, names(summary_stratum_class))) summary_stratum_class[[cc]] <- 0L
 
 summary_stratum_class <- summary_stratum_class %>%
@@ -2542,8 +2518,8 @@ summary_stratum_class_full <- bind_rows(
   summary_stratum_class,
   summarise(summary_stratum_class,
             stratum = "TOTAL",
-            REMOVE  = sum(REMOVE,  na.rm = TRUE),
             ADD     = sum(ADD,     na.rm = TRUE),
+            REMOVE  = sum(REMOVE,  na.rm = TRUE),
             NONCI   = sum(NONCI,   na.rm = TRUE),
             Total   = sum(Total,   na.rm = TRUE))
 )
@@ -2713,22 +2689,23 @@ knitr::kable(
 
 #### Interpretation
 
--   OSM captures almost all **additions** (high recall ≈ 0.97), but with some false positives (precision ≈ 0.77). For **removals**, OSM detects few true cases and produces many false removals (precision ≈ 0.25), despite near-perfect recall on the few true removals observed.
+- OSM captures nearly all true additions (**recall = 1.00**) but includes several false positives (**precision ≈ 0.77**).  
+For removals, OSM rarely identifies true cases (**precision ≈ 0.29**) and often flags false ones, although recall remains high for the few real removals present.  
 
--   Errors often arise from re-tagging, micro-geometry edits, or short-lived mapping churn that produces artificial additions or removals.
+- Most errors stem from **re-tagging, micro-geometry adjustments**, or **short-term mapping churn**, which can appear as artificial additions or removals between snapshots.  
 
--   Overall, **OSM is a good proxy for additions** and a **weak proxy for removals**, and tends to **slightly overstate net growth**.
+- Overall, **OSM is a reliable proxy for additions but a weak proxy for removals**, slightly **overstating net cycling-network growth**.  
 
 #### Calibration potential
 
--   These validation metrics not only show how reliable OSM is, but also provide a way to **calibrate its estimates**.
+- These metrics can be used to **calibrate OSM-derived estimates** of network change.  
 
-> Example: if precision = 0.77, multiplying OSM-detected additions by 0.77 yields a closer estimate of true additions.
+> For example, with **precision = 0.77**, multiplying OSM-detected additions by 0.77 yields a closer estimate of true additions.  
 
--   Stratified metrics allow **spatially specific calibration**, improving cross-city comparability
+- Stratified validation can further support **spatial calibration** and **cross-city comparability** in multi-city analyses.
 
 ## Supplements
 
-#### [S1: full GSV protocol](outputs/procedure-gsv-coding.docx)
+#### [S1: full GSV protocol](outputs/procedure_gsv_coding_20251103.docx)
 
-#### [S2: Validation workbook (Excel)](outputs/barcelona_samples_2015_2023.xlsx)
+#### [S2: Validation workbook (Excel)](outputs/barcelona_samples_2015_2023_20251103-1901.xlsx)
