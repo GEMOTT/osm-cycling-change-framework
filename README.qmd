@@ -212,30 +212,31 @@ knitr::include_graphics("figs/osm_gsv_flowchart.png")
 
 ##### 1. Extract OSM data
 
-- **Snapshots:** 2016-01-01 (≈2015) and 2024-01-01 (≈2023)
+-   **Snapshots:** 2016-01-01 (≈2015) and 2024-01-01 (≈2023)
 
-- **Cycling-Infrastructure (CI) network definition**
+-   **Cycling-Infrastructure (CI) network definition**
 
 A segment is classified as **(CI)** if **any** of the following conditions hold:
 
-1. `highway = cycleway`  
-2. Any of `cycleway`, `cycleway:left`, `cycleway:right`, or `cycleway:both` is in  
-   `{lane, track, opposite_lane, opposite_track, separate}`  
-3. `bicycle_road = yes`  
-4. `highway` ∈ `{service, unclassified}` **and**  
-   `bicycle` ∈ `{yes, designated}` **and**  
-   `motor_vehicle = no`
+1.  `highway = cycleway`\
+2.  Any of `cycleway`, `cycleway:left`, `cycleway:right`, or `cycleway:both` is in\
+    `{lane, track, opposite_lane, opposite_track, separate}`\
+3.  `bicycle_road = yes`\
+4.  `highway` ∈ `{service, unclassified}` **and**\
+    `bicycle` ∈ `{yes, designated}` **and**\
+    `motor_vehicle = no`
 
 <!-- **Explicit exclusions:** -->
+
 <!-- - Shared paths (`highway ∈ {path, footway, track}` with `bicycle ∈ {designated, yes}`) -->
+
 <!-- - Local/shared bikeways (`cycleway* ∈ {shared, designated}` without one of the CI rules above) -->
 
-- **General (NONCI) network definition**
+-   **General (NONCI) network definition**
 
 A segment is classified as **NONCI** if:
 
-- It **does not** meet the CI rule above, **and** `highway` ∈ `{primary, secondary, tertiary, unclassified, residential, primary_link, secondary_link, tertiary_link, living_street, pedestrian}`  
-
+-   It **does not** meet the CI rule above, **and** `highway` ∈ `{primary, secondary, tertiary, unclassified, residential, primary_link, secondary_link, tertiary_link, living_street, pedestrian}`
 
 ##### 2. Calculate geometric differences
 
@@ -736,7 +737,6 @@ if (reuse_cached && file.exists(rds_nonci_1523) && file.exists(rds_nonciW_1523))
   )
 }
 ```
-
 
 ##### 3. Design sampling
 
@@ -1881,21 +1881,22 @@ knitr::include_graphics("figs/validation_points_boundary.png")
 
 ##### 4. Inspect & classify (GSV)
 
--   Each sampled segment was inspected in two periods: a **follow-up (≈2023)** and a **baseline (≈2015)**.  
+-   Each sampled segment was inspected in two periods: a **follow-up (≈2023)** and a **baseline (≈2015)**.
 
--   For each period, we first opened the **anchor year** (2023 or 2015).  
+-   For each period, we first opened the **anchor year** (2023 or 2015).
 
--   If the anchor year image **could not be coded** (e.g. peg misplaced, view obstructed), we **adjusted the peg within that same year** to verify the segment from a nearby panorama.  
+-   If the anchor year image **could not be coded** (e.g. peg misplaced, view obstructed), we **adjusted the peg within that same year** to verify the segment from a nearby panorama.
 
--   If the segment remained **not verifiable**, we consulted the **next rescue years** in the predefined order:  
-    -   Follow-up: 2023 → 2024 → 2022  
-    -   Baseline: 2015 → 2014 → 2016  
+-   If the segment remained **not verifiable**, we consulted the **next rescue years** in the predefined order:
 
--   We **stopped as soon as one year** provided a clear presence (1) or absence (0). Information from different years was **not combined**.  
+    -   Follow-up: 2023 → 2024 → 2022\
+    -   Baseline: 2015 → 2014 → 2016
 
--   When an **unexpected discrepancy** with OSM was found, the **neighbour years** (e.g. 2022 or 2024 for follow-up; 2014 or 2016 for baseline) were also checked to ensure that the apparent disagreement was not due to **a time lag between the real change and the GSV image month/year**.  
+-   We **stopped as soon as one year** provided a clear presence (1) or absence (0). Information from different years was **not combined**.
 
--   If no year in the sequence could be coded, the period was recorded as **NA**.  
+-   When an **unexpected discrepancy** with OSM was found, the **neighbour years** (e.g. 2022 or 2024 for follow-up; 2014 or 2016 for baseline) were also checked to ensure that the apparent disagreement was not due to **a time lag between the real change and the GSV image month/year**.
+
+-   If no year in the sequence could be coded, the period was recorded as **NA**.
 
 Codes: **1 = CI visible · 0 = clearly absent · NA = not verifiable**
 
@@ -1919,12 +1920,10 @@ Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel work
 ##### 5. Evaluate performance
 
 -   **Precision = TP / (TP + FP)**\
-    Percentage of OSM changes that were correct. 
-    (How many OSM-detected changes are real)
+    Percentage of OSM changes that were correct. (How many OSM-detected changes are real)
 
 -   **Recall = TP / (TP + FN)**\
-    Percentage of real changes detected by OS.
-    (How many real changes OSM detected)
+    Percentage of real changes detected by OS. (How many real changes OSM detected)
 
 -   **F1 = 2 · Precision · Recall / (Precision + Recall)**\
     Balanced indicator combining both metrics.
@@ -2209,9 +2208,9 @@ knitr::kable(
 )
 ```
 
--   **Additions** were concentrated in **dense–central tracts** (D1_C2, D1_C3, D3_C2), which together accounted for **≈58%** of total added length.  
+-   **Additions** were concentrated in **dense–central tracts** (D1_C2, D1_C3, D3_C2), which together accounted for **≈58%** of total added length.
 
--   **Removals** were concentrated in **intermediate-density tracts** (D2_C1, D2_C3, D1_C2), representing **≈62%** of total removed length.  
+-   **Removals** were concentrated in **intermediate-density tracts** (D2_C1, D2_C3, D1_C2), representing **≈62%** of total removed length.
 
 ```{r}
 #| label: 23-strata-table
@@ -2343,11 +2342,10 @@ knitr::kable(
 
 #### Validation results
 
-- 105 sampled points across 9 strata 
-(48 ADD · 8 REMOVE · 49 NONCI)
+-   105 sampled points across 9 strata (48 ADD · 8 REMOVE · 49 NONCI)
 
-- 97 usable validation points (both periods coded)  
-(44 ADD · 7 REMOVE · 46 NONCI)
+-   97 usable validation points (both periods coded)\
+    (44 ADD · 7 REMOVE · 46 NONCI)
 
 ```{r}
 #| label: 24-pick-excel
@@ -2689,20 +2687,20 @@ knitr::kable(
 
 #### Interpretation
 
-- OSM captures nearly all true additions (**recall = 1.00**) but includes several false positives (**precision ≈ 0.77**).  
-For removals, OSM rarely identifies true cases (**precision ≈ 0.29**) and often flags false ones, although recall remains high for the few real removals present.  
+-   OSM captures nearly all true additions (**recall = 1.00**) but includes several false positives (**precision ≈ 0.77**).\
+    For removals, OSM rarely identifies true cases (**precision ≈ 0.29**) and often flags false ones, although recall remains high for the few real removals present.
 
-- Most errors stem from **re-tagging, micro-geometry adjustments**, or **short-term mapping churn**, which can appear as artificial additions or removals between snapshots.  
+-   Most errors stem from **re-tagging, micro-geometry adjustments**, or **short-term mapping churn**, which can appear as artificial additions or removals between snapshots.
 
-- Overall, **OSM is a reliable proxy for additions but a weak proxy for removals**, slightly **overstating net cycling-network growth**.  
+-   Overall, **OSM is a reliable proxy for additions but a weak proxy for removals**, slightly **overstating net cycling-network growth**.
 
 #### Calibration potential
 
-- These metrics can be used to **calibrate OSM-derived estimates** of network change.  
+-   These metrics can be used to **calibrate OSM-derived estimates** of network change.
 
-> For example, with **precision = 0.77**, multiplying OSM-detected additions by 0.77 yields a closer estimate of true additions.  
+> For example, with **precision = 0.77**, multiplying OSM-detected additions by 0.77 yields a closer estimate of true additions.
 
-- Stratified validation can further support **spatial calibration** and **cross-city comparability** in multi-city analyses.
+-   Stratified validation can further support **spatial calibration** and **cross-city comparability** in multi-city analyses.
 
 ## Supplements
 
