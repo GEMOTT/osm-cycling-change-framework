@@ -47,11 +47,11 @@ format:
 
 ## 1. Introduction and motivation
 
-European cities have expanded their cycling networks dramatically over the last decade in pursuit of cleaner, healthier, and more equitable mobility. Yet, despite growing policy interest, few longitudinal datasets allow researchers to measure *where* and *how fast* cycling infrastructure has changed. Official inventories tend to be inconsistent over time, and local audits are expensive and difficult to replicate elsewhere.
+In many cities worldwide, cycling networks have expanded over the past decade in pursuit of cleaner, healthier, and more equitable mobility. Yet, despite growing policy interest, few longitudinal datasets allow researchers to measure where and to what extent cycling infrastructure has changed. Official inventories are often inconsistent over time, and local audits are expensive and difficult to replicate elsewhere.
 
-OpenStreetMap (OSM) provides a potentially transformative source of longitudinal data. Because all edits are timestamped, OSM can, in theory, be used to reconstruct how infrastructure evolves. The challenge is that not all mapping edits reflect physical changes: contributors frequently modify tags or geometries, sometimes producing apparent differences between time-slices that have no counterpart in reality. Understanding and quantifying these discrepancies is essential before using OSM to monitor built-environment transformations.
+OpenStreetMap (OSM) offers a promising alternative. As a global, crowd-sourced spatial database in which every edit is timestamped, OSM provides the raw material to reconstruct historical changes in urban infrastructure. However, not all mapping edits correspond to physical change: contributors frequently adjust tags or geometries, sometimes producing apparent differences between time slices that have no counterpart in reality. Understanding and quantifying these discrepancies is essential before OSM can be used to monitor built-environment transformations [@ferster_using_2020].
 
-This study examines how accurately OSM detects cycling-infrastructure change in Barcelona between 2015 and 2023, using **Google Street View (GSV)** as a reference for ground truth. It is part of the **ATRAPA project (Active Travel Transformations & Acceptability)**, which seeks to develop comparable datasets of urban change across European cities. Specifically, the paper investigates whether OSM reliably identifies added or removed cycle lanes, explores common sources of disagreement, and proposes a calibration framework that can adjust OSM-based estimates to real-world conditions.
+This study evaluates the reliability of OSM for detecting cycling-infrastructure change in Barcelona between 2015 and 2023, using Google Street View (GSV) imagery as ground truth. It investigates whether OSM reliably identifies added or removed cycle lanes, explores common sources of disagreement, and proposes a calibration framework that adjusts OSM-based estimates to real-world conditions. The work forms part of the ATRAPA project on Active Travel Transformations and Acceptability, which develops comparative analyses of sustainable-mobility interventions across European cities [@gemott_research_group_atrapa_2025].
 
 ## 2. Data and methods
 
@@ -119,10 +119,9 @@ The study contributes a transparent validation framework that integrates OSM his
 
 ## Acknowledgements
 
-This research forms part of the **ATRAPA project (Active Travel Transformations and Acceptability)**, funded by the Spanish Ministry of Science and Innovation (PID2023-xxxx). The authors gratefully acknowledge **Víctor Gonzàlez Parra** for his assistance as second coder during the GSV validation and thank the GEMOTT group and the OpenStreetMap community for their essential contributions.
+This research forms part of the ATRAPA project (Active Travel Transformations and Acceptability), which has received funding from the European Union (ERC, Horizon Europe, grant agreement No. 101117700) and from the Spanish Ministry of Science, Innovation and Universities (Ministerio de Ciencia, Innovación y Universidades, grant PID2022-136314OB-I00). 
+
+The authors gratefully acknowledge Víctor González Parra for his collaboration as second coder during the Google Street View validation, and thank the GEMOTT Research Group and the OpenStreetMap community for their invaluable contributions to open and reproducible research.
 
 ## References
 
-Barrington-Leigh, C., Millard-Ball, A., & Magistro, P. (2023). Quantifying global street transformations using OpenStreetMap historical data. *Nature Cities*, 1, 45–56.  
-Ferster, C. J., Fischer, J., Manaugh, K., Nelson, T. A., & Winters, M. (2019). Using OpenStreetMap to inventory bicycle infrastructure: a comparison with open data from cities. *International Journal of Sustainable Transportation*, 13(10), 788–797.  
-Goodchild, M. F., & Li, L. (2012). Assuring the quality of volunteered geographic information. *Spatial Statistics*, 1, 110–120.
