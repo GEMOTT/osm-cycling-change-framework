@@ -147,38 +147,43 @@ digraph {
         penwidth=1.2, fillcolor=\"#f7f9fc\", margin=0.06]
   edge [color=\"#6b7280\", arrowsize=0.8]
 
-  A [width=6, label=<
+  A [width=5, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
       <TR><TD><B>1) Extract OSM data</B></TD></TR>
-      <TR><TD>Download &amp; preprocess snapshots:<BR/>2015 → 2016-01-01 · 2023 → 2024-01-01</TD></TR>
+      <TR><TD>Download &amp; preprocess:<BR/>
+   2015 (snapshot 2016-01-01)<BR/>
+   2023 (snapshot 2024-01-01)</TD></TR>
     </TABLE>
   >]
 
-  B [width=6, label=<
+  B [width=5, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
-      <TR><TD><B>2) Calculate geometric differences</B></TD></TR>
-      <TR><TD>Detect <I>ADD</I>/<I>REMOVE </I> between 2015 → 2023</TD></TR>
+      <TR><TD><B>2) Geometric differencing</B></TD></TR>
+      <TR><TD>Detect <I>ADD</I>/<I>REMOVE</I><BR/>
+  between 2015 → 2023</TD></TR>
     </TABLE>
   >]
 
-  C [width=6.5, label=<
+  C [width=6, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
       <TR><TD><B>3) Design sampling</B></TD></TR>
-      <TR><TD>Stratify by density × centrality (3×3); length-weighted points</TD></TR>
+      <TR><TD>Stratify by density × centrality (3×3);<BR/>
+  length-weighted points within strata</TD></TR>
     </TABLE>
   >]
 
-  D [width=6.8, label=<
+  D [width=7, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
-      <TR><TD><B>4) Inspect &amp; classify (GSV)</B></TD></TR>
-      <TR><TD>Windows: 2014–2016 · 2022–2024<BR/>Assign present/absent, verifiable → TP/FP/FN</TD></TR>
+      <TR><TD><B>4) GSV validation (inspect &amp; classify)</B></TD></TR>
+      <TR><TD>Anchor years: 2015 &amp; 2023 (±1 year)<BR/>
+  Code present/absent → TP/FP/FN</TD></TR>
     </TABLE>
   >]
 
-  E [width=4.6, label=<
+  E [width=5, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
       <TR><TD><B>5) Evaluate performance</B></TD></TR>
-      <TR><TD>Precision, Recall, F1<BR/></TD></TR>
+      <TR><TD>Compute Precision, Recall, F1</TD></TR>
     </TABLE>
   >]
 
@@ -190,7 +195,8 @@ dot
 
 svg_txt <- export_svg(dot)
 rsvg_svg(charToRaw(svg_txt), file = "figs/osm_gsv_flowchart.svg")
-rsvg_png(charToRaw(svg_txt), file = "figs/osm_gsv_flowchart.png", width = 1800, height = 1000)
+rsvg_png(charToRaw(svg_txt), file = "figs/osm_gsv_flowchart.png",
+         width = 1800, height = 1000)
 ```
 
 ```{r}
@@ -198,7 +204,7 @@ rsvg_png(charToRaw(svg_txt), file = "figs/osm_gsv_flowchart.png", width = 1800, 
 #| fig-align: right
 #| out-width: 100%
 #| echo: false
-knitr::include_graphics("figs/osm_gsv_flowchart.png")
+knitr::include_graphics("figs/osm_gsv_flowchart-5-steps.png")
 ```
 
 <figure style="text-align:center">
@@ -2410,9 +2416,8 @@ knitr::kable(
 #| warning: false
 
 # EXACT file you uploaded
-FILE <- "outputs/barcelona_samples_2015_2023_filled_evt_20251103.xlsx"
-
-# helper: presence normaliser for finals (accepts 1/0 numeric or text; "NA"/blank -> NA)
+FILE <- "outputs/barcelona_samples_2015_2023_joined_results_20251103.xlsx"
+# helper: kept in case you need presence later
 norm_presence_final <- function(x){
   x <- tolower(trimws(as.character(x)))
   dplyr::case_when(
@@ -2422,53 +2427,78 @@ norm_presence_final <- function(x){
   )
 }
 
-# reader that:
-# - reads the exact sheet (ADD/REMOVE/NONCI), skipping the group header row
-# - prefers 'present_followup' & 'present_baseline'
-# - if verifiable_* missing, derive as non-missing finals
-# - if stratum missing, sets "All"
 safe_read_exact <- function(path, sheet_name){
-  df <- tryCatch(readxl::read_xlsx(path, sheet = sheet_name, skip = 1, .name_repair = "minimal"),
-                 error = function(e) tibble::tibble())
+  df <- tryCatch(
+    readxl::read_xlsx(
+      path,
+      sheet = sheet_name,
+      skip  = 1,               # skip the group header row
+      .name_repair = "minimal"
+    ),
+    error = function(e) tibble::tibble()
+  )
+
+  # Empty sheet case
   if (!nrow(df)) {
     return(tibble::tibble(
-      present_2015    = integer(),
-      present_2023    = integer(),
-      verifiable_2015 = logical(),
-      verifiable_2023 = logical(),
-      stratum         = character()
+      tract_id      = character(),
+      stratum       = character(),
+      joined_result = NA,
+      usable        = logical()
     ))
   }
-  names(df) <- trimws(names(df))
 
-  # If finals exist, use them; otherwise fall back to old columns if present (safety)
-  has_finals <- all(c("present_followup","present_baseline") %in% names(df))
-  if (has_finals) {
-    df$present_2023 <- norm_presence_final(df$present_followup)
-    df$present_2015 <- norm_presence_final(df$present_baseline)
-  } else {
-    # fallback (very rare now)
-    for (nm in c("present_2023","present_2015")) if (!nm %in% names(df)) df[[nm]] <- NA_integer_
-    df$present_2023 <- norm_presence_final(df$present_2023)
-    df$present_2015 <- norm_presence_final(df$present_2015)
+  # 1) Clean names and fix blanks
+  nm <- trimws(names(df))
+  bad <- which(is.na(nm) | nm == "")
+  if (length(bad)) {
+    nm[bad] <- paste0("X", bad)
+  }
+  names(df) <- nm
+
+  # 2) Drop duplicate names (keep first occurrence)
+  nm <- names(df)
+  dup <- duplicated(nm)
+  if (any(dup)) {
+    df <- df[, !dup, drop = FALSE]
+  }
+  nm <- names(df)
+
+  # 3) Drop summary rows if there is a tract_id column
+  if ("tract_id" %in% nm) {
+    df <- df %>% dplyr::filter(!is.na(tract_id))
   }
 
-  if (!"stratum" %in% names(df))         df$stratum <- "All"
-  if (!"verifiable_2015" %in% names(df)) df$verifiable_2015 <- !is.na(df$present_2015)
-  if (!"verifiable_2023" %in% names(df)) df$verifiable_2023 <- !is.na(df$present_2023)
+  # 4) Find the joined_result column
+  jr_name <- dplyr::case_when(
+    "joined_result"  %in% nm ~ "joined_result",
+    "joined_results" %in% nm ~ "joined_results",
+    TRUE ~ NA_character_
+  )
 
-  dplyr::mutate(
-    df,
-    present_2015    = as.integer(.data$present_2015),
-    present_2023    = as.integer(.data$present_2023),
-    verifiable_2015 = .data$verifiable_2015 == TRUE,
-    verifiable_2023 = .data$verifiable_2023 == TRUE,
-    stratum         = as.character(dplyr::coalesce(.data$stratum, "All"))
-  ) %>%
-    dplyr::select(dplyr::any_of(c("tract_id","present_2015","present_2023","verifiable_2015","verifiable_2023","stratum")))
+  if (is.na(jr_name)) {
+    df$joined_result <- NA
+  } else {
+    df$joined_result <- df[[jr_name]]
+  }
+
+  # ensure stratum exists (will be filled by fill_stratum if missing)
+  if (!"stratum" %in% names(df)) {
+    df$stratum <- NA_character_
+  }
+
+  df %>%
+    dplyr::mutate(
+      tract_id      = as.character(tract_id),
+      stratum       = as.character(stratum),
+      # do not touch joined_result, keep whatever is there (TRUE/FALSE/1/0/NA)
+      usable        = !is.na(joined_result)  # THIS is the key line
+    )
 }
 
 ```
+
+<mark>Code requires adjustment to scale. This table should show usable points only.</mark>.
 
 ```{r}
 #| label: 25-validation-stratum-summary
@@ -2532,23 +2562,23 @@ fill_stratum <- function(df){
   }
 }
 
-# -------- 2) READ sheets via the simplified reader from chunk 24 -------------
-# (reuses safe_read_exact defined in chunk 24)
-add_tbl   <- safe_read_exact(FILE, "ADD")     %>% fill_stratum()
-rem_tbl   <- safe_read_exact(FILE, "REMOVE")  %>% fill_stratum()
-nonci_tbl <- safe_read_exact(FILE, "NONCI")   %>% fill_stratum()
+# -------- 2) READ sheets via the new safe_read_exact -------------------------
+add_tbl   <- safe_read_exact(FILE, "ADD")    %>% fill_stratum() %>% mutate(class = "ADD")
+rem_tbl   <- safe_read_exact(FILE, "REMOVE") %>% fill_stratum() %>% mutate(class = "REMOVE")
+nonci_tbl <- safe_read_exact(FILE, "NONCI")  %>% fill_stratum() %>% mutate(class = "NONCI")
 
 # -------- 3) Universe of strata so zeros show up -----------------------------
 all_strata <- sort(unique(c(add_tbl$stratum, rem_tbl$stratum, nonci_tbl$stratum)))
 if (!length(all_strata)) all_strata <- "All"
 
-# -------- 4) USABLE rows (verifiable both years) -----------------------------
-usable_tbl <- bind_rows(
-  mutate(add_tbl,   class = "ADD"),
-  mutate(rem_tbl,   class = "REMOVE"),
-  mutate(nonci_tbl, class = "NONCI")
-) %>%
-  filter(verifiable_2015, verifiable_2023)
+# -------- 4) USABLE rows (joined_result not NA) ------------------------------
+usable_tbl <- bind_rows(add_tbl, rem_tbl, nonci_tbl) %>%
+  filter(
+    usable,              # defined in safe_read_exact as !is.na(joined_result)
+    !is.na(joined_result) # redundant but explicit
+  )
+
+
 
 # -------- 5) SUMMARY (stratum × class) ---------------------------------------
 summary_stratum_class <- usable_tbl %>%
@@ -2580,11 +2610,13 @@ summary_stratum_class_full <- bind_rows(
 
 knitr::kable(
   summary_stratum_class_full,
-  caption = "Table 3: Validation points by class and stratum  (usable points only)",
+  caption = "Table 3: Validation points by class and stratum (usable points only)",
   align   = c("l","r","r","r","r"),
   digits  = 0
 )
 ```
+
+<mark>Code requires adjustment to scale. Calculations should be based on followup and baseline to estimate ADD and REMOVE False Negatives.</mark>.
 
 ```{r}
 #| label: 26-validation-metrics
@@ -2597,99 +2629,98 @@ suppressPackageStartupMessages({
   library(readxl); library(dplyr); library(tibble)
 })
 
-# Use existing FILE if set; otherwise pick newest
-if (!exists("FILE")) {
-  pat  <- paste0("^", city_tag, "_samples_2015_2023_\\d{8}-\\d{4}\\.xlsx$")
-  xls  <- list.files("outputs", pattern = pat, full.names = TRUE)
-  stopifnot(length(xls) > 0)
-  FILE <- xls[which.max(file.info(xls)$mtime)]
-}
+# EXACT file you uploaded (fixed)
+FILE <- "outputs/barcelona_samples_2015_2023_joined_results_20251103.xlsx"
 
-# --- small reader that uses finals directly ----------------------------------
-norm_presence_final <- function(x){
-  x <- tolower(trimws(as.character(x)))
+# --- helper: normalise joined_result to TRUE / FALSE / NA --------------------
+norm_bool <- function(x){
+  y <- tolower(trimws(as.character(x)))
   dplyr::case_when(
-    x %in% c("1") ~ 1L,
-    x %in% c("0") ~ 0L,
-    TRUE          ~ NA_integer_
+    y %in% c("true", "1")  ~ TRUE,
+    y %in% c("false", "0") ~ FALSE,
+    TRUE                   ~ NA
   )
 }
-read_sheet_prefer_final <- function(path, sheet){
-  df <- tryCatch(readxl::read_xlsx(path, sheet = sheet, skip = 1, .name_repair = "minimal"),
-                 error = function(e) tibble())
-  if (!nrow(df)) return(tibble(present_2015 = integer(), present_2023 = integer(), verifiable_2015 = logical(), verifiable_2023 = logical()))
+
+# --- reader: get cleaned joined_result for a sheet ---------------------------
+read_joined_sheet <- function(path, sheet) {
+  df <- tryCatch(
+    readxl::read_xlsx(path, sheet = sheet, skip = 1, .name_repair = "minimal"),
+    error = function(e) tibble::tibble()
+  )
+  if (!nrow(df)) return(tibble::tibble(joined_result = logical()))
+
+  # 1) Clean names and fix blanks / duplicates
+  nm <- trimws(names(df))
+  bad <- which(is.na(nm) | nm == "")
+  if (length(bad)) nm[bad] <- paste0("X", bad)
+  names(df) <- nm
+
   nm <- names(df)
-  if (all(c("present_followup","present_baseline") %in% nm)) {
-    df$present_2023 <- norm_presence_final(df$present_followup)
-    df$present_2015 <- norm_presence_final(df$present_baseline)
-  } else {
-    for (k in c("present_2015","present_2023")) if (!k %in% nm) df[[k]] <- NA_integer_
-    df$present_2015 <- norm_presence_final(df$present_2015)
-    df$present_2023 <- norm_presence_final(df$present_2023)
+  dup <- duplicated(nm)
+  if (any(dup)) df <- df[, !dup, drop = FALSE]
+
+  # 2) Drop summary rows if there is a tract_id column
+  if ("tract_id" %in% names(df)) {
+    df <- df %>% dplyr::filter(!is.na(tract_id))
   }
-  if (!"verifiable_2015" %in% nm) df$verifiable_2015 <- !is.na(df$present_2015)
-  if (!"verifiable_2023" %in% nm) df$verifiable_2023 <- !is.na(df$present_2023)
+
+  # 3) Find the joined_result column
+  jr_name <- dplyr::case_when(
+    "joined_result"  %in% names(df) ~ "joined_result",
+    "joined_results" %in% names(df) ~ "joined_results",
+    TRUE ~ NA_character_
+  )
+  if (is.na(jr_name)) return(tibble::tibble(joined_result = logical()))
+
   df %>%
-    transmute(
-      present_2015    = as.integer(present_2015),
-      present_2023    = as.integer(present_2023),
-      verifiable_2015 = verifiable_2015 == TRUE,
-      verifiable_2023 = verifiable_2023 == TRUE
-    )
+    dplyr::transmute(
+      joined_result = norm_bool(.data[[jr_name]])
+    ) %>%
+    dplyr::filter(!is.na(joined_result))   # usable points only (no BANK / NA)
 }
 
-# ---------- read EXACT sheets -------------------------------------------------
-add <- read_sheet_prefer_final(FILE, "ADD")
-rem <- read_sheet_prefer_final(FILE, "REMOVE")
-gen <- read_sheet_prefer_final(FILE, "NONCI")   # NONCI provides FNs
+# ---------- read sheets (only joined_result) ---------------------------------
+add_j <- read_joined_sheet(FILE, "ADD")
+rem_j <- read_joined_sheet(FILE, "REMOVE")
+gen_j <- read_joined_sheet(FILE, "NONCI")   # for false negatives
 
-# ---------- Confusion rules (usable = verifiable both years + non-missing) ---
-add_v <- add %>%
-  filter(verifiable_2015, verifiable_2023) %>%
-  filter(!is.na(present_2015), !is.na(present_2023)) %>%
-  mutate(
-    tp = (present_2015 == 0L & present_2023 == 1L),
-    fp = (present_2015 == 0L & present_2023 == 0L) |
-         (present_2015 == 1L & present_2023 == 1L)
-  )
+# ---------- Map joined_result to TP / FP / FN --------------------------------
+# ADD (OSM says ADD)
+n_add_usable <- nrow(add_j)
+TP_add <- sum(add_j$joined_result == TRUE,  na.rm = TRUE)
+FP_add <- sum(add_j$joined_result == FALSE, na.rm = TRUE)
 
-rem_v <- rem %>%
-  filter(verifiable_2015, verifiable_2023) %>%
-  filter(!is.na(present_2015), !is.na(present_2023)) %>%
-  mutate(
-    tp = (present_2015 == 1L & present_2023 == 0L),
-    fp = (present_2015 == 0L & present_2023 == 0L) |
-         (present_2015 == 1L & present_2023 == 1L)
-  )
+# REMOVE (OSM says REMOVE)
+n_rem_usable <- nrow(rem_j)
+TP_rem <- sum(rem_j$joined_result == TRUE,  na.rm = TRUE)
+FP_rem <- sum(rem_j$joined_result == FALSE, na.rm = TRUE)
 
-gen_v <- gen %>%
-  filter(verifiable_2015, verifiable_2023) %>%
-  filter(!is.na(present_2015), !is.na(present_2023)) %>%
-  mutate(
-    fn_add = (present_2015 == 0L & present_2023 == 1L),
-    fn_rem = (present_2015 == 1L & present_2023 == 0L)
-  )
+# NONCI (OSM says NO CHANGE) -> false negatives (any missed change)
+FN_T <- 0L
 
-# ---------- Counts ------------------------------------------------------------
-n_add_usable <- nrow(add_v)
-n_rem_usable <- nrow(rem_v)
-
-TP_add <- sum(add_v$tp, na.rm = TRUE); FP_add <- sum(add_v$fp, na.rm = TRUE)
-FN_add <- sum(gen_v$fn_add, na.rm = TRUE)
-
-TP_rem <- sum(rem_v$tp, na.rm = TRUE); FP_rem <- sum(rem_v$fp, na.rm = TRUE)
-FN_rem <- sum(gen_v$fn_rem, na.rm = TRUE)
-
-TP_T <- TP_add + TP_rem; FP_T <- FP_add + FP_rem; FN_T <- FN_add + FN_rem
+# ---------- Totals -----------------------------------------------------------
+TP_T <- TP_add + TP_rem
+FP_T <- FP_add + FP_rem
 n_tot_usable <- n_add_usable + n_rem_usable
 
 # ---------- Metrics & CIs -----------------------------------------------------
+
+# Use the same FN pool (from NONCI) for both classes
+FN_add <- FN_T
+FN_rem <- FN_T
+
 metric <- function(tp, fp, fn){
   precision <- ifelse(tp + fp > 0, tp / (tp + fp), NA_real_)
   recall    <- ifelse(tp + fn > 0, tp / (tp + fn), NA_real_)
-  f1        <- ifelse((precision + recall) > 0, 2*precision*recall/(precision + recall), NA_real_)
+  f1        <- ifelse(
+    is.finite(precision + recall) & (precision + recall) > 0,
+    2 * precision * recall / (precision + recall),
+    NA_real_
+  )
   list(precision = precision, recall = recall, f1 = f1)
 }
+
 p_ci <- function(x, n){
   if (is.na(x) || is.na(n) || n == 0) return(c(NA_real_, NA_real_))
   suppressWarnings(prop.test(x, n, correct = FALSE)$conf.int)
@@ -2701,43 +2732,50 @@ m_tot <- metric(TP_T,   FP_T,   FN_T)
 
 add_prec_ci <- p_ci(TP_add, TP_add + FP_add)
 add_rec_ci  <- p_ci(TP_add, TP_add + FN_add)
+
 rem_prec_ci <- p_ci(TP_rem, TP_rem + FP_rem)
 rem_rec_ci  <- p_ci(TP_rem, TP_rem + FN_rem)
+
 tot_prec_ci <- p_ci(TP_T,   TP_T   + FP_T)
 tot_rec_ci  <- p_ci(TP_T,   TP_T   + FN_T)
 
-# ---------- Output table ------------------------------------------------------
-fmt_ci <- function(est, ci) if (all(is.finite(ci))) sprintf("%.3f [%.3f–%.3f]", est, ci[1], ci[2]) else sprintf("%.3f [NA–NA]", est)
+fmt_ci <- function(est, ci) {
+  if (is.finite(est) && all(is.finite(ci))) {
+    sprintf("%.3f [%.3f-%.3f]", est, ci[1], ci[2])
+  } else {
+    "NA [NA-NA]"
+  }
+}
 
+# ---------- Final table: ONE column for Precision, ONE for Recall ------------
 t_class <- tibble(
-  Class        = c("ADD","REMOVE","Pooled"),
-  `n (usable)` = c(n_add_usable, n_rem_usable, n_tot_usable),
-  TP           = c(TP_add, TP_rem, TP_T),
-  FP           = c(FP_add, FP_rem, FP_T),
-  FN           = c(FN_add, FN_rem, FN_T),
-  Precision    = sprintf("%.3f", c(m_add$precision, m_rem$precision, m_tot$precision)),
+  Class            = c("ADD","REMOVE","Pooled"),
+  `n (usable)`     = c(n_add_usable, n_rem_usable, n_tot_usable),
+  TP               = c(TP_add, TP_rem, TP_T),
+  FP               = c(FP_add, FP_rem, FP_T),
+  FN               = c(FN_add, FN_rem, FN_T),
   `Precision (95% CI)` = c(
     fmt_ci(m_add$precision, add_prec_ci),
     fmt_ci(m_rem$precision, rem_prec_ci),
     fmt_ci(m_tot$precision, tot_prec_ci)
   ),
-  Recall       = sprintf("%.3f", c(m_add$recall, m_rem$recall, m_tot$recall)),
   `Recall (95% CI)` = c(
     fmt_ci(m_add$recall, add_rec_ci),
     fmt_ci(m_rem$recall, rem_rec_ci),
     fmt_ci(m_tot$recall, tot_rec_ci)
   ),
-  F1           = sprintf("%.3f", c(m_add$f1, m_rem$f1, m_tot$f1))
+  F1 = sprintf("%.3f", c(m_add$f1, m_rem$f1, m_tot$f1))
 )
 
 knitr::kable(
   t_class,
   caption = "Table 4: Validation performance (usable points only)",
-  align   = c("l","r","r","r","r","r","r","r","r","r"),
+  align   = c("l","r","r","r","r","r","r","r"),
   digits  = 3
 )
-
 ```
+
+<mark>Needs to be updated.</mark>.
 
 ## Interpretation and calibration
 
