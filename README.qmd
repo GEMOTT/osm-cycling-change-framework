@@ -138,58 +138,92 @@ to_lines_work <- function(x, crs) {
 #| eval: false
 #| include: false
 
+library(DiagrammeR)
+
 dot <- grViz("
 digraph {
-  graph [rankdir=TB, splines=true, nodesep=0.5, ranksep=0.5]
-  node [shape=box, style=\"rounded,filled\",
-        fontsize=24, fontname=\"Helvetica, Arial\",
-        color=\"#2f3b52\", fontcolor=\"#1f2937\",
-        penwidth=1.2, fillcolor=\"#f7f9fc\", margin=0.06]
-  edge [color=\"#6b7280\", arrowsize=0.8]
+  graph [rankdir=TB, splines=true, nodesep=0.5, ranksep=0.6]
+  node  [shape=box, style=\"rounded,filled\",
+         fontsize=22, fontname=\"Helvetica, Arial\",
+         color=\"#2f3b52\", fontcolor=\"#1f2937\",
+         penwidth=1.2, fillcolor=\"#f7f9fc\", margin=0.06]
+  edge  [color=\"#6b7280\", arrowsize=0.8]
 
-  A [width=5, label=<
+  // Nodes -------------------------------------------------------------
+
+  A [width=6, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
-      <TR><TD><B>1) Extract OSM data</B></TD></TR>
-      <TR><TD>Download &amp; preprocess:<BR/>
-   2015 (snapshot 2016-01-01)<BR/>
-   2023 (snapshot 2024-01-01)</TD></TR>
+      <TR><TD><B>1) Build OSM cycling networks</B></TD></TR>
+      <TR><TD>Extract 2016-01-01 and 2024-01-01;<BR/>
+              classify cycling vs non-cycling segments</TD></TR>
     </TABLE>
   >]
 
-  B [width=5, label=<
+  B [width=6, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
-      <TR><TD><B>2) Geometric differencing</B></TD></TR>
-      <TR><TD>Detect <I>ADD</I>/<I>REMOVE</I><BR/>
-  between 2015 → 2023</TD></TR>
+      <TR><TD><B>2) Detect OSM network change</B></TD></TR>
+      <TR><TD>Geometric differencing 2015 to 2023;<BR/>
+              flag ADD and REMOVE;<BR/>
+              drop short segments and realignments</TD></TR>
     </TABLE>
   >]
 
   C [width=6, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
-      <TR><TD><B>3) Design sampling</B></TD></TR>
-      <TR><TD>Stratify by density × centrality (3×3);<BR/>
-  length-weighted points within strata</TD></TR>
+      <TR><TD><B>3) Design stratified GSV sample</B></TD></TR>
+      <TR><TD>Stratify tracts by density x centrality (3x3);<BR/>
+              sample 6 tracts per stratum;<BR/>
+              length weighted ADD / REMOVE / NONCI segments</TD></TR>
     </TABLE>
   >]
 
   D [width=7, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
-      <TR><TD><B>4) GSV validation (inspect &amp; classify)</B></TD></TR>
-      <TR><TD>Anchor years: 2015 &amp; 2023 (±1 year)<BR/>
-  Code present/absent → TP/FP/FN</TD></TR>
+      <TR><TD><B>4) Inspect and code GSV</B></TD></TR>
+      <TR><TD>Anchor years 2015 and 2023 (+/-1 year);<BR/>
+              code 1 / 0 / NA at sampled points;<BR/>
+              compare GSV patterns with OSM change</TD></TR>
     </TABLE>
   >]
 
   E [width=5, label=<
     <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"6\">
-      <TR><TD><B>5) Evaluate performance</B></TD></TR>
-      <TR><TD>Compute Precision, Recall, F1</TD></TR>
+      <TR><TD><B>5) Evaluate OSM performance</B></TD></TR>
+      <TR><TD>Derive TP / FP / FN;<BR/>
+              compute precision, recall, F1<BR/>
+              with 95 percent confidence intervals</TD></TR>
     </TABLE>
   >]
+
+  // Clusters: the two main components --------------------------------
+
+  subgraph cluster_osm {
+    label = \"OSM temporal differencing\";
+    labelloc = \"t\";
+    fontsize = 20;
+    fontname = \"Helvetica, Arial\";
+    style = \"rounded,dashed\";
+    color = \"#CBD5E1\";
+    A; B;
+  }
+
+  subgraph cluster_gsv {
+    label = \"Stratified GSV validation\";
+    labelloc = \"t\";
+    fontsize = 20;
+    fontname = \"Helvetica, Arial\";
+    style = \"rounded,dashed\";
+    color = \"#CBD5E1\";
+    C; D; E;
+  }
+
+  // Edges -------------------------------------------------------------
 
   A -> B -> C -> D -> E
 }
 ")
+
+
 
 dot
 
@@ -204,7 +238,7 @@ rsvg_png(charToRaw(svg_txt), file = "figs/osm_gsv_flowchart.png",
 #| fig-align: right
 #| out-width: 100%
 #| echo: false
-knitr::include_graphics("figs/osm_gsv_flowchart-5-steps.png")
+knitr::include_graphics("figs/osm_gsv_flowchart.png")
 ```
 
 <figure style="text-align:center">
@@ -2144,9 +2178,6 @@ m <- m %>%
 
 m
 
-dir.create("maps", showWarnings = FALSE)
-saveWidget(m, "maps/infra_change.html", selfcontained = TRUE)
-
 ```
 
 <figure style="text-align:center">
@@ -2159,13 +2190,172 @@ saveWidget(m, "maps/infra_change.html", selfcontained = TRUE)
 </figure>
 
 ```{r}
+#| label: 19b-infra-change-map-static
+#| eval: false
+#| message: false
+#| warning: false
+#| fig-align: center
+#| fig-cap: OSM-detected cycling-infrastructure changes in Barcelona, 2015–2023.
+#| include: false
+#| out-width: 100%
+
+suppressPackageStartupMessages({
+  library(sf)
+  library(ggplot2)
+})
+
+# ---- helpers -----------------------------------------------------------------
+as_wgs_lines <- function(x){
+  if (!inherits(x, "sf") || !nrow(x)) return(NULL)
+  x <- sf::st_make_valid(x)
+  keep <- sf::st_geometry_type(x) %in% c("LINESTRING","MULTILINESTRING")
+  x <- x[keep, , drop = FALSE]
+  if (!nrow(x)) return(NULL)
+  x <- suppressWarnings(sf::st_cast(x, "LINESTRING"))
+  x <- x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE]
+  sf::st_transform(x, 4326)
+}
+
+get_boundary_wgs <- function(){
+  b <- NULL
+  if (exists("city_perimeter") && inherits(city_perimeter, "sf") && nrow(city_perimeter)) {
+    b <- city_perimeter
+  } else if (exists("tracts") && inherits(tracts, "sf") && nrow(tracts)) {
+    b <- sf::st_union(tracts) |> sf::st_as_sf()
+  } else {
+    return(NULL)
+  }
+  b <- sf::st_make_valid(b)
+  b <- sf::st_cast(b, "MULTIPOLYGON", warn = FALSE)
+  b <- sf::st_cast(b, "POLYGON", warn = FALSE)
+  sf::st_transform(b, 4326)
+}
+
+# ---- colours -----------------------------------------------------------------
+col_outline <- "#111827"   # coast / perimeter
+col_land    <- "#FFFFFF"   # inside city
+
+col_2015    <- "#BDBDBD"   # grey
+col_added   <- "#009E73"   # green
+col_removed <- "#D55E00"   # orange
+
+alpha_2015    <- 0.8
+alpha_added   <- 1
+alpha_removed <- 1
+
+# ---- prep layers -------------------------------------------------------------
+bnd_wgs     <- get_boundary_wgs()
+cyc15_wgs   <- if (exists("cyc15_n")) as_wgs_lines(cyc15_n) else NULL
+added_wgs   <- if (exists("added"))   as_wgs_lines(added)   else NULL
+removed_wgs <- if (exists("removed")) as_wgs_lines(removed) else NULL
+
+# ---- bounds ------------------------------------------------------------------
+get_bbox <- function(obj){
+  if (!is.null(obj) && inherits(obj, "sf") && nrow(obj)) sf::st_bbox(obj) else NULL
+}
+
+bb <- if (!is.null(bnd_wgs) && nrow(bnd_wgs)) get_bbox(bnd_wgs) else NULL
+
+if (is.null(bb)) {
+  cands <- Filter(
+    Negate(is.null),
+    list(get_bbox(cyc15_wgs), get_bbox(added_wgs), get_bbox(removed_wgs))
+  )
+  if (length(cands)) {
+    mins <- do.call(pmin, lapply(cands, function(b) c(b["xmin"], b["ymin"])))
+    maxs <- do.call(pmax, lapply(cands, function(b) c(b["xmax"], b["ymax"])))
+    bb <- c(xmin = as.numeric(mins[1]), ymin = as.numeric(mins[2]),
+            xmax = as.numeric(maxs[1]), ymax = as.numeric(maxs[2]))
+  } else {
+    bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
+  }
+}
+
+# ---- build static map --------------------------------------------------------
+p_change <- ggplot() +
+  # Barcelona polygon (white over black background)
+  { if (!is.null(bnd_wgs) && nrow(bnd_wgs))
+      geom_sf(
+        data   = bnd_wgs,
+        fill   = col_land,
+        colour = col_outline,
+        linewidth = 0.3
+      )
+  } +
+  # 2015 CI
+  { if (!is.null(cyc15_wgs) && nrow(cyc15_wgs))
+      geom_sf(
+        data = cyc15_wgs,
+        aes(colour = "2015"),
+        alpha = alpha_2015,
+        linewidth = 0.2,
+        show.legend = TRUE
+      )
+  } +
+  # Removed segments (orange)
+  { if (!is.null(removed_wgs) && nrow(removed_wgs))
+      geom_sf(
+        data = removed_wgs,
+        aes(colour = "Removed (2015–2023)"),
+        alpha = alpha_removed,
+        linewidth = 0.4,
+        show.legend = TRUE
+      )
+  } +
+  # Added segments (green)
+  { if (!is.null(added_wgs) && nrow(added_wgs))
+      geom_sf(
+        data = added_wgs,
+        aes(colour = "Added (2015–2023)"),
+        alpha = alpha_added,
+        linewidth = 0.4,
+        show.legend = TRUE
+      )
+  } +
+  coord_sf(
+    xlim = c(bb["xmin"], bb["xmax"]),
+    ylim = c(bb["ymin"], bb["ymax"]),
+    expand = FALSE
+  ) +
+  scale_colour_manual(
+    name = NULL,
+    values = c(
+      "2015"               = col_2015,
+      "Added (2015–2023)"     = col_added,
+      "Removed (2015–2023)"   = col_removed
+    )
+  ) +
+  theme_void() +
+  theme(
+    legend.position   = "right",
+    legend.direction  = "vertical",
+    plot.background   = element_rect(fill = "NA", colour = NA),
+    panel.background  = element_rect(fill = "NA", colour = NA),
+    legend.background = element_rect(fill = "NA", colour = NA),
+    legend.text       = element_text(colour = "black"),
+    plot.margin       = margin(5, 5, 5, 5)
+  )
+
+p_change
+
+ggsave(
+  filename = "figs/infra_change_static.png",
+  plot = p_change,
+  width = 9,
+  height = 9,
+  dpi = 300,
+  bg = "transparent"
+)
+```
+
+```{r}
 #| label: 19-change-fig
 #| eval: false
 #| fig-align: center
 #| fig-cap: "Figure 4: Cycling-infrastructure changes detected in OpenStreetMap between 2015 and 2023 in Barcelona. Additions and removals are shown by type and spatial distribution."
 #| include: false
 
-knitr::include_graphics("figs/change_map.png")
+knitr::include_graphics("figs/change_map_static.png")
 ```
 
 ```{r}
@@ -2407,7 +2597,7 @@ knitr::kable(
 -   105 sampled points across 9 strata (48 ADD · 8 REMOVE · 49 NONCI)
 
 -   97 usable validation points (both periods coded)\
-    (44 ADD · 7 REMOVE · 46 NONCI)
+    (44 ADD · 7 REMOVE · 44 NONCI)
 
 ```{r}
 #| label: 24-pick-excel
@@ -2415,9 +2605,8 @@ knitr::kable(
 #| message: false
 #| warning: false
 
-# EXACT file you uploaded
 FILE <- "outputs/barcelona_samples_2015_2023_joined_results_20251103.xlsx"
-# helper: kept in case you need presence later
+
 norm_presence_final <- function(x){
   x <- tolower(trimws(as.character(x)))
   dplyr::case_when(
@@ -2428,6 +2617,7 @@ norm_presence_final <- function(x){
 }
 
 safe_read_exact <- function(path, sheet_name){
+
   df <- tryCatch(
     readxl::read_xlsx(
       path,
@@ -2488,17 +2678,18 @@ safe_read_exact <- function(path, sheet_name){
   }
 
   df %>%
-    dplyr::mutate(
-      tract_id      = as.character(tract_id),
-      stratum       = as.character(stratum),
-      # do not touch joined_result, keep whatever is there (TRUE/FALSE/1/0/NA)
-      usable        = !is.na(joined_result)  # THIS is the key line
-    )
+  dplyr::mutate(
+    tract_id = as.character(tract_id),
+    stratum  = as.character(stratum)
+  ) %>%
+  # *** CRUCIAL CHANGE: keep only rows with a non-NA joined_result ***
+  dplyr::filter(!is.na(joined_result)) %>%
+  dplyr::mutate(
+    usable = TRUE   # all remaining rows are usable by definition
+  )
+
 }
-
 ```
-
-<mark>Code requires adjustment to scale. This table should show usable points only.</mark>.
 
 ```{r}
 #| label: 25-validation-stratum-summary
@@ -2518,10 +2709,11 @@ if (!exists("FILE")) {
   FILE <- cand[which.max(file.info(cand)$mtime)]
 }
 
-# -------- 1) Stratum lookup (unchanged) --------------------------------------
+# -------- 1) Stratum lookup (same as before) ---------------------------------
 get_stratum_lookup <- function(){
   tr <- if (exists("tracts_work")) tracts_work else if (exists("tracts")) tracts else NULL
   if (is.null(tr)) return(NULL)
+
   nm <- names(tr)
   id_col <- dplyr::case_when(
     "tract_id"    %in% nm ~ "tract_id",
@@ -2529,10 +2721,13 @@ get_stratum_lookup <- function(){
     "codi_seccio" %in% nm ~ "codi_seccio",
     TRUE ~ nm[1]
   )
+
   has_stratum <- "stratum" %in% nm
   dens_col <- if ("density_class"    %in% nm) "density_class" else if ("dens_class" %in% nm) "dens_class" else NA
   cent_col <- if ("centrality_class" %in% nm) "centrality_class" else if ("centr_class"%in% nm) "centr_class" else NA
+
   out <- tr %>% st_drop_geometry() %>% as_tibble()
+
   if (!has_stratum && !is.na(dens_col) && !is.na(cent_col)) {
     out <- out %>%
       mutate(
@@ -2541,7 +2736,9 @@ get_stratum_lookup <- function(){
         stratum = paste0("D", density_class, "_C", centrality_class)
       )
   }
+
   if (!("stratum" %in% names(out))) return(NULL)
+
   out %>%
     transmute(
       tract_id = as.character(.data[[id_col]]),
@@ -2549,6 +2746,7 @@ get_stratum_lookup <- function(){
     ) %>%
     distinct()
 }
+
 strata_lkp <- get_stratum_lookup()
 
 fill_stratum <- function(df){
@@ -2562,25 +2760,72 @@ fill_stratum <- function(df){
   }
 }
 
-# -------- 2) READ sheets via the new safe_read_exact -------------------------
+# -------- 2) Helper to read ONE sheet ----------------------------------------
+read_sheet <- function(sheet_name, class_label){
+
+  df <- tryCatch(
+    readxl::read_xlsx(
+      FILE,
+      sheet = sheet_name,
+      skip  = 1,          # skip header row
+      .name_repair = "minimal"
+    ),
+    error = function(e) tibble::tibble()
+  )
+
+  if (!nrow(df)) {
+    return(tibble::tibble(
+      id            = numeric(),
+      tract_id      = character(),
+      stratum       = character(),
+      joined_result = NA,
+      class         = character()
+    ))
+  }
+
+  # 1) fix blank / NA column names
+  nm <- trimws(names(df))
+  bad <- which(is.na(nm) | nm == "")
+  if (length(bad)) nm[bad] <- paste0("X", bad)
+  names(df) <- nm
+
+  # 2) ensure required columns exist
+  if (!"tract_id" %in% names(df)) df$tract_id <- NA_character_
+  if (!"stratum"  %in% names(df)) df$stratum  <- NA_character_
+
+  if (!"joined_result" %in% names(df)) {
+    if ("joined_results" %in% names(df)) {
+      df$joined_result <- df$joined_results
+    } else {
+      df$joined_result <- NA
+    }
+  }
+
+  df %>%
+    # drop summary rows at bottom (no tract_id)
+    filter(!is.na(tract_id)) %>%
+    mutate(
+      tract_id      = as.character(tract_id),
+      stratum       = as.character(stratum),
+      class         = class_label
+    )
+}
+
+# -------- 3) Read three sheets and fill stratum ------------------------------
 add_tbl   <- safe_read_exact(FILE, "ADD")    %>% fill_stratum() %>% mutate(class = "ADD")
 rem_tbl   <- safe_read_exact(FILE, "REMOVE") %>% fill_stratum() %>% mutate(class = "REMOVE")
 nonci_tbl <- safe_read_exact(FILE, "NONCI")  %>% fill_stratum() %>% mutate(class = "NONCI")
 
-# -------- 3) Universe of strata so zeros show up -----------------------------
+
 all_strata <- sort(unique(c(add_tbl$stratum, rem_tbl$stratum, nonci_tbl$stratum)))
 if (!length(all_strata)) all_strata <- "All"
 
-# -------- 4) USABLE rows (joined_result not NA) ------------------------------
-usable_tbl <- bind_rows(add_tbl, rem_tbl, nonci_tbl) %>%
-  filter(
-    usable,              # defined in safe_read_exact as !is.na(joined_result)
-    !is.na(joined_result) # redundant but explicit
-  )
+# all rows here are usable (NA joined_result already removed)
+usable_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, nonci_tbl)
 
+# quick diagnostic if you want to check:
+# usable_tbl %>% count(class)
 
-
-# -------- 5) SUMMARY (stratum × class) ---------------------------------------
 summary_stratum_class <- usable_tbl %>%
   count(stratum, class, name = "n") %>%
   complete(
@@ -2591,7 +2836,9 @@ summary_stratum_class <- usable_tbl %>%
   pivot_wider(names_from = class, values_from = n, values_fill = 0L)
 
 wanted_cols <- c("stratum","ADD", "REMOVE","NONCI")
-for (cc in setdiff(wanted_cols, names(summary_stratum_class))) summary_stratum_class[[cc]] <- 0L
+for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
+  summary_stratum_class[[cc]] <- 0L
+}
 
 summary_stratum_class <- summary_stratum_class %>%
   select(all_of(wanted_cols)) %>%
@@ -2600,12 +2847,14 @@ summary_stratum_class <- summary_stratum_class %>%
 
 summary_stratum_class_full <- bind_rows(
   summary_stratum_class,
-  summarise(summary_stratum_class,
-            stratum = "TOTAL",
-            ADD     = sum(ADD,     na.rm = TRUE),
-            REMOVE  = sum(REMOVE,  na.rm = TRUE),
-            NONCI   = sum(NONCI,   na.rm = TRUE),
-            Total   = sum(Total,   na.rm = TRUE))
+  summarise(
+    summary_stratum_class,
+    stratum = "TOTAL",
+    ADD     = sum(ADD,     na.rm = TRUE),
+    REMOVE  = sum(REMOVE,  na.rm = TRUE),
+    NONCI   = sum(NONCI,   na.rm = TRUE),
+    Total   = sum(Total,   na.rm = TRUE)
+  )
 )
 
 knitr::kable(
@@ -2616,7 +2865,6 @@ knitr::kable(
 )
 ```
 
-<mark>Code requires adjustment to scale. Calculations should be based on followup and baseline to estimate ADD and REMOVE False Negatives.</mark>.
 
 ```{r}
 #| label: 26-validation-metrics
@@ -2626,90 +2874,120 @@ knitr::kable(
 #| paged-print: false
 
 suppressPackageStartupMessages({
-  library(readxl); library(dplyr); library(tibble)
+  library(readxl); library(dplyr); library(tibble); library(stringr)
 })
 
-# EXACT file you uploaded (fixed)
 FILE <- "outputs/barcelona_samples_2015_2023_joined_results_20251103.xlsx"
 
-# --- helper: normalise joined_result to TRUE / FALSE / NA --------------------
-norm_bool <- function(x){
-  y <- tolower(trimws(as.character(x)))
-  dplyr::case_when(
-    y %in% c("true", "1")  ~ TRUE,
-    y %in% c("false", "0") ~ FALSE,
-    TRUE                   ~ NA
-  )
-}
+# --- helper: read full validation sheet (one of ADD / REMOVE / NONCI) --------
+read_validation_sheet <- function(path, sheet_name) {
 
-# --- reader: get cleaned joined_result for a sheet ---------------------------
-read_joined_sheet <- function(path, sheet) {
   df <- tryCatch(
-    readxl::read_xlsx(path, sheet = sheet, skip = 1, .name_repair = "minimal"),
+    readxl::read_xlsx(
+      path,
+      sheet = sheet_name,
+      skip  = 1,              # first row after the big header
+      .name_repair = "minimal"
+    ),
     error = function(e) tibble::tibble()
   )
-  if (!nrow(df)) return(tibble::tibble(joined_result = logical()))
+
+  if (!nrow(df)) return(tibble::tibble())
 
   # 1) Clean names and fix blanks / duplicates
-  nm <- trimws(names(df))
+  nm  <- trimws(names(df))
   bad <- which(is.na(nm) | nm == "")
   if (length(bad)) nm[bad] <- paste0("X", bad)
   names(df) <- nm
 
-  nm <- names(df)
+  nm  <- names(df)
   dup <- duplicated(nm)
   if (any(dup)) df <- df[, !dup, drop = FALSE]
 
-  # 2) Drop summary rows if there is a tract_id column
+  # 2) Drop summary rows (no tract_id)
   if ("tract_id" %in% names(df)) {
-    df <- df %>% dplyr::filter(!is.na(tract_id))
+    df <- df %>% filter(!is.na(tract_id))
   }
 
-  # 3) Find the joined_result column
-  jr_name <- dplyr::case_when(
-    "joined_result"  %in% names(df) ~ "joined_result",
-    "joined_results" %in% names(df) ~ "joined_results",
-    TRUE ~ NA_character_
-  )
-  if (is.na(jr_name)) return(tibble::tibble(joined_result = logical()))
+  # 3) Make sure the expected columns exist (or NA)
+  maybe_num <- function(x) suppressWarnings(as.numeric(x))
+
+  if (!"class" %in% names(df)) df$class <- sheet_name
+
+  for (cc in c("evt_present_baseline", "evt_present_followup",
+               "vgp_present_baseline", "vgp_present_followup",
+               "consensus", "joined_result")) {
+    if (!cc %in% names(df)) df[[cc]] <- NA
+  }
 
   df %>%
-    dplyr::transmute(
-      joined_result = norm_bool(.data[[jr_name]])
-    ) %>%
-    dplyr::filter(!is.na(joined_result))   # usable points only (no BANK / NA)
+    mutate(
+      class                = as.character(class),
+      evt_present_baseline = maybe_num(evt_present_baseline),
+      evt_present_followup = maybe_num(evt_present_followup),
+      vgp_present_baseline = maybe_num(vgp_present_baseline),
+      vgp_present_followup = maybe_num(vgp_present_followup),
+      consensus            = maybe_num(consensus),
+      joined_result        = maybe_num(joined_result)
+    )
 }
 
-# ---------- read sheets (only joined_result) ---------------------------------
-add_j <- read_joined_sheet(FILE, "ADD")
-rem_j <- read_joined_sheet(FILE, "REMOVE")
-gen_j <- read_joined_sheet(FILE, "NONCI")   # for false negatives
+# --- 1) Read all three sheets -------------------------------------------------
+add_df   <- read_validation_sheet(FILE, "ADD")
+rem_df   <- read_validation_sheet(FILE, "REMOVE")
+nonci_df <- read_validation_sheet(FILE, "NONCI")
 
-# ---------- Map joined_result to TP / FP / FN --------------------------------
-# ADD (OSM says ADD)
-n_add_usable <- nrow(add_j)
-TP_add <- sum(add_j$joined_result == TRUE,  na.rm = TRUE)
-FP_add <- sum(add_j$joined_result == FALSE, na.rm = TRUE)
+all_df <- bind_rows(add_df, rem_df, nonci_df)
 
-# REMOVE (OSM says REMOVE)
-n_rem_usable <- nrow(rem_j)
-TP_rem <- sum(rem_j$joined_result == TRUE,  na.rm = TRUE)
-FP_rem <- sum(rem_j$joined_result == FALSE, na.rm = TRUE)
+# --- 2) Build ground truth: baseline / follow-up & real change ----------------
+all_df <- all_df %>%
+  mutate(
+    # baseline: prefer VGP, then EVT
+    baseline_truth = coalesce(vgp_present_baseline, evt_present_baseline),
+    # follow-up: prefer consensus if present, else VGP, else EVT
+    followup_truth = case_when(
+      !is.na(consensus) ~ consensus,
+      TRUE              ~ coalesce(vgp_present_followup, evt_present_followup)
+    ),
+    real_change = case_when(
+      !is.na(baseline_truth) & !is.na(followup_truth) &
+        baseline_truth == 0 & followup_truth == 1 ~ "ADD",
+      !is.na(baseline_truth) & !is.na(followup_truth) &
+        baseline_truth == 1 & followup_truth == 0 ~ "REMOVE",
+      !is.na(baseline_truth) & !is.na(followup_truth) &
+        baseline_truth == followup_truth          ~ "NO_CHANGE",
+      TRUE                                        ~ "UNKNOWN"
+    ),
+    usable = !is.na(joined_result)
+  ) %>%
+  filter(usable, real_change != "UNKNOWN")
 
-# NONCI (OSM says NO CHANGE) -> false negatives (any missed change)
-FN_T <- 0L
 
-# ---------- Totals -----------------------------------------------------------
+# quick sanity check (can be commented out later):
+# all_df %>% count(class, real_change)
+
+# --- 3) Confusion counts for ADD / REMOVE / pooled ----------------------------
+count_ <- function(x) sum(x, na.rm = TRUE)
+
+TP_add <- count_(all_df$class == "ADD"    & all_df$real_change == "ADD")
+FP_add <- count_(all_df$class == "ADD"    & all_df$real_change != "ADD")
+FN_add <- count_(all_df$class != "ADD"    & all_df$real_change == "ADD")
+
+TP_rem <- count_(all_df$class == "REMOVE" & all_df$real_change == "REMOVE")
+FP_rem <- count_(all_df$class == "REMOVE" & all_df$real_change != "REMOVE")
+FN_rem <- count_(all_df$class != "REMOVE" & all_df$real_change == "REMOVE")
+
 TP_T <- TP_add + TP_rem
-FP_T <- FP_add + FP_rem
-n_tot_usable <- n_add_usable + n_rem_usable
+FP_T <- count_(all_df$class %in% c("ADD","REMOVE") &
+               all_df$real_change == "NO_CHANGE")
+FN_T <- count_(all_df$class == "NONCI" &
+               all_df$real_change %in% c("ADD","REMOVE"))
 
-# ---------- Metrics & CIs -----------------------------------------------------
+n_add_usable <- count_(all_df$class == "ADD")
+n_rem_usable <- count_(all_df$class == "REMOVE")
+n_tot_usable <- count_(all_df$class %in% c("ADD","REMOVE"))
 
-# Use the same FN pool (from NONCI) for both classes
-FN_add <- FN_T
-FN_rem <- FN_T
-
+# --- 4) Metrics & 95 % CIs ----------------------------------------------------
 metric <- function(tp, fp, fn){
   precision <- ifelse(tp + fp > 0, tp / (tp + fp), NA_real_)
   recall    <- ifelse(tp + fn > 0, tp / (tp + fn), NA_real_)
@@ -2723,7 +3001,7 @@ metric <- function(tp, fp, fn){
 
 p_ci <- function(x, n){
   if (is.na(x) || is.na(n) || n == 0) return(c(NA_real_, NA_real_))
-  suppressWarnings(prop.test(x, n, correct = FALSE)$conf.int)
+  suppressWarnings(stats::prop.test(x, n, correct = FALSE)$conf.int)
 }
 
 m_add <- metric(TP_add, FP_add, FN_add)
@@ -2741,13 +3019,12 @@ tot_rec_ci  <- p_ci(TP_T,   TP_T   + FN_T)
 
 fmt_ci <- function(est, ci) {
   if (is.finite(est) && all(is.finite(ci))) {
-    sprintf("%.3f [%.3f-%.3f]", est, ci[1], ci[2])
+    sprintf("%.2f [%.2f-%.2f]", est, ci[1], ci[2])
   } else {
     "NA [NA-NA]"
   }
 }
 
-# ---------- Final table: ONE column for Precision, ONE for Recall ------------
 t_class <- tibble(
   Class            = c("ADD","REMOVE","Pooled"),
   `n (usable)`     = c(n_add_usable, n_rem_usable, n_tot_usable),
@@ -2764,18 +3041,16 @@ t_class <- tibble(
     fmt_ci(m_rem$recall, rem_rec_ci),
     fmt_ci(m_tot$recall, tot_rec_ci)
   ),
-  F1 = sprintf("%.3f", c(m_add$f1, m_rem$f1, m_tot$f1))
+  F1 = sprintf("%.2f", c(m_add$f1, m_rem$f1, m_tot$f1))
 )
 
 knitr::kable(
   t_class,
   caption = "Table 4: Validation performance (usable points only)",
   align   = c("l","r","r","r","r","r","r","r"),
-  digits  = 3
+  digits  = 0
 )
 ```
-
-<mark>Needs to be updated.</mark>.
 
 ## Interpretation and calibration
 
