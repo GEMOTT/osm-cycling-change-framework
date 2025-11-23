@@ -1990,7 +1990,7 @@ knitr::include_graphics("figs/validation_points_boundary.png")
 
 -   We **stopped as soon as one year** provided a clear presence (1) or absence (0). Information from different years was **not combined**.
 
--   When an **unexpected discrepancy** with OSM was found, the **neighbour years** (e.g. 2022 or 2024 for follow-up; 2014 or 2016 for baseline) were also checked to ensure that the apparent disagreement was not due to **a time lag between the real change and the GSV image month/year**.
+-   When an **unexpected discrepancy** with OSM was found, the **neighbour years** (e.g. 2022 or 2024 for follow-up; 2014 or 2016 for baseline) were also checked to ensure that the apparent disagreement was not due to a time lag between the real change and the GSV image month/year.
 
 -   If no year in the sequence could be coded, the period was recorded as **NA**.
 
@@ -2865,7 +2865,6 @@ knitr::kable(
 )
 ```
 
-
 ```{r}
 #| label: 26-validation-metrics
 #| echo: false
@@ -3075,4 +3074,4 @@ knitr::kable(
 
 #### [S1: full GSV protocol](outputs/procedure_gsv_coding_20251103.docx)
 
-#### [S2: Validation workbook (Excel)](outputs/barcelona_samples_2015_2023_20251103-1901.xlsx)
+#### [S2: Validation workbook (Excel)](outputs/barcelona_samples_2015_2023.xlsx)

@@ -1,0 +1,302 @@
+---
+# title: "ATRAPA Work Package 1: Built Environment Transformations Dataset"
+format: 
+   html
+freeze: false
+execute:
+  cache: false
+      # gfm:
+  #   prefer-html: true
+editor: visual
+bibliography: wp1.bib
+---
+
+<!-- # Can OpenStreetMap Reliably Track Changes in Active Travel Infrastructure? Evidence from Barcelona with GSV Validation -->
+
+<!-- ## Introduction -->
+
+<!-- 🔗 Part of the [ATRAPA database project](https://github.com/GEMOTT/atrapa_database)\ -->
+
+<!-- ⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa_database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data) -->
+
+<!-- The relationship between the built environment and travel behaviour has been widely studied, with many studies identifying associations between environmental characteristics and travel patterns [@cerin_neighbourhood_2017; @ding_neighborhood_2011; @zhang_impact_2022]. However, most research relies on cross-sectional data, which cannot establish causality [@mccormack_search_2011; @coevering_multi-period_2015]. In contrast, studies that track changes in both travel behaviour and the built environment—such as longitudinal studies and natural experiments—offer stronger causal insights but remain relatively scarce [@karmeniemi_built_2018; @smith_systematic_2017; @tcymbal_effects_2020]. -->
+
+<!-- One of the main challenges in expanding this area of research is the limited availability of consistent, time-series data on the built environment. While historical data on travel behaviour is often more accessible—through sources like censuses, surveys, and increasingly, crowdsourced platforms like Strava—comparable records of past urban infrastructure are much harder to obtain. Long-term records of active travel networks, though consistent and accessible historical data remains limited and varies across cities, which hinders broader or international comparisons. An alternative is to reconstruct historical built environment data manually using maps, satellite imagery, and planning records, but this process is highly resource-intensive and typically limited in scale. -->
+
+<!-- The growing availability of Volunteered Geographic Information (VGI) presents new opportunities to overcome data limitations in built environment research. Among these sources, OpenStreetMap (OSM) stands out for providing open, editable, and historical data on various types of infrastructure, making it a promising tool for analysing urban transformations over time. However, its application in this context requires careful validation due to well-documented limitations in accuracy, completeness, and temporal consistency [@barron_comprehensive_2014]. -->
+
+<!-- While OSM has been widely used for mapping infrastructure and supporting routing applications, its utility for analysing changes in infrastructure over time is less well established. This study seeks to evaluate how accurately historical OSM data reflects changes in active travel infrastructure—specifically bike lanes, pedestrian streets, and living streets. We propose and apply a semi-automated validation method that compares reported OSM changes against external reference sources, including street-level imagery (Google Street View), satellite imagery, and official municipal records. -->
+
+<!-- Focusing on the city of Barcelona, our approach uses stratified sampling to ensure spatial and socio-demographic diversity. While the analysis is limited to one city, the proposed framework is designed to be scalable and transferable, offering a practical methodology for researchers and planners seeking to monitor infrastructure change over time using open data sources. -->
+
+<!-- This study builds on recent efforts to assess OSM’s data quality and potential for infrastructure analysis, with particular attention to its capacity to represent change over time. -->
+
+# Validating OpenStreetMap for detecting cycling-infrastructure change: A Barcelona pilot using Google Street View (2015–2023)
+
+## Context and aim
+
+Urban transformations such as new bike lanes reshape mobility and health, yet standardised datasets tracking infrastructure change over time remain scarce.
+
+OpenStreetMap (OSM) offers open, historical data but its reliability for detecting change is still uncertain.
+
+**Aim**: Assess whether OSM reliably reflects new or removed bike lanes in Barcelona (2015–2023) using Google Street View (GSV) as ground truth, as a basis for scalable validation in other cities.
+
+## Data and methods
+
+### Data sources
+
+-   🗺 **OSM:** collaborative vector data tagged by infrastructure type\
+-   📸 **GSV:** dated street-level imagery
+-   🧩 **Urban tracts:** spatial units classified by population density and centrality
+
+### Methods
+
+```{r}
+#| include: false
+source("R/00_setup.R")
+source("R/utils_geom.R")
+source("R/utils_ci.R")
+source("R/utils_validation.R")
+source("R/01_osm_download.R")
+source("R/02_ci_networks.R")
+source("R/03_change_detection.R")
+source("R/04_nonci_network.R")
+source("R/05_tracts_strata.R")
+source("R/06_sampling_points.R")
+source("R/07_export_excel.R")
+source("R/08_read_results_metrics.R")
+source("R/09_maps.R")
+```
+
+```{r}
+#| label: fig-workflow
+#| fig-cap: "Main workflow steps (2015–2023)."
+#| fig-align: center
+#| out-width: 100%
+#| echo: false
+
+knitr::include_graphics("figs/osm_gsv_flowchart.png")
+```
+
+##### 1. Extract OSM data
+
+-   **Snapshots:** 2016-01-01 (≈2015) and 2024-01-01 (≈2023)
+
+-   **Cycling-Infrastructure (CI) network definition**
+
+A segment is classified as **(CI)** if **any** of the following conditions hold:
+
+1.  `highway = cycleway`\
+2.  Any of `cycleway`, `cycleway:left`, `cycleway:right`, or `cycleway:both` is in\
+    `{lane, track, opposite_lane, opposite_track, separate}`\
+3.  `bicycle_road = yes`\
+4.  `highway` ∈ `{service, unclassified}` **and**\
+    `bicycle` ∈ `{yes, designated}` **and**\
+    `motor_vehicle = no`
+
+<!-- **Explicit exclusions:** -->
+
+<!-- - Shared paths (`highway ∈ {path, footway, track}` with `bicycle ∈ {designated, yes}`) -->
+
+<!-- - Local/shared bikeways (`cycleway* ∈ {shared, designated}` without one of the CI rules above) -->
+
+-   **General (NONCI) network definition**
+
+A segment is classified as **NONCI** if:
+
+-   It **does not** meet the CI rule above, **and** `highway` ∈ `{primary, secondary, tertiary, unclassified, residential, primary_link, secondary_link, tertiary_link, living_street, pedestrian}`
+
+##### 2. Calculate geometric differences
+
+-   **ADDED**: CI in 2023 but not 2015
+
+-   **REMOVED**: CI in 2015 but not 2023
+
+##### 3. Design sampling
+
+-   9 strata: density × centrality (3 × 3)
+
+-   6 tracts per stratum (54 total), randomly selected
+
+-   Within each tract, up to:
+
+    -   2 ADD segments (expected new lanes)
+
+    -   2 REMOVE segments (expected removals)
+
+    -   1 NONCI segment (no expected change, control)
+
+-   The midpoint of each segment serves as the validation location
+
+```{r}
+#| label: fig-bivar-map
+#| fig-cap: "Stratified tracts (density × centrality) used for samplying."
+#| fig-align: center
+#| echo: false
+
+knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
+```
+
+```{r}
+#| label: fig-validation-points
+#| echo: false
+#| fig-align: center
+#| fig-cap: Distribution of validation points (with GSV links).
+
+make_validation_points_map()
+
+```
+
+##### 4. Inspect & classify (GSV)
+
+-   Each sampled segment was inspected in two periods: a **follow-up (≈2023)** and a **baseline (≈2015)**.
+
+-   For each period, we first opened the **anchor year** (2023 or 2015).
+
+-   If the anchor year image **could not be coded** (e.g. peg misplaced, view obstructed), we **adjusted the peg within that same year** to verify the segment from a nearby panorama.
+
+-   If the segment remained **not verifiable**, we consulted the **next rescue years** in the predefined order:
+
+    -   Follow-up: 2023 → 2024 → 2022\
+    -   Baseline: 2015 → 2014 → 2016
+
+-   We **stopped as soon as one year** provided a clear presence (1) or absence (0). Information from different years was **not combined**.
+
+-   When an **unexpected discrepancy** with OSM was found, the **neighbour years** (e.g. 2022 or 2024 for follow-up; 2014 or 2016 for baseline) were also checked to ensure that the apparent disagreement was not due to a time lag between the real change and the GSV image month/year.
+
+-   If no year in the sequence could be coded, the period was recorded as **NA**.
+
+Codes: **1 = CI visible · 0 = clearly absent · NA = not verifiable**
+
+Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel workbook)**.
+
+-   **ADD (OSM claims a new lane)**\
+    True Positive (TP) if 0→1\
+    False Positive (FP) if any other verifiable pattern\
+    NA if any year is NA
+
+-   **REMOVE (OSM claims a removal)**\
+    TP if 1→0\
+    FP if any other verifiable pattern\
+    NA if any year is NA
+
+-   **NONCI (no change expected)**\
+    Used to find False Negatives (FN: real change with no OSM claim)
+
+<!-- - Keep only points verifiable for both years -->
+
+##### 5. Evaluate performance
+
+-   **Precision = TP / (TP + FP)**\
+    Percentage of OSM changes that were correct. (How many OSM-detected changes are real)
+
+-   **Recall = TP / (TP + FN)**\
+    Percentage of real changes detected by OS. (How many real changes OSM detected)
+
+-   **F1 = 2 · Precision · Recall / (Precision + Recall)**\
+    Balanced indicator combining both metrics.
+
+## Results
+
+#### Network change detected by OSM
+
+-   OSM cycling network grew **153.6 → 288.4 km (+88%)**
+
+-   Segment differencing results: **156.0 km added, 24.8 km removed**
+
+```{r}
+#| label: fig-changes
+#| echo: false
+#| fig-align: center
+#| fig-cap: Distribution of validation points (with GSV links).
+
+make_infra_change_map()
+
+```
+
+```{r}
+#| label: tab-consistency
+#| echo: false
+
+knitr::kable(
+  consistency,
+  caption = "Table 1: Consistency between yearly totals and differencing estimates (2015–2023, Barcelona)",
+  align = c("l","r")
+)
+
+```
+
+-   **Additions** were concentrated in **dense–central tracts** (D1_C2, D1_C3, D3_C2), which together accounted for **≈58%** of total added length.
+
+-   **Removals** were concentrated in **intermediate-density tracts** (D2_C1, D2_C3, D1_C2), representing **≈62%** of total removed length.
+
+```{r}
+#| label: tab-strata
+#| echo: false
+
+knitr::kable(
+  stratum_out,
+  caption = "Table 2: OSM-estimated additions and removals (2015–2023) by density × centrality stratum",
+  align = c("l","r","r","r","r")
+)
+
+```
+
+#### Validation results
+
+-   105 sampled points across 9 strata (48 ADD · 8 REMOVE · 49 NONCI)
+
+-   97 usable validation points (both periods coded)\
+    (44 ADD · 7 REMOVE · 44 NONCI)
+
+```{r}
+#| label: tab-summary_stratum
+#| echo: false
+
+knitr::kable(
+  summary_stratum_class_full,
+  caption = "Table 3: Validation points by class and stratum (usable points only)",
+  align   = c("l","r","r","r","r"),
+  digits  = 0
+)
+
+```
+
+```{r}
+#| label: tab-validation_performance
+#| echo: false
+
+knitr::kable(
+  t_class,
+  caption = "Table 4: Validation performance (usable points only)",
+  align   = c("l","r","r","r","r","r","r","r"),
+  digits  = 0
+)
+
+```
+
+
+## Interpretation and calibration
+
+#### Interpretation
+
+-   OSM captures nearly all true additions (**recall = 1.00**) but includes several false positives (**precision ≈ 0.77**).\
+    For removals, OSM rarely identifies true cases (**precision ≈ 0.29**) and often flags false ones, although recall remains high for the few real removals present.
+
+-   Most errors stem from **re-tagging, micro-geometry adjustments**, or **short-term mapping churn**, which can appear as artificial additions or removals between snapshots.
+
+-   Overall, **OSM is a reliable proxy for additions but a weak proxy for removals**, slightly **overstating net cycling-network growth**.
+
+#### Calibration potential
+
+-   These metrics can be used to **calibrate OSM-derived estimates** of network change.
+
+> For example, with **precision = 0.77**, multiplying OSM-detected additions by 0.77 yields a closer estimate of true additions.
+
+-   Stratified validation can further support **spatial calibration** and **cross-city comparability** in multi-city analyses.
+
+## Supplements
+
+#### [S1: full GSV protocol](outputs/procedure_gsv_coding_20251103.docx)
+
+#### [S2: Validation workbook (Excel)](outputs/barcelona_samples_2015_2023.xlsx)
