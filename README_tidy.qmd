@@ -1,23 +1,19 @@
 ---
-# title: "ATRAPA Work Package 1: Built Environment Transformations Dataset"
+title: "Validating OpenStreetMap for detecting cycling-infrastructure change: A Barcelona pilot using Google Street View (2015–2023)"
 format: 
-   html
-freeze: false
-execute:
-  cache: false
-      # gfm:
-  #   prefer-html: true
+#    html
+# freeze: false
+# execute:
+#   cache: false
+  gfm:
+    prefer-html: true
 editor: visual
 bibliography: wp1.bib
 ---
 
-<!-- # Can OpenStreetMap Reliably Track Changes in Active Travel Infrastructure? Evidence from Barcelona with GSV Validation -->
+🔗 Part of the [ATRAPA database project](https://github.com/GEMOTT/atrapa_database)\
 
-<!-- ## Introduction -->
-
-<!-- 🔗 Part of the [ATRAPA database project](https://github.com/GEMOTT/atrapa_database)\ -->
-
-<!-- ⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa_database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data) -->
+⬅️ [Back to project overview](https://github.com/GEMOTT/atrapa_database) ➡️ [Next repo related: Electoral and socioeconomic data](https://github.com/GEMOTT/electoral-socioeconomic-data)
 
 <!-- The relationship between the built environment and travel behaviour has been widely studied, with many studies identifying associations between environmental characteristics and travel patterns [@cerin_neighbourhood_2017; @ding_neighborhood_2011; @zhang_impact_2022]. However, most research relies on cross-sectional data, which cannot establish causality [@mccormack_search_2011; @coevering_multi-period_2015]. In contrast, studies that track changes in both travel behaviour and the built environment—such as longitudinal studies and natural experiments—offer stronger causal insights but remain relatively scarce [@karmeniemi_built_2018; @smith_systematic_2017; @tcymbal_effects_2020]. -->
 
@@ -30,8 +26,6 @@ bibliography: wp1.bib
 <!-- Focusing on the city of Barcelona, our approach uses stratified sampling to ensure spatial and socio-demographic diversity. While the analysis is limited to one city, the proposed framework is designed to be scalable and transferable, offering a practical methodology for researchers and planners seeking to monitor infrastructure change over time using open data sources. -->
 
 <!-- This study builds on recent efforts to assess OSM’s data quality and potential for infrastructure analysis, with particular attention to its capacity to represent change over time. -->
-
-# Validating OpenStreetMap for detecting cycling-infrastructure change: A Barcelona pilot using Google Street View (2015–2023)
 
 ## Context and aim
 
