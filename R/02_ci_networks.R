@@ -1,21 +1,4 @@
 
-city_tag <- "barcelona"
-ver15    <- "15"
-ver23    <- "23"
-crs_work <- 25831
-tol_m    <- 10
-min_len  <- 10
-
-dir_city <- "data/processed"
-proc_dir <- "data/processed"
-if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
-
-gpkg15 <- file.path(dir_city, paste0(city_tag, "_", ver15, "_lines.gpkg"))
-gpkg23 <- file.path(dir_city, paste0(city_tag, "_", ver23, "_lines.gpkg"))
-lyr15  <- paste0(city_tag, "_", ver15, "_lines")
-lyr23  <- paste0(city_tag, "_", ver23, "_lines")
-stopifnot(file.exists(gpkg15), file.exists(gpkg23))
-
 l15 <- sf::st_read(gpkg15, layer = lyr15, quiet = TRUE)
 l23 <- sf::st_read(gpkg23, layer = lyr23, quiet = TRUE)
 

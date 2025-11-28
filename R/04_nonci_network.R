@@ -1,20 +1,6 @@
 
 reuse_cached <- TRUE  # set FALSE to force rebuild
 
-# ---- prerequisites ----------------------------------------------------------
-stopifnot(
-  exists("l23"), exists("l15"),
-  exists("crs_work"),
-  exists("cyc23_n"), exists("cyc15_n"),
-  exists("tol_m")
-)
-if (!exists("proc_dir")) proc_dir <- "data/processed"
-if (!dir.exists(proc_dir)) dir.create(proc_dir, TRUE)
-if (!exists("city_tag")) city_tag <- "barcelona"
-if (!exists("ver23"))    ver23    <- "23"
-if (!exists("ver15"))    ver15    <- "15"
-if (!exists("min_len"))  min_len  <- 10
-
 # ---- cache paths ------------------------------------------------------------
 rds_nonci_1523  <- file.path(proc_dir, sprintf("%s_%s_%s_nonci_work.rds",    city_tag, ver15, ver23))
 rds_nonciW_1523 <- file.path(proc_dir, sprintf("%s_%s_%s_general_nonci.rds", city_tag, ver15, ver23))

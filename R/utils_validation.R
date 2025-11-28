@@ -100,7 +100,6 @@ sample_lines_by_tract <- function(lines_sf, tracts_sf, n_per, replace = FALSE, m
 }
 
 # 15-feasibility-diagnostic
-
 feasibility_diagnostic <- function(
     sampled_tracts,
     added,

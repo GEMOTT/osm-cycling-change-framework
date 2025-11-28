@@ -183,9 +183,9 @@ tol_m    <- 10
 min_len  <- 30
 
 # ---- paths ----
-dir_city <- "data"
-gpkg19   <- file.path(dir_city, paste0(city_tag, "_", ver19, "_lines.gpkg"))
-gpkg23   <- file.path(dir_city, paste0(city_tag, "_", ver23, "_lines.gpkg"))
+proc_dir <- "data"
+gpkg19   <- file.path(proc_dir, paste0(city_tag, "_", ver19, "_lines.gpkg"))
+gpkg23   <- file.path(proc_dir, paste0(city_tag, "_", ver23, "_lines.gpkg"))
 lyr19    <- paste0(city_tag, "_", ver19, "_lines")
 lyr23    <- paste0(city_tag, "_", ver23, "_lines")
 

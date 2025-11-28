@@ -1,11 +1,5 @@
 # 20-results-setup
 
-# Parameters (keeps your values if already defined)
-if (!exists("crs_work")) crs_work <- 25831
-if (!exists("tol_m"))    tol_m    <- 10
-
-# Helpers
-
 # Geometry hygiene (prevents micro-slivers & odd empties)
 prep_lines <- function(x, crs){
   x |>
@@ -192,7 +186,7 @@ stratum_out <- stratum_summary %>%
 
 # 24-pick-excel
 
-FILE <- "outputs/barcelona_samples_2015_2023_joined_results_20251103.xlsx"
+FILE <- "outputs/barcelona_samples_2015_2023_joined_results.xlsx"
 
 norm_presence_final <- function(x){
   x <- tolower(trimws(as.character(x)))
@@ -437,7 +431,7 @@ summary_stratum_class_full <- bind_rows(
 
 # 26-validation-metrics
 
-FILE <- "outputs/barcelona_samples_2015_2023_joined_results_20251103.xlsx"
+FILE <- "outputs/barcelona_samples_2015_2023_joined_results.xlsx"
 
 # --- helper: read full validation sheet (one of ADD / REMOVE / NONCI) --------
 read_validation_sheet <- function(path, sheet_name) {

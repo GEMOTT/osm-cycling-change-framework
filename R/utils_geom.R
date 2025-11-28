@@ -1,5 +1,3 @@
-cache_dir <- "data/processed"
-dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
 
 .cache <- function(path, build, inputs = NULL, reuse = TRUE) {
   up_to_date <- file.exists(path) &&

@@ -255,15 +255,15 @@ FORCE_DOWNLOAD <- FALSE
 FORCE_PERIM    <- FALSE
 
 # -------------------- PATHS (single base) ------------------------------------
-dir_city <- "data/processed"
-if (!dir.exists(dir_city)) dir.create(dir_city, recursive = TRUE)
+proc_dir <- "data/processed"
+if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
 
-gpkg15 <- file.path(dir_city, paste0(city_tag, "_", ver15, "_lines.gpkg"))
-gpkg23 <- file.path(dir_city, paste0(city_tag, "_", ver23, "_lines.gpkg"))
+gpkg15 <- file.path(proc_dir, paste0(city_tag, "_", ver15, "_lines.gpkg"))
+gpkg23 <- file.path(proc_dir, paste0(city_tag, "_", ver23, "_lines.gpkg"))
 lyr15  <- paste0(city_tag, "_", ver15, "_lines")
 lyr23  <- paste0(city_tag, "_", ver23, "_lines")
 
-perim_file <- file.path(dir_city, paste0(city_tag, "_perimeter.gpkg"))
+perim_file <- file.path(proc_dir, paste0(city_tag, "_perimeter.gpkg"))
 perim_lyr  <- "barcelona_perimeter"
 
 # -------------------- HELPERS -------------------------------------------------
@@ -410,13 +410,13 @@ tol_m    <- 10
 min_len  <- 10
 
 # ---- dirs ----
-dir_city <- "data/processed"
+proc_dir <- "data/processed"
 proc_dir <- "data/processed"
 if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
 
 # ---- raw paths ----
-gpkg15 <- file.path(dir_city, paste0(city_tag, "_", ver15, "_lines.gpkg"))
-gpkg23 <- file.path(dir_city, paste0(city_tag, "_", ver23, "_lines.gpkg"))
+gpkg15 <- file.path(proc_dir, paste0(city_tag, "_", ver15, "_lines.gpkg"))
+gpkg23 <- file.path(proc_dir, paste0(city_tag, "_", ver23, "_lines.gpkg"))
 lyr15  <- paste0(city_tag, "_", ver15, "_lines")
 lyr23  <- paste0(city_tag, "_", ver23, "_lines")
 stopifnot(file.exists(gpkg15), file.exists(gpkg23))

@@ -1,15 +1,19 @@
-
 # --- setup -------------------------------------------------------
-suppressPackageStartupMessages({
-  library(openxlsx); library(sf); library(dplyr)
-})
+outdir <- "outputs"
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
-outdir <- "outputs"; dir.create(outdir, FALSE, TRUE)
-outfile <- file.path(
-  outdir,
-  paste0(city_tag, "_samples_2015_2023_", format(Sys.time(), "%Y%m%d-%H%M"), ".xlsx")
-)
-wb <- openxlsx::createWorkbook()
+# which coders to prepare workbooks for
+coders <- c(1, 2)
+
+# flag to force rebuild if you really want to regenerate the Excels
+rebuild_excels <- FALSE
+
+mk_outfile <- function(city_tag, coder_id){
+  file.path(
+    outdir,
+    paste0(city_tag, "_samples_2015_2023_coder", coder_id, ".xlsx")
+  )
+}
 
 # --- validations: presence coding -------------------------------------------
 PRESENCE_LIST <- c("1","0","NA")  # 1 = visible, 0 = absent, NA = not verifiable
@@ -170,10 +174,8 @@ add_match_col <- function(wb, sheet, n_rows, header_row = 2, na_token = '"NA"') 
   openxlsx::setColWidths(wb, sheet, cols = col_match, widths = 18)
 }
 
-
-
 # writer: styles grouped headers, inputs, and adds computed finals after notes
-write_one <- function(df, sheet, freeze_cols = 3){
+write_one <- function(wb, df, sheet, freeze_cols = 3){
   df <- ensure_export_cols(df)
   
   openxlsx::addWorksheet(
@@ -316,9 +318,31 @@ add_tbl <- mk_tbl(added_pts,   "ADD",    "ADD")
 rem_tbl <- mk_tbl(removed_pts, "REMOVE", "REMOVE")
 gen_tbl <- mk_tbl(nonci_pts,   "NONCI",  "NONCI")
 
-# --- write workbook ----------------------------------------------------------
-write_one(add_tbl, "ADD")
-write_one(rem_tbl, "REMOVE")
-write_one(gen_tbl, "NONCI")
-
-openxlsx::saveWorkbook(wb, outfile, overwrite = TRUE)
+# --- write workbooks: one per coder -----------------------------------------
+for (cd in coders) {
+  outfile <- mk_outfile(city_tag, cd)
+  
+  if (file.exists(outfile) && !rebuild_excels) {
+    message("Validation workbook for coder", cd, " already exists, not overwriting: ", outfile)
+  } else {
+    message("Creating validation workbook for coder", cd, ": ", outfile)
+    wb <- openxlsx::createWorkbook()
+    
+    write_one(wb, add_tbl, "ADD")
+    write_one(wb, rem_tbl, "REMOVE")
+    write_one(wb, gen_tbl, "NONCI")
+    
+    # Optional: add a tiny info sheet with coder id
+    openxlsx::addWorksheet(wb, "INFO")
+    openxlsx::writeData(
+      wb, "INFO",
+      data.frame(
+        city_tag = city_tag,
+        coder_id = cd
+      ),
+      startRow = 1, startCol = 1
+    )
+    
+    openxlsx::saveWorkbook(wb, outfile, overwrite = TRUE)
+  }
+}
