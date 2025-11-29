@@ -274,6 +274,12 @@ knitr::kable(
 
 ## Supplements
 
-#### [S1: full GSV protocol](outputs/procedure_gsv_coding_20251103.docx)
+#### S1. Google Street View coding protocol (PDF)  
+[Download here](outputs/procedure_gsv_coding.pdf)
 
-#### [S2: Validation workbook (Excel)](outputs/barcelona_samples_2015_2023.xlsx)
+#### S2. Raw validation workbooks: coder 1 and coder 2 (XLSX)  
+[Download coder 1](outputs/barcelona_samples_2015_2023_coder1.xlsx)  
+[Download coder 2](outputs/barcelona_samples_2015_2023_coder2.xlsx)
+
+#### S3. Final adjudicated validation results (XLSX)  
+[Download joined results](outputs/barcelona_samples_2015_2023_joined_results.xlsx)
