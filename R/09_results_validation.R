@@ -1,8 +1,8 @@
 # 09_results_validation.R
 # - Uses coder1 / coder2 Excel files created by 07_export_excel.R
 # - Builds a joined_results workbook (once, or when forced)
-# - Uses only consensus as ground truth for metrics
-# - Stops if any coder disagreements remain without consensus
+# - Uses only consens as ground truth for metrics
+# - A row is usable when consens_bl and consens_fu are both 0/1
 
 # -------------------------------------------------------------------
 # 0) File paths and options
@@ -19,7 +19,7 @@ coder1_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_coder1.xls
 coder2_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_coder2.xlsx"))
 joined_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_joined_results.xlsx"))
 
-# set to TRUE only when you want to rebuild joined_file from coder Excels
+# Set to TRUE only when you want to rebuild joined_file from coder Excels
 rebuild_joined <- FALSE
 
 
@@ -30,25 +30,24 @@ rebuild_joined <- FALSE
 norm01 <- function(x) {
   # Normalise "0"/"1"/"NA"/TRUE/FALSE/blank to 0/1/NA_integer_
   x <- tolower(trimws(as.character(x)))
-  case_when(
+  dplyr::case_when(
     x %in% c("1", "true")  ~ 1L,
     x %in% c("0", "false") ~ 0L,
     TRUE                   ~ NA_integer_
   )
 }
 
-read_coder_sheet <- function(path, sheet_name, coder_label) {
-  # coder_label is "coder1" or "coder2"
+read_coder_sheet <- function(path, sheet_name, coder_prefix) {
+  # coder_prefix is "c1" or "c2"
   
   if (is.null(path) || !file.exists(path)) {
-    return(tibble(
-      id                          = numeric(),
-      class                       = character(),
-      tract_id                    = character(),
-      stratum                     = character(),
-      !!paste0(coder_label, "_present_baseline") := integer(),
-      !!paste0(coder_label, "_present_followup") := integer(),
-      !!paste0(coder_label, "_match")            := integer()
+    return(tibble::tibble(
+      id                      = numeric(),
+      class                   = character(),
+      tract_id                = character(),
+      stratum                 = character(),
+      !!paste0(coder_prefix, "_bl") := integer(),
+      !!paste0(coder_prefix, "_fu") := integer()
     ))
   }
   
@@ -59,18 +58,17 @@ read_coder_sheet <- function(path, sheet_name, coder_label) {
       skip  = 1,                # skip group header row, read header at row 2
       .name_repair = "minimal"
     ),
-    error = function(e) tibble()
+    error = function(e) tibble::tibble()
   )
   
   if (!nrow(df)) {
-    return(tibble(
-      id                          = numeric(),
-      class                       = character(),
-      tract_id                    = character(),
-      stratum                     = character(),
-      !!paste0(coder_label, "_present_baseline") := integer(),
-      !!paste0(coder_label, "_present_followup") := integer(),
-      !!paste0(coder_label, "_match")            := integer()
+    return(tibble::tibble(
+      id                      = numeric(),
+      class                   = character(),
+      tract_id                = character(),
+      stratum                 = character(),
+      !!paste0(coder_prefix, "_bl") := integer(),
+      !!paste0(coder_prefix, "_fu") := integer()
     ))
   }
   
@@ -88,36 +86,24 @@ read_coder_sheet <- function(path, sheet_name, coder_label) {
   if (!"tract_id" %in% names(df)) df$tract_id <- NA_character_
   if (!"stratum"  %in% names(df)) df$stratum  <- NA_character_
   
+  # fused presence columns in coder files
   if (!"present_baseline" %in% names(df)) df$present_baseline <- NA
   if (!"present_followup" %in% names(df)) df$present_followup <- NA
   
-  # match column from add_match_col()
-  match_col <- case_when(
-    "osm_gsv_match" %in% names(df) ~ "osm_gsv_match",
-    "Match"         %in% names(df) ~ "Match",
-    TRUE                           ~ NA_character_
-  )
-  if (is.na(match_col)) {
-    df$osm_gsv_match <- NA
-    match_col <- "osm_gsv_match"
-  }
-  
   df %>%
-    mutate(
+    dplyr::mutate(
       id       = as.numeric(id),
       class    = as.character(class),
       tract_id = as.character(tract_id),
       stratum  = as.character(stratum),
       present_baseline = norm01(present_baseline),
-      present_followup = norm01(present_followup),
-      match_val        = norm01(.data[[match_col]])
+      present_followup = norm01(present_followup)
     ) %>%
-    select(id, class, tract_id, stratum,
-           present_baseline, present_followup, match_val) %>%
-    rename(
-      !!paste0(coder_label, "_present_baseline") := present_baseline,
-      !!paste0(coder_label, "_present_followup") := present_followup,
-      !!paste0(coder_label, "_match")            := match_val
+    dplyr::select(id, class, tract_id, stratum,
+                  present_baseline, present_followup) %>%
+    dplyr::rename(
+      !!paste0(coder_prefix, "_bl") := present_baseline,
+      !!paste0(coder_prefix, "_fu") := present_followup
     )
 }
 
@@ -125,64 +111,73 @@ build_joined_sheet_for_class <- function(sheet_name,
                                          coder1_file,
                                          coder2_file = NULL) {
   
-  c1 <- read_coder_sheet(coder1_file, sheet_name, coder_label = "coder1")
-  c2 <- read_coder_sheet(coder2_file, sheet_name, coder_label = "coder2")
+  # coder prefixes -> short column names in joined sheet
+  c1 <- read_coder_sheet(coder1_file, sheet_name, coder_prefix = "c1")
+  c2 <- read_coder_sheet(coder2_file, sheet_name, coder_prefix = "c2")
   
-  joined <- full_join(
+  joined <- dplyr::full_join(
     c1, c2,
     by = c("id", "class", "tract_id", "stratum")
   ) %>%
-    arrange(class, id)
+    dplyr::arrange(class, id)
   
+  # 1) Automatic coder CONSENSUS where BOTH coders coded AND agree
   joined <- joined %>%
-    mutate(
-      coder1_match = norm01(coder1_match),
-      coder2_match = norm01(coder2_match),
-      coder1_present_baseline = norm01(coder1_present_baseline),
-      coder1_present_followup = norm01(coder1_present_followup),
-      coder2_present_baseline = norm01(coder2_present_baseline),
-      coder2_present_followup = norm01(coder2_present_followup)
-    )
-  
-  # automatic consensus where both coders agree (baseline and follow-up)
-  joined <- joined %>%
-    mutate(
-      consensus_baseline = case_when(
-        !is.na(coder1_present_baseline) & !is.na(coder2_present_baseline) &
-          coder1_present_baseline == coder2_present_baseline ~ coder1_present_baseline,
-        TRUE ~ NA_integer_
+    dplyr::mutate(
+      consens_bl = dplyr::case_when(
+        !is.na(c1_bl) & !is.na(c2_bl) & c1_bl == c2_bl ~ c1_bl,
+        TRUE                                           ~ NA_integer_
       ),
-      consensus_followup = case_when(
-        !is.na(coder1_present_followup) & !is.na(coder2_present_followup) &
-          coder1_present_followup == coder2_present_followup ~ coder1_present_followup,
-        TRUE ~ NA_integer_
+      consens_fu = dplyr::case_when(
+        !is.na(c1_fu) & !is.na(c2_fu) & c1_fu == c2_fu ~ c1_fu,
+        TRUE                                           ~ NA_integer_
       )
     )
   
-  # flag rows needing manual consensus (both coders coded, but disagree or missing consensus)
+  # 2) Flag rows that still need consensus:
+  #    any time consens_* is NA but at least one coder has given info
   joined <- joined %>%
-    mutate(
-      needs_consensus = case_when(
-        # both coders gave some follow-up code AND they differ OR consensus is NA
-        !is.na(coder1_present_followup) & !is.na(coder2_present_followup) &
-          coder1_present_followup != coder2_present_followup ~ TRUE,
-        # you might want to also flag baseline disagreements similarly
-        TRUE ~ FALSE
+    dplyr::mutate(
+      needs_consens = dplyr::case_when(
+        (is.na(consens_fu) & (!is.na(c1_fu) | !is.na(c2_fu))) |
+          (is.na(consens_bl) & (!is.na(c1_bl) | !is.na(c2_bl))) ~ TRUE,
+        TRUE                                                  ~ FALSE
       )
     )
   
-  # joined_result: summary of match info (0,1,2) or NA
+  # 3) FINAL columns (what you actually use in the analysis)
+  #    Default = coder consensus; you can override in Excel.
   joined <- joined %>%
-    mutate(
-      joined_result = case_when(
-        is.na(coder1_match) & is.na(coder2_match) ~ NA_real_,   # nothing coded
-        !is.na(coder1_match) & is.na(coder2_match) ~ coder1_match * 1.0,
-        is.na(coder1_match) & !is.na(coder2_match) ~ coder2_match * 1.0,
-        TRUE ~ (coder1_match + coder2_match) * 1.0
-      )
+    dplyr::mutate(
+      fu_fin = consens_fu,
+      bl_fin = consens_bl
     )
   
-  joined
+  # 4) Column for comments about the final decision
+  if (!"fin_note" %in% names(joined)) {
+    joined$fin_note <- NA_character_
+  }
+  
+  # 5) Add an empty 'usable' column; we will fill it with an Excel formula later
+  if (!"usable" %in% names(joined)) {
+    joined$usable <- NA_integer_
+  }
+  
+  # FINAL COLUMN ORDER (coders → consensus → flags → final → note → usable)
+  base_order <- c(
+    "id", "class", "tract_id", "stratum",
+    "c1_fu", "c1_bl",
+    "c2_fu", "c2_bl",
+    "consens_fu", "consens_bl",
+    "needs_consens",
+    "fu_fin", "bl_fin",
+    "usable",
+    "fin_note"
+  )
+  
+  
+  joined %>%
+    dplyr::select(dplyr::any_of(base_order))
 }
 
 build_joined_results <- function(city_tag,
@@ -202,16 +197,53 @@ build_joined_results <- function(city_tag,
   names(joined_list) <- sheets
   
   wb <- openxlsx::createWorkbook()
+  
   for (sh in sheets) {
+    df_sh   <- joined_list[[sh]]
+    n_rows  <- nrow(df_sh)
+    
     openxlsx::addWorksheet(wb, sh)
-    # write header at row 2 to mimic your existing layout
-    openxlsx::writeData(wb, sh, joined_list[[sh]], startRow = 2, startCol = 1, colNames = TRUE)
+    openxlsx::writeData(wb, sh, df_sh, startRow = 2, startCol = 1, colNames = TRUE)
+    
+    if (n_rows > 0) {
+      nm      <- names(df_sh)
+      col_fu  <- match("fu_fin",   nm)
+      col_bl  <- match("bl_fin",   nm)
+      col_use <- match("usable",   nm)
+      
+      if (any(is.na(c(col_fu, col_bl, col_use)))) {
+        stop("Expected columns fu_fin, bl_fin, usable in joined sheet for ", sh)
+      }
+      
+      C        <- openxlsx::int2col
+      fu_col_l <- C(col_fu)
+      bl_col_l <- C(col_bl)
+      use_col  <- col_use
+      
+      # Add formula: usable = 1 if both final cols are non-blank, else ""
+      for (r in seq_len(n_rows)) {
+        excel_row <- r + 2  # because data start at row 3
+        formula <- sprintf(
+          'IF(AND(NOT(ISBLANK(%s%d)),NOT(ISBLANK(%s%d))),1,"")',
+          fu_col_l, excel_row,
+          bl_col_l, excel_row
+        )
+        openxlsx::writeFormula(
+          wb, sh,
+          x = formula,
+          startCol = use_col,
+          startRow = excel_row
+        )
+      }
+    }
   }
+  
   openxlsx::saveWorkbook(wb, out_file, overwrite = TRUE)
   message("Wrote joined results to: ", out_file)
   
   invisible(out_file)
 }
+
 
 
 # -------------------------------------------------------------------
@@ -236,17 +268,8 @@ FILE <- joined_file
 
 
 # -------------------------------------------------------------------
-# 3) Stratum counts (24-pick-excel + 25-summary) using joined_result
+# 3) Stratum counts using consens-based usability
 # -------------------------------------------------------------------
-
-norm_presence_final <- function(x){
-  x <- tolower(trimws(as.character(x)))
-  case_when(
-    x %in% c("1") ~ 1L,
-    x %in% c("0") ~ 0L,
-    TRUE          ~ NA_integer_
-  )
-}
 
 safe_read_exact <- function(path, sheet_name){
   
@@ -257,16 +280,14 @@ safe_read_exact <- function(path, sheet_name){
       skip  = 1,               # skip the group header row
       .name_repair = "minimal"
     ),
-    error = function(e) tibble()
+    error = function(e) tibble::tibble()
   )
   
   # Empty sheet case
   if (!nrow(df)) {
-    return(tibble(
-      tract_id      = character(),
-      stratum       = character(),
-      joined_result = NA_real_,
-      usable        = logical()
+    return(tibble::tibble(
+      tract_id = character(),
+      stratum  = character()
     ))
   }
   
@@ -288,47 +309,38 @@ safe_read_exact <- function(path, sheet_name){
   
   # 3) Drop summary rows if there is a tract_id column
   if ("tract_id" %in% nm) {
-    df <- df %>% filter(!is.na(tract_id))
+    df <- df %>% dplyr::filter(!is.na(tract_id))
   }
   
-  # 4) joined_result column
-  jr_name <- case_when(
-    "joined_result"  %in% nm ~ "joined_result",
-    "joined_results" %in% nm ~ "joined_results",
-    TRUE                     ~ NA_character_
-  )
-  
-  if (is.na(jr_name)) {
-    df$joined_result <- NA_real_
-  } else {
-    df$joined_result <- suppressWarnings(as.numeric(df[[jr_name]]))
-  }
-  
-  # ensure stratum exists (will be filled by fill_stratum if missing)
+  # 4) Ensure stratum exists
   if (!"stratum" %in% names(df)) {
     df$stratum <- NA_character_
   }
   
+  # 5) Keep only usable rows (both final values filled)
+  if (!all(c("bl_fin", "fu_fin") %in% names(df))) {
+    stop("joined_results sheets must contain bl_fin and fu_fin.")
+  }
+  
+  keep <- !is.na(df$bl_fin) & !is.na(df$fu_fin)
+  
   df %>%
-    mutate(
+    dplyr::mutate(
       tract_id = as.character(tract_id),
       stratum  = as.character(stratum)
     ) %>%
-    # keep only rows with a non-NA joined_result
-    filter(!is.na(joined_result)) %>%
-    mutate(
-      usable = TRUE   # all remaining rows are usable by definition
-    )
+    dplyr::filter(keep) %>%
+    dplyr::select(tract_id, stratum)
 }
 
-# --- stratum lookup (same as your previous code) -------------------
+# --- stratum lookup ------------------------------------------------
 
 get_stratum_lookup <- function(){
   tr <- if (exists("tracts_work")) tracts_work else if (exists("tracts")) tracts else NULL
   if (is.null(tr)) return(NULL)
   
   nm <- names(tr)
-  id_col <- case_when(
+  id_col <- dplyr::case_when(
     "tract_id"    %in% nm ~ "tract_id",
     "CUSEC"       %in% nm ~ "CUSEC",
     "codi_seccio" %in% nm ~ "codi_seccio",
@@ -339,13 +351,13 @@ get_stratum_lookup <- function(){
   dens_col <- if ("density_class"    %in% nm) "density_class" else if ("dens_class" %in% nm) "dens_class" else NA
   cent_col <- if ("centrality_class" %in% nm) "centrality_class" else if ("centr_class"%in% nm) "centr_class" else NA
   
-  out <- tr %>% sf::st_drop_geometry() %>% as_tibble()
+  out <- tr %>% sf::st_drop_geometry() %>% tibble::as_tibble()
   
   if (!has_stratum && !is.na(dens_col) && !is.na(cent_col)) {
     out <- out %>%
-      mutate(
-        density_class    = if (is.numeric(.data[[dens_col]])) ntile(.data[[dens_col]], 3) else .data[[dens_col]],
-        centrality_class = if (is.numeric(.data[[cent_col]])) ntile(.data[[cent_col]], 3) else .data[[cent_col]],
+      dplyr::mutate(
+        density_class    = if (is.numeric(.data[[dens_col]])) dplyr::ntile(.data[[dens_col]], 3) else .data[[dens_col]],
+        centrality_class = if (is.numeric(.data[[cent_col]])) dplyr::ntile(.data[[cent_col]], 3) else .data[[cent_col]],
         stratum = paste0("D", density_class, "_C", centrality_class)
       )
   }
@@ -353,44 +365,44 @@ get_stratum_lookup <- function(){
   if (!("stratum" %in% names(out))) return(NULL)
   
   out %>%
-    transmute(
+    dplyr::transmute(
       tract_id = as.character(.data[[id_col]]),
       stratum  = as.character(stratum)
     ) %>%
-    distinct()
+    dplyr::distinct()
 }
 
 strata_lkp <- get_stratum_lookup()
 
 fill_stratum <- function(df){
   if (is.null(strata_lkp) || !"tract_id" %in% names(df)) {
-    df %>% mutate(stratum = coalesce(stratum, "All"))
+    df %>% dplyr::mutate(stratum = dplyr::coalesce(stratum, "All"))
   } else {
     df %>%
-      left_join(strata_lkp, by = "tract_id", suffix = c("", ".lkp")) %>%
-      mutate(stratum = coalesce(stratum, stratum.lkp, "All")) %>%
-      select(-any_of("stratum.lkp"))
+      dplyr::left_join(strata_lkp, by = "tract_id", suffix = c("", ".lkp")) %>%
+      dplyr::mutate(stratum = dplyr::coalesce(stratum, stratum.lkp, "All")) %>%
+      dplyr::select(-dplyr::any_of("stratum.lkp"))
   }
 }
 
 # read three sheets, fill stratum, build summary
-add_tbl   <- safe_read_exact(FILE, "ADD")    %>% fill_stratum() %>% mutate(class = "ADD")
-rem_tbl   <- safe_read_exact(FILE, "REMOVE") %>% fill_stratum() %>% mutate(class = "REMOVE")
-nonci_tbl <- safe_read_exact(FILE, "NONCI")  %>% fill_stratum() %>% mutate(class = "NONCI")
+add_tbl   <- safe_read_exact(FILE, "ADD")    %>% fill_stratum() %>% dplyr::mutate(class = "ADD")
+rem_tbl   <- safe_read_exact(FILE, "REMOVE") %>% fill_stratum() %>% dplyr::mutate(class = "REMOVE")
+nonci_tbl <- safe_read_exact(FILE, "NONCI")  %>% fill_stratum() %>% dplyr::mutate(class = "NONCI")
 
 all_strata <- sort(unique(c(add_tbl$stratum, rem_tbl$stratum, nonci_tbl$stratum)))
 if (!length(all_strata)) all_strata <- "All"
 
-usable_tbl <- bind_rows(add_tbl, rem_tbl, nonci_tbl)
+usable_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, nonci_tbl)
 
 summary_stratum_class <- usable_tbl %>%
-  count(stratum, class, name = "n") %>%
-  complete(
+  dplyr::count(stratum, class, name = "n") %>%
+  tidyr::complete(
     stratum = all_strata,
     class   = c("ADD", "REMOVE", "NONCI"),
     fill    = list(n = 0L)
   ) %>%
-  pivot_wider(names_from = class, values_from = n, values_fill = 0L)
+  tidyr::pivot_wider(names_from = class, values_from = n, values_fill = 0L)
 
 wanted_cols <- c("stratum","ADD", "REMOVE","NONCI")
 for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
@@ -398,13 +410,13 @@ for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
 }
 
 summary_stratum_class <- summary_stratum_class %>%
-  select(all_of(wanted_cols)) %>%
-  mutate(Total = REMOVE + ADD + NONCI) %>%
-  arrange(stratum)
+  dplyr::select(dplyr::all_of(wanted_cols)) %>%
+  dplyr::mutate(Total = REMOVE + ADD + NONCI) %>%
+  dplyr::arrange(stratum)
 
-summary_stratum_class_full <- bind_rows(
+summary_stratum_class_full <- dplyr::bind_rows(
   summary_stratum_class,
-  summarise(
+  dplyr::summarise(
     summary_stratum_class,
     stratum = "TOTAL",
     ADD     = sum(ADD,     na.rm = TRUE),
@@ -416,7 +428,7 @@ summary_stratum_class_full <- bind_rows(
 
 
 # -------------------------------------------------------------------
-# 4) Validation metrics using ONLY consensus
+# 4) Validation metrics using ONLY consens
 # -------------------------------------------------------------------
 
 read_validation_sheet <- function(path, sheet_name) {
@@ -428,10 +440,10 @@ read_validation_sheet <- function(path, sheet_name) {
       skip  = 1,              # first row after the group header
       .name_repair = "minimal"
     ),
-    error = function(e) tibble()
+    error = function(e) tibble::tibble()
   )
   
-  if (!nrow(df)) return(tibble())
+  if (!nrow(df)) return(tibble::tibble())
   
   nm  <- trimws(names(df))
   bad <- which(is.na(nm) | nm == "")
@@ -443,46 +455,39 @@ read_validation_sheet <- function(path, sheet_name) {
   if (any(dup)) df <- df[, !dup, drop = FALSE]
   
   if ("tract_id" %in% names(df)) {
-    df <- df %>% filter(!is.na(tract_id))
+    df <- df %>% dplyr::filter(!is.na(tract_id))
   }
   
   maybe_num <- function(x) suppressWarnings(as.numeric(x))
   
   if (!"class" %in% names(df)) df$class <- sheet_name
   
-  for (cc in c("coder1_present_baseline", "coder1_present_followup",
-               "coder2_present_baseline", "coder2_present_followup",
-               "consensus_baseline", "consensus_followup",
-               "joined_result")) {
+  for (cc in c("bl_fin", "fu_fin")) {
     if (!cc %in% names(df)) df[[cc]] <- NA
   }
   
   df %>%
-    mutate(
-      class                = as.character(class),
-      coder1_present_baseline = maybe_num(coder1_present_baseline),
-      coder1_present_followup = maybe_num(coder1_present_followup),
-      coder2_present_baseline = maybe_num(coder2_present_baseline),
-      coder2_present_followup = maybe_num(coder2_present_followup),
-      consensus_baseline      = maybe_num(consensus_baseline),
-      consensus_followup      = maybe_num(consensus_followup),
-      joined_result           = maybe_num(joined_result)
+    dplyr::mutate(
+      class  = as.character(class),
+      bl_fin = maybe_num(bl_fin),
+      fu_fin = maybe_num(fu_fin)
     )
+  
 }
 
 add_df   <- read_validation_sheet(FILE, "ADD")
 rem_df   <- read_validation_sheet(FILE, "REMOVE")
 nonci_df <- read_validation_sheet(FILE, "NONCI")
 
-all_df <- bind_rows(add_df, rem_df, nonci_df)
+all_df <- dplyr::bind_rows(add_df, rem_df, nonci_df)
 
-# ---  build ground truth: ONLY consensus --------------------------
+# ---  build ground truth: ONLY consens --------------------------
 
 all_df <- all_df %>%
-  mutate(
-    baseline_truth = consensus_baseline,
-    followup_truth = consensus_followup,
-    real_change = case_when(
+  dplyr::mutate(
+    baseline_truth = bl_fin,
+    followup_truth = fu_fin,
+    real_change = dplyr::case_when(
       !is.na(baseline_truth) & !is.na(followup_truth) &
         baseline_truth == 0 & followup_truth == 1 ~ "ADD",
       !is.na(baseline_truth) & !is.na(followup_truth) &
@@ -493,7 +498,9 @@ all_df <- all_df %>%
     ),
     usable = !is.na(baseline_truth) & !is.na(followup_truth)
   ) %>%
-  filter(usable, real_change != "UNKNOWN")
+  dplyr::filter(usable, real_change != "UNKNOWN")
+
+
 
 # --- confusion counts ---------------------------------------------
 
@@ -556,7 +563,7 @@ fmt_ci <- function(est, ci) {
   }
 }
 
-t_class <- tibble(
+t_class <- tibble::tibble(
   Class            = c("ADD","REMOVE","Pooled"),
   `n (usable)`     = c(n_add_usable, n_rem_usable, n_tot_usable),
   TP               = c(TP_add, TP_rem, TP_T),
@@ -570,7 +577,8 @@ t_class <- tibble(
   `Recall (95% CI)` = c(
     fmt_ci(m_add$recall, add_rec_ci),
     fmt_ci(m_rem$recall, rem_rec_ci),
-    fmt_ci(m_tot$recall, rem_rec_ci)
+    fmt_ci(m_tot$recall, tot_rec_ci)
   ),
   F1 = sprintf("%.2f", c(m_add$f1, m_rem$f1, m_tot$f1))
 )
+

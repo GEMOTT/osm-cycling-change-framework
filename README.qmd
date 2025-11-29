@@ -224,8 +224,8 @@ knitr::kable(
 
 -   105 sampled points across 9 strata (48 ADD · 8 REMOVE · 49 NONCI)
 
--   97 usable validation points (both periods coded)\
-    (44 ADD · 7 REMOVE · 44 NONCI)
+-   93 usable validation points (both periods coded)\
+    (42 ADD · 7 REMOVE · 44 NONCI)
 
 ```{r}
 #| label: tab-summary_stratum
@@ -257,7 +257,7 @@ knitr::kable(
 
 #### Interpretation
 
--   OSM captures nearly all true additions (**recall = 1.00**) but includes several false positives (**precision ≈ 0.77**).\
+-   OSM captures nearly all true additions (**recall = 1.00**) but includes several false positives (**precision ≈ 0.81**).\
     For removals, OSM rarely identifies true cases (**precision ≈ 0.29**) and often flags false ones, although recall remains high for the few real removals present.
 
 -   Most errors stem from **re-tagging, micro-geometry adjustments**, or **short-term mapping churn**, which can appear as artificial additions or removals between snapshots.
@@ -268,7 +268,7 @@ knitr::kable(
 
 -   These metrics can be used to **calibrate OSM-derived estimates** of network change.
 
-> For example, with **precision = 0.77**, multiplying OSM-detected additions by 0.77 yields a closer estimate of true additions.
+> For example, with **precision = 0.81**, multiplying OSM-detected additions by 0.81 yields a closer estimate of true additions.
 
 -   Stratified validation can further support **spatial calibration** and **cross-city comparability** in multi-city analyses.
 
