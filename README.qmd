@@ -1,6 +1,6 @@
 ---
 title: "OSM Cycling-Infrastructure Validation (Barcelona, 2015–2023)"
-output: gfm
+format: gfm
 editor: visual
 ---
 

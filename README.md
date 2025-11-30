@@ -1,0 +1,52 @@
+# OSM Cycling-Infrastructure Validation (Barcelona, 2015–2023)
+
+
+# Overview
+
+This repository contains the reproducible workflow for the study:
+
+**Validating OpenStreetMap for detecting cycling-infrastructure
+change:  
+A Barcelona pilot using Google Street View (2015–2023).**
+
+The aim is to evaluate how well OpenStreetMap (OSM) detects additions
+and removals of cycling infrastructure, using manual Google Street View
+coding as ground truth.
+
+The project includes the full paper, an extended abstract, and
+presentation slides.
+
+# Structure
+
+- `paper.qmd` – full manuscript  
+- `abstract.qmd` – short abstract  
+- `slides/slides.qmd` – revealjs slides  
+- `R/` – helper functions (e.g. `utils.R`)  
+- `data/` – input data  
+- `outputs/` – derived datasets, Excel validation results, figures  
+- `figs/` – reusable figures  
+- `refs/` – bibliography files
+
+# Workflow (summary)
+
+1.  Stratified sampling of Barcelona street segments (density ×
+    centrality).  
+2.  Dual GSV coding for ≈2015 and ≈2023.  
+3.  Resolution of disagreements to obtain consensus labels.  
+4.  Evaluation of OSM performance (precision, recall, F1) for additions,
+    removals, and non-changes.  
+5.  Export of final validation tables to `outputs/*joined_results.xlsx`.
+
+# How to use
+
+1.  Open the RStudio project: `active-travel-infras-changes.Rproj`.  
+2.  Render:
+    - `paper.qmd` for the full paper  
+    - `abstract.qmd` for the short summary  
+    - `slides/slides.qmd` for the presentation
+
+<!-- # Contact -->
+
+<!-- **Eugeni Vidal-Tortosa**   -->
+
+<!-- eugeni.vidal@uab.cat -->
