@@ -1,0 +1,13 @@
+project:
+  type: default
+  execute-dir: project
+
+format:
+  html:
+    toc: true
+  revealjs:
+    slide-number: true
+
+bibliography: refs/wp1.bib
+
+editor: visual
