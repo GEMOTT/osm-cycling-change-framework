@@ -21,7 +21,7 @@ final_plot <- ggdraw() +
   draw_plot(bivar_map, 0, 0, 1, 1) +
   draw_plot(bivar_legend, x = 0.73, y = 0.03, width = 0.26, height = 0.26)
 
-ggsave("figs/stratified_sample_bivariate_map.png", final_plot, width = 8, height = 8, dpi = 300)
+ggsave("../figs/stratified_sample_bivariate_map.png", final_plot, width = 8, height = 8, dpi = 300)
 
 # validation points map
 
@@ -650,7 +650,7 @@ p_change <- ggplot() +
 p_change
 
 ggsave(
-  filename = "figs/infra_change_static.png",
+  filename = "../figs/infra_change_static.png",
   plot = p_change,
   width = 9,
   height = 9,

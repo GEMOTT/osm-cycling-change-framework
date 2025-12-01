@@ -8,9 +8,6 @@
 # 0) File paths and options
 # -------------------------------------------------------------------
 
-outdir <- "outputs"
-dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
-
 if (!exists("city_tag")) {
   stop("city_tag must be defined before running 09_results_validation.R")
 }
@@ -21,7 +18,6 @@ joined_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_joined_res
 
 # Set to TRUE only when you want to rebuild joined_file from coder Excels
 rebuild_joined <- FALSE
-
 
 # -------------------------------------------------------------------
 # 1) Helpers to read coder sheets and build joined sheets

@@ -1,6 +1,4 @@
 # --- setup -------------------------------------------------------
-outdir <- "outputs"
-dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
 # which coders to prepare workbooks for
 coders <- c(1, 2)

@@ -23,9 +23,14 @@ Sys.setenv(OGR_ENABLE_PARTITION = "TRUE")
 # Main working CRS (ETRS89 / UTM zone 31N)
 crs_work <- 25831
 
+
 # Processed-data directory
-proc_dir <- "data/processed"
+proc_dir <- "../data/processed"
 dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Output-data directory
+outdir <- "../outputs"
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
 # ----------------------------
 # Project settings

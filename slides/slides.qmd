@@ -1,16 +1,16 @@
 ---
-title: "Validating OpenStreetMap for detecting cycling-infrastructure change: A Barcelona pilot using Google Street View (2015–2023)"
+title: "Validating OpenStreetMap for detecting cycling-infrastructure change: A Barcelona pilot using Google Street View (2015–2023) 🚲"
 format: revealjs
 editor: visual
 ---
 
 ## Context and aim
 
-Urban transformations such as new bike lanes reshape mobility and health, yet standardised datasets tracking infrastructure change over time remain scarce.
+- Urban transformations such as new bike lanes reshape mobility and health, yet standardised datasets tracking infrastructure change over time remain scarce.
 
-OpenStreetMap (OSM) offers open, historical data but its reliability for detecting change is still uncertain.
+- OpenStreetMap (OSM) offers open, historical data but its reliability for detecting change is still uncertain.
 
-**Aim**: Assess whether OSM reliably reflects new or removed bike lanes in Barcelona (2015–2023) using Google Street View (GSV) as ground truth, as a basis for scalable validation in other cities.
+- **Aim**: Assess whether OSM reliably reflects new or removed bike lanes in Barcelona (2015–2023) using Google Street View (GSV) as ground truth, as a basis for scalable validation in other cities.
 
 ## Data and methods
 
@@ -26,20 +26,20 @@ OpenStreetMap (OSM) offers open, historical data but its reliability for detecti
 
 ```{r}
 #| include: false
-source("R/00_setup.R")
-source("R/utils_geom.R")
-source("R/utils_ci.R")
-source("R/utils_validation.R")
-source("R/01_osm_download.R")
-source("R/02_ci_networks.R")
-source("R/03_change_detection.R")
-source("R/04_nonci_network.R")
-source("R/05_tracts_strata.R")
-source("R/06_sampling_points.R")
-source("R/07_export_excel.R")
-source("R/08_results_general.R")
-source("R/09_results_validation.R")
-source("R/10_maps.R")
+source("../R/00_setup.R")
+source("../R/utils_geom.R")
+source("../R/utils_ci.R")
+source("../R/utils_validation.R")
+source("../R/01_osm_download.R")
+source("../R/02_ci_networks.R")
+source("../R/03_change_detection.R")
+source("../R/04_nonci_network.R")
+source("../R/05_tracts_strata.R")
+source("../R/06_sampling_points.R")
+source("../R/07_export_excel.R")
+source("../R/08_results_general.R")
+source("../R/09_results_validation.R")
+source("../R/10_maps.R")
 ```
 
 ```{r}
@@ -48,13 +48,15 @@ source("R/10_maps.R")
 #| out-width: 100%
 #| echo: false
 
-knitr::include_graphics("figs/osm_gsv_flowchart.png")
+knitr::include_graphics("../figs/osm_gsv_flowchart.png")
 
 ```
 
 ## Data and methods
 
-##### 1. Extract OSM data
+### Methods
+
+#### 1. Extract OSM data
 
 -   **Snapshots:** 2016-01-01 (≈2015) and 2024-01-01 (≈2023)
 
@@ -82,13 +84,17 @@ A segment is classified as **NONCI** if:
 
 -   It **does not** meet the CI rule above, **and** `highway` ∈ `{primary, secondary, tertiary, unclassified, residential, primary_link, secondary_link, tertiary_link, living_street, pedestrian}`
 
-##### 2. Calculate geometric differences
+## Data and methods
+
+### Methods
+
+#### 2. Calculate geometric differences
 
 -   **ADDED**: CI in 2023 but not 2015
 
 -   **REMOVED**: CI in 2015 but not 2023
 
-##### 3. Design sampling
+#### 3. Design sampling
 
 -   9 strata: density × centrality (3 × 3)
 
@@ -104,14 +110,22 @@ A segment is classified as **NONCI** if:
 
 -   The midpoint of each segment serves as the validation location
 
+## Data and methods
+
+### Methods
+
 ```{r}
 #| label: fig-bivar-map
 #| fig-cap: Stratified tracts (density × centrality) used for samplying.
 #| echo: false
 
-knitr::include_graphics("figs/stratified_sample_bivariate_map.png")
+knitr::include_graphics("../figs/stratified_sample_bivariate_map.png")
 
 ```
+
+## Data and methods
+
+### Methods
 
 ```{r}
 #| label: fig-validation-points
@@ -123,7 +137,11 @@ make_validation_points_map()
 
 ```
 
-##### 4. Inspect & classify (GSV)
+## Data and methods
+
+### Methods
+
+#### 4. Inspect & classify (GSV)
 
 -   Each sampled segment was inspected in two periods: a **follow-up (≈2023)** and a **baseline (≈2015)**.
 
@@ -141,6 +159,10 @@ make_validation_points_map()
 -   When an **unexpected discrepancy** with OSM was found, the **neighbour years** (e.g. 2022 or 2024 for follow-up; 2014 or 2016 for baseline) were also checked to ensure that the apparent disagreement was not due to a time lag between the real change and the GSV image month/year.
 
 -   If no year in the sequence could be coded, the period was recorded as **NA**.
+
+## Data and methods
+
+### Methods
 
 Codes: **1 = CI visible · 0 = clearly absent · NA = not verifiable**
 
@@ -161,7 +183,11 @@ Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel work
 
 <!-- - Keep only points verifiable for both years -->
 
-##### 5. Evaluate performance
+## Data and methods
+
+### Methods
+
+#### 5. Evaluate performance
 
 -   **Precision = TP / (TP + FP)**\
     Percentage of OSM changes that were correct. (How many OSM-detected changes are real)
@@ -174,7 +200,7 @@ Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel work
 
 ## Results
 
-#### Network change detected by OSM
+### Network change detected by OSM
 
 -   OSM cycling network grew **153.6 → 288.4 km (+88%)**
 
@@ -188,6 +214,10 @@ Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel work
 make_infra_change_map()
 
 ```
+
+## Results
+
+### Network change detected by OSM
 
 ```{r}
 #| label: tab-consistency
@@ -205,6 +235,10 @@ knitr::kable(
 
 -   **Removals** were concentrated in **intermediate-density tracts** (D2_C1, D2_C3, D1_C2), representing **≈62%** of total removed length.
 
+## Results
+
+### Network change detected by OSM
+
 ```{r}
 #| label: tab-strata
 #| tbl-cap: "Table 2: OSM-estimated additions and removals (2015–2023) by density × centrality stratum"
@@ -217,7 +251,9 @@ knitr::kable(
 
 ```
 
-#### Validation results
+## Results
+
+### Validation results
 
 -   105 sampled points across 9 strata (48 ADD · 8 REMOVE · 49 NONCI)
 
@@ -237,6 +273,11 @@ knitr::kable(
 
 ```
 
+
+## Results
+
+### Validation results
+
 ```{r}
 #| label: tab-validation_performance
 #| tbl-cap: "Table 4: Validation performance (usable points only)"
@@ -252,7 +293,7 @@ knitr::kable(
 
 ## Interpretation and calibration
 
-#### Interpretation
+### Interpretation
 
 -   OSM captures nearly all true additions (**recall = 1.00**) but includes several false positives (**precision ≈ 0.81**).\
     For removals, OSM rarely identifies true cases (**precision ≈ 0.29**) and often flags false ones, although recall remains high for the few real removals present.
@@ -261,7 +302,7 @@ knitr::kable(
 
 -   Overall, **OSM is a reliable proxy for additions but a weak proxy for removals**, slightly **overstating net cycling-network growth**.
 
-#### Calibration potential
+### Calibration potential
 
 -   These metrics can be used to **calibrate OSM-derived estimates** of network change.
 
@@ -271,15 +312,15 @@ knitr::kable(
 
 ## Supplements
 
-#### S1. Google Street View coding protocol (PDF)
+### S1. Google Street View coding protocol (PDF)
 
-[Download here](outputs/procedure_gsv_coding.pdf)
+[Download here](../outputs/procedure_gsv_coding.pdf)
 
-#### S2. Raw validation workbooks: coder 1 and coder 2 (XLSX)
+### S2. Raw validation workbooks: coder 1 and coder 2 (XLSX)
 
-[Download coder 1](outputs/barcelona_samples_2015_2023_coder1.xlsx)\
-[Download coder 2](outputs/barcelona_samples_2015_2023_coder2.xlsx)
+[Download coder 1](../outputs/barcelona_samples_2015_2023_coder1.xlsx)\
+[Download coder 2](../outputs/barcelona_samples_2015_2023_coder2.xlsx)
 
-#### S3. Final adjudicated validation results (XLSX)
+### S3. Final adjudicated validation results (XLSX)
 
-[Download joined results](outputs/barcelona_samples_2015_2023_joined_results.xlsx)
+[Download joined results](../outputs/barcelona_samples_2015_2023_joined_results.xlsx)

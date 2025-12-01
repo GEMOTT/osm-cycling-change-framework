@@ -6,8 +6,8 @@ barcelona_tracts <- .cache(
   build = function(){
     
     # ---- load raw inputs ----
-    tracts_geo <- readRDS("data/geo/BCN_seccion_censal_2015.rds")
-    tracts_pop <- readRDS("data/pop/Population_Census_tract_2015_2022.rds")
+    tracts_geo <- readRDS("../data/geo/BCN_seccion_censal_2015.rds")
+    tracts_pop <- readRDS("../data/pop/Population_Census_tract_2015_2022.rds")
     
     # Ensure expected ids exist
     stopifnot("CUSEC" %in% names(tracts_geo), all(c("GEOID","Year","Population") %in% names(tracts_pop)))
@@ -49,8 +49,8 @@ barcelona_tracts <- .cache(
     }
     x
   },
-  inputs = c("data/geo/BCN_seccion_censal_2015.rds",
-             "data/pop/Population_Census_tract_2015_2022.rds")
+  inputs = c("../data/geo/BCN_seccion_censal_2015.rds",
+             "../data/pop/Population_Census_tract_2015_2022.rds")
 )
 
 # 11-tracts-stratify

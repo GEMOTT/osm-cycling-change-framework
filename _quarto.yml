@@ -1,13 +1,34 @@
 project:
   type: default
-  execute-dir: project
+  resources:
+    - figs
 
 format:
   html:
     toc: true
+  pdf:
+    documentclass: article
+    include-in-header:
+      text: |
+        \usepackage{xcolor}
+        \usepackage{lscape}
+        \newcommand{\blandscape}{\begin{landscape}}
+        \newcommand{\elandscape}{\end{landscape}}
+        \usepackage{geometry}
+        \geometry{
+          top=2.5cm,
+          bottom=2.5cm,
+          left=2.5cm,
+          right=2.5cm
+        }
+  docx:
+    reference-doc: templates/custom-reference.docx
+    number-sections: true
   revealjs:
     slide-number: true
+    css: templates/styles.css
 
-bibliography: refs/wp1.bib
+bibliography: refs/references.bib
 
 editor: visual
+
