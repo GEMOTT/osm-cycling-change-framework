@@ -25,6 +25,7 @@ mk_gsv_cbll <- function(lat, lon, heading = NA_real_) {
   )
 }
 
+# Ensure correct structure and order of columns, matching the template
 ensure_export_cols <- function(df){
   # prefer existing link in 'gsv_link', else 'gsv_url', else create cbll
   if (!"gsv_link" %in% names(df)) {
@@ -38,141 +39,132 @@ ensure_export_cols <- function(df){
     )
   }
   
-  # presence fields (include 2016 and 2022)
-  for (nm in c("present_2014","present_2015","present_2016",
-               "present_2022","present_2023","present_2024")) {
+  # clean id: 1..N
+  df$id <- seq_len(nrow(df))
+  
+  # make sure all validation columns exist
+  for (nm in c(
+    "pres24","mon24","pres23","mon23",
+    "pres22","mon22",
+    "pres16","mon16","pres15","mon15",
+    "pres14","mon14",
+    "notes","pres_fu","pres_bl","match"
+  )) {
     if (!nm %in% names(df)) df[[nm]] <- NA
   }
   
-  # clickable label column
+  # clickable label col
   if (!"GSV" %in% names(df)) df$GSV <- NA_character_
   
-  # normalise id fields
+  # normalise ids as character
   if ("tract_id" %in% names(df)) df$tract_id <- as.character(df$tract_id)
   if ("stratum"  %in% names(df)) df$stratum  <- as.character(df$stratum)
   
-  # FINAL ORDER (follow-up first, then baseline, then notes)
+  # exact order in export
   wanted <- c(
     "id","class","tract_id","stratum","lon","lat","gsv_link","GSV",
-    "present_2023","present_2024","present_2022",
-    "present_2015","present_2014","present_2016",
-    "notes"
+    "pres24","mon24","pres23","mon23",
+    "pres22","mon22",
+    "pres16","mon16","pres15","mon15",
+    "pres14","mon14",
+    "notes","pres_fu","pres_bl","match"
   )
   for (nm in setdiff(wanted, names(df))) df[[nm]] <- NA
   df[, wanted, drop = FALSE]
 }
 
-add_fused_formula_cols <- function(wb, sheet, n_rows, header_row = 2, na_token = '"NA"'){
-  hdr <- openxlsx::readWorkbook(wb, sheet = sheet, rows = header_row, colNames = FALSE)
-  nm  <- as.character(hdr[1, ])
-  
-  required <- c("present_2023","present_2024","present_2022",
-                "present_2015","present_2014","present_2016","notes")
-  miss <- setdiff(required, nm)
-  if (length(miss)) stop("Missing expected columns on sheet '", sheet, "': ", paste(miss, collapse = ", "))
-  
-  i23 <- match("present_2023", nm); i24 <- match("present_2024", nm); i22 <- match("present_2022", nm)
-  i15 <- match("present_2015", nm); i14 <- match("present_2014", nm); i16 <- match("present_2016", nm)
-  inotes <- match("notes", nm)
-  
-  # insert immediately AFTER 'notes'
-  col_fu <- inotes + 1
-  col_bl <- inotes + 2
-  
-  openxlsx::writeData(
-    wb, sheet,
-    x = data.frame(present_followup = NA, present_baseline = NA),
-    startCol = col_fu, startRow = header_row, colNames = TRUE
-  )
-  
-  C   <- openxlsx::int2col
-  c23 <- C(i23); c24 <- C(i24); c22 <- C(i22)
-  c15 <- C(i15); c14 <- C(i14); c16 <- C(i16)
-  
-  r1 <- header_row + 1
-  rN <- header_row + n_rows
-  
-  if (n_rows > 0) {
-    # Build the template strings ONCE, then sprintf per row
-    tmpl_fu <- paste0(
-      'IF(OR(%1$s%2$d=1,%1$s%2$d="1",%1$s%2$d=0,%1$s%2$d="0"),%1$s%2$d,',
-      'IF(OR(%3$s%2$d=1,%3$s%2$d="1",%3$s%2$d=0,%3$s%2$d="0"),%3$s%2$d,',
-      'IF(OR(%4$s%2$d=1,%4$s%2$d="1",%4$s%2$d=0,%4$s%2$d="0"),%4$s%2$d,%5$s)))'
-    )
-    tmpl_bl <- paste0(
-      'IF(OR(%1$s%2$d=1,%1$s%2$d="1",%1$s%2$d=0,%1$s%2$d="0"),%1$s%2$d,',
-      'IF(OR(%3$s%2$d=1,%3$s%2$d="1",%3$s%2$d=0,%3$s%2$d="0"),%3$s%2$d,',
-      'IF(OR(%4$s%2$d=1,%4$s%2$d="1",%4$s%2$d=0,%4$s%2$d="0"),%4$s%2$d,%5$s)))'
-    )
-    
-    for (r in r1:rN) {
-      f_fu <- sprintf(tmpl_fu, c23, r, c24, c22, na_token)
-      f_bl <- sprintf(tmpl_bl, c15, r, c14, c16, na_token)
-      openxlsx::writeFormula(wb, sheet, x = f_fu, startCol = col_fu, startRow = r)
-      openxlsx::writeFormula(wb, sheet, x = f_bl, startCol = col_bl, startRow = r)
-    }
-  }
-  
-  # header styling and widths
-  sty_head <- openxlsx::createStyle(fgFill = "#E2F0D9", textDecoration = "bold")
-  openxlsx::addStyle(wb, sheet, style = sty_head, rows = header_row, cols = c(col_fu, col_bl), gridExpand = TRUE)
-  openxlsx::setColWidths(wb, sheet, cols = c(col_fu, col_bl), widths = 18)
-}
-
-add_match_col <- function(wb, sheet, n_rows, header_row = 2, na_token = '"NA"') {
+# -------------------------------------------------------------------
+# Fused presence formulas: pres_fu (follow-up) and pres_bl (baseline)
+# Layout after ensure_export_cols:
+#   I  pres24   J  mon24
+#   K  pres23   L  mon23
+#   M  pres22   N  mon22
+#   O  pres16   P  mon16
+#   Q  pres15   R  mon15
+#   S  pres14   T  mon14
+#   V  pres_fu  W  pres_bl  X  match
+# -------------------------------------------------------------------
+add_fused_formula_cols <- function(wb, sheet, n_rows, header_row = 2){
   if (n_rows == 0) return(invisible(NULL))
   
-  hdr <- openxlsx::readWorkbook(wb, sheet = sheet, rows = header_row, colNames = FALSE)
-  nm  <- as.character(hdr[1, ])
-  
-  i_class <- match("class", nm)
-  i_fu    <- match("present_followup", nm)
-  i_bl    <- match("present_baseline", nm)
-  
-  if (any(is.na(c(i_class, i_fu, i_bl)))) {
-    stop("Missing 'class', 'present_followup' or 'present_baseline' on sheet '", sheet, "'.")
-  }
-  
-  C       <- openxlsx::int2col
-  c_class <- C(i_class)
-  c_fu    <- C(i_fu)
-  c_bl    <- C(i_bl)
-  
-  # add match column at the end
-  col_match <- length(nm) + 1
-  openxlsx::writeData(
-    wb, sheet,
-    x = data.frame(osm_gsv_match = NA),
-    startCol = col_match, startRow = header_row,
-    colNames = TRUE
-  )
-  
   r1 <- header_row + 1
   rN <- header_row + n_rows
   
-  # Template (for sprintf):
-  # %1$s = follow-up col, %2$s = baseline col, %3$d = row, %4$s = class col
+  # follow-up fused:
+  # 1) if pres24 and pres23 both empty:
+  #       use pres22 if available, else ""
+  # 2) if only one of pres24/pres23 is filled: use that
+  # 3) if both filled: choose year whose month is closer to January
+  tmpl_fu <- paste0(
+    'IF(AND(I%1$d="",K%1$d=""),',
+    'IF(M%1$d<>"",M%1$d,""),',
+    'IF(AND(I%1$d<>"",K%1$d=""),I%1$d,',
+    'IF(AND(I%1$d="",K%1$d<>""),K%1$d,',
+    'IF(ABS(J%1$d-1)<=ABS(13-L%1$d),I%1$d,K%1$d))))'
+  )
+  
+  # baseline fused:
+  # 1) if pres16 and pres15 both empty:
+  #       use pres14 if available, else ""
+  # 2) if only one of pres16/pres15 is filled: use that
+  # 3) if both filled: choose year whose month is closer to January
+  tmpl_bl <- paste0(
+    'IF(AND(O%1$d="",Q%1$d=""),',
+    'IF(S%1$d<>"",S%1$d,""),',
+    'IF(AND(O%1$d<>"",Q%1$d=""),O%1$d,',
+    'IF(AND(O%1$d="",Q%1$d<>""),Q%1$d,',
+    'IF(ABS(P%1$d-1)<=ABS(13-R%1$d),O%1$d,Q%1$d))))'
+  )
+  
+  col_fu <- 22  # V
+  col_bl <- 23  # W
+  
+  for (r in r1:rN) {
+    f_fu <- paste0("=", sprintf(tmpl_fu, r))
+    f_bl <- paste0("=", sprintf(tmpl_bl, r))
+    openxlsx::writeFormula(wb, sheet, x = f_fu, startCol = col_fu, startRow = r)
+    openxlsx::writeFormula(wb, sheet, x = f_bl, startCol = col_bl, startRow = r)
+  }
+  
+  # only widths, no colours
+  openxlsx::setColWidths(wb, sheet, cols = c(col_fu, col_bl), widths = 13)
+}
+
+# -------------------------------------------------------------------
+# Match column in X: comparison of class vs (pres_bl, pres_fu)
+# Returns TRUE/FALSE (logical), which Excel may show as TRUE/FALSE
+# -------------------------------------------------------------------
+add_match_col <- function(wb, sheet, n_rows, header_row = 2) {
+  if (n_rows == 0) return(invisible(NULL))
+  
+  r1 <- header_row + 1
+  rN <- header_row + n_rows
+  col_match <- 24  # X
+  
+  # use V (pres_fu), W (pres_bl), B (class)
   tmpl_match <- paste0(
-    'IF(OR(%1$s%3$d="NA",%2$s%3$d="NA",%1$s%3$d="",%2$s%3$d=""),',
-    na_token, ',',
-    'OR(',
-    'AND(%4$s%3$d="ADD",ROUND(%1$s%3$d,0)=1,ROUND(%2$s%3$d,0)=0),',
-    'AND(%4$s%3$d="REMOVE",ROUND(%1$s%3$d,0)=0,ROUND(%2$s%3$d,0)=1),',
-    'AND(%4$s%3$d="NONCI",ROUND(%1$s%3$d,0)=0,ROUND(%2$s%3$d,0)=0)',
-    '))'
+    'IF(OR(V%1$d="",W%1$d=""),"",',
+    'IF(B%1$d="ADD",AND(W%1$d=0,V%1$d=1),',
+    'IF(B%1$d="REMOVE",AND(W%1$d=1,V%1$d=0),',
+    'IF(B%1$d="NONCI",AND(W%1$d=0,V%1$d=0),""))))'
   )
   
   for (r in r1:rN) {
-    f_match <- sprintf(tmpl_match, c_fu, c_bl, r, c_class)
+    f_match <- paste0("=", sprintf(tmpl_match, r))
     openxlsx::writeFormula(wb, sheet, x = f_match, startCol = col_match, startRow = r)
   }
   
-  sty_head <- openxlsx::createStyle(fgFill = "#E2F0D9", textDecoration = "bold")
-  openxlsx::addStyle(wb, sheet, style = sty_head, rows = header_row, cols = col_match, gridExpand = TRUE)
-  openxlsx::setColWidths(wb, sheet, cols = col_match, widths = 18)
+  openxlsx::setColWidths(wb, sheet, cols = col_match, widths = 13)
 }
 
-# writer: styles grouped headers, inputs, and adds computed finals after notes
+# -------------------------------------------------------------------
+# Writer: make sheet look like coder template
+#   - only coder-editable cols coloured:
+#       * BLUE: pres24, mon24, pres23, mon23, pres16, mon16, pres15, mon15
+#       * YELLOW: pres22, mon22, pres14, mon14
+#       * GREEN: notes
+#   - pres_fu, pres_bl, match: no colour
+# -------------------------------------------------------------------
 write_one <- function(wb, df, sheet, freeze_cols = 3){
   df <- ensure_export_cols(df)
   
@@ -181,93 +173,125 @@ write_one <- function(wb, df, sheet, freeze_cols = 3){
     tabColour = switch(sheet, "ADD"="green","REMOVE"="red","NONCI"="orange","CI_STATIC"="blue","grey")
   )
   
-  # Write headers at row 2 and data from row 3
-  openxlsx::writeData(wb, sheet, df, startRow = 2, startCol = 1, colNames = TRUE, withFilter = FALSE)
+  # headers at row 2, data from row 3
+  openxlsx::writeData(wb, sheet, df, startRow = 2, startCol = 1,
+                      colNames = TRUE, withFilter = FALSE)
   
-  # clickable GSV (first data row is row 3)
+  # clickable GSV (H column)
   if (nrow(df)) {
     openxlsx::writeFormula(
       wb, sheet,
       x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
-      startCol = match("GSV", names(df)),
+      startCol = 8,  # H
       startRow = 3
     )
   }
   
-  # widths and freeze panes
-  w <- rep("auto", ncol(df)); w[1] <- 12
-  openxlsx::setColWidths(wb, sheet, cols = 1:ncol(df), widths = w)
+  openxlsx::setColWidths(wb, sheet, cols = 1:ncol(df), widths = 13)
   openxlsx::freezePane(wb, sheet, firstActiveRow = 3, firstActiveCol = freeze_cols + 1)
   
   # centre "Open GSV"
-  gsv_col <- match("GSV", names(df))
-  if (!is.na(gsv_col)) {
-    openxlsx::setColWidths(wb, sheet, cols = gsv_col, widths = nchar("Open GSV") + 2)
-    style_center <- openxlsx::createStyle(halign = "center")
-    openxlsx::addStyle(wb, sheet, style = style_center, rows = 2:(nrow(df)+2), cols = gsv_col, gridExpand = TRUE)
+  style_center <- openxlsx::createStyle(halign = "center")
+  openxlsx::addStyle(wb, sheet, style = style_center,
+                     rows = 2:(nrow(df)+2), cols = 8, gridExpand = TRUE)
+  
+  # ----- row 1 group headers --------------------------------------------------
+  group_style <- openxlsx::createStyle(
+    fgFill = "#DCEBFA", textDecoration = "bold",
+    halign = "center", valign = "center"
+  )
+  
+  openxlsx::writeData(
+    wb, sheet,
+    x = matrix("", nrow = 1, ncol = ncol(df)),
+    startRow = 1, startCol = 1, colNames = FALSE
+  )
+  
+  # Follow-up block over I..N (pres24/23/22 + months)
+  openxlsx::writeData(wb, sheet, x = "Follow-up", startRow = 1, startCol = 9, colNames = FALSE)
+  openxlsx::mergeCells(wb, sheet, rows = 1, cols = 9:14)
+  openxlsx::addStyle(wb, sheet, style = group_style,
+                     rows = 1, cols = 9:14, gridExpand = TRUE)
+  
+  # Baseline block over O..T (pres16/15/14 + months)
+  openxlsx::writeData(wb, sheet, x = "Baseline", startRow = 1, startCol = 15, colNames = FALSE)
+  openxlsx::mergeCells(wb, sheet, rows = 1, cols = 15:20)
+  openxlsx::addStyle(wb, sheet, style = group_style,
+                     rows = 1, cols = 15:20, gridExpand = TRUE)
+  
+  # No special style for V..X
+  
+  # ----- overwrite header text to the exact names we want --------------------
+  hdr <- c(
+    "id","class","tract_id","stratum","lon","lat","gsv_link","GSV",
+    "pres24","mon24","pres23","mon23",
+    "pres22","mon22",
+    "pres16","mon16","pres15","mon15",
+    "pres14","mon14",
+    "notes","pres_fu","pres_bl","match"
+  )
+  
+  openxlsx::writeData(
+    wb, sheet,
+    x = matrix(hdr, nrow = 1),
+    startRow = 2, startCol = 1, colNames = FALSE
+  )
+  
+  # ----- header colours: ONLY coder-editable cols ----------------------------
+  header_blue   <- openxlsx::createStyle(fgFill = "#DCEBFA", textDecoration = "bold")
+  header_yellow <- openxlsx::createStyle(fgFill = "#FFF4C2", textDecoration = "bold")
+  header_green  <- openxlsx::createStyle(fgFill = "#E4F8D2", textDecoration = "bold")
+  
+  # figure out positions by name (robust)
+  nm <- hdr
+  
+  blue_cols <- which(nm %in% c(
+    "pres24","mon24","pres23","mon23",
+    "pres16","mon16","pres15","mon15"
+  ))
+  yellow_cols <- which(nm %in% c(
+    "pres22","mon22","pres14","mon14"
+  ))
+  green_col <- which(nm == "notes")
+  
+  if (length(blue_cols)) {
+    openxlsx::addStyle(wb, sheet, style = header_blue,
+                       rows = 2, cols = blue_cols, gridExpand = TRUE)
+  }
+  if (length(yellow_cols)) {
+    openxlsx::addStyle(wb, sheet, style = header_yellow,
+                       rows = 2, cols = yellow_cols, gridExpand = TRUE)
+  }
+  if (length(green_col) == 1) {
+    openxlsx::addStyle(wb, sheet, style = header_green,
+                       rows = 2, cols = green_col, gridExpand = TRUE)
   }
   
-  # hide columns D–G (tract_id, stratum, lon, lat)
-  openxlsx::setColWidths(wb, sheet, cols = 4:7, widths = 0)
-  
-  # ---- header styling for year windows --------------------------------------
-  col_p14 <- match("present_2014", names(df))
-  col_p15 <- match("present_2015", names(df))
-  col_p16 <- match("present_2016", names(df))
-  col_p22 <- match("present_2022", names(df))
-  col_p23 <- match("present_2023", names(df))
-  col_p24 <- match("present_2024", names(df))
-  
-  sty_main <- openxlsx::createStyle(fgFill = "#FFF2CC", textDecoration = "bold")
-  sty_edge <- openxlsx::createStyle(fgFill = "#F2F2F2")
-  
-  if (!is.na(col_p15)) openxlsx::addStyle(wb, sheet, style = sty_main, rows = 2, cols = col_p15, gridExpand = TRUE)
-  if (!is.na(col_p23)) openxlsx::addStyle(wb, sheet, style = sty_main, rows = 2, cols = col_p23, gridExpand = TRUE)
-  if (!is.na(col_p14)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 2, cols = col_p14, gridExpand = TRUE)
-  if (!is.na(col_p16)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 2, cols = col_p16, gridExpand = TRUE)
-  if (!is.na(col_p22)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 2, cols = col_p22, gridExpand = TRUE)
-  if (!is.na(col_p24)) openxlsx::addStyle(wb, sheet, style = sty_edge, rows = 2, cols = col_p24, gridExpand = TRUE)
-  
-  # ---- top group header row (row 1) -----------------------------------------
-  sty_group <- openxlsx::createStyle(fgFill = "#D9E1F2", textDecoration = "bold", halign = "center", valign = "center")
-  
-  # Follow-up group: 2023 over [present_2023, present_2024, present_2022]
-  if (all(!is.na(c(col_p23, col_p24, col_p22)))) {
-    openxlsx::writeData(wb, sheet, x = "2023", startRow = 1, startCol = col_p23, colNames = FALSE)
-    openxlsx::mergeCells(wb, sheet, rows = 1, cols = col_p23:col_p22)
-    openxlsx::addStyle(wb, sheet, style = sty_group, rows = 1, cols = col_p23:col_p22, gridExpand = TRUE)
-  }
-  
-  # Baseline group: 2015 over [present_2015, present_2014, present_2016]
-  if (all(!is.na(c(col_p15, col_p14, col_p16)))) {
-    openxlsx::writeData(wb, sheet, x = "2015", startRow = 1, startCol = col_p15, colNames = FALSE)
-    openxlsx::mergeCells(wb, sheet, rows = 1, cols = col_p15:col_p16)
-    openxlsx::addStyle(wb, sheet, style = sty_group, rows = 1, cols = col_p15:col_p16, gridExpand = TRUE)
-  }
-  
-  # ---- presence inputs: plain text, start empty (avoid LibreOffice 509) -----
-  presence_cols <- grep("^present_(2014|2015|2016|2022|2023|2024)$", names(df))
-  if (length(presence_cols)) {
-    sty_text <- openxlsx::createStyle(numFmt = "@")
+  # ----- make data cells for coder inputs text-formatted ----------------------
+  # I..T (9:20) are coder input fields
+  input_cols <- 9:20
+  sty_text <- openxlsx::createStyle(numFmt = "@")
+  if (nrow(df) > 0) {
     openxlsx::addStyle(
       wb, sheet, style = sty_text,
-      rows = 3:(nrow(df) + 2), cols = presence_cols, gridExpand = TRUE
+      rows = 3:(nrow(df) + 2), cols = input_cols, gridExpand = TRUE
     )
-    # ensure blanks instead of NA for inputs
-    for (j in presence_cols) {
+    for (j in input_cols) {
       v <- df[[j]]
       v[!is.na(v)] <- as.character(v[!is.na(v)])
       v[is.na(v)]  <- ""
-      openxlsx::writeData(wb, sheet, v, startRow = 3, startCol = j, colNames = FALSE)
+      openxlsx::writeData(wb, sheet, v,
+                          startRow = 3, startCol = j, colNames = FALSE)
     }
   }
   
-  # ---- add the two calculated columns (after notes) --------------------------
-  add_fused_formula_cols(wb, sheet, n_rows = nrow(df), header_row = 2, na_token = '"NA"')
-  # ---- add OSM–GSV match flag at the end ------------------------------------
-  add_match_col(wb, sheet, n_rows = nrow(df), header_row = 2, na_token = '"NA"')
-  
+  # ----- fused presence + match formulas, no colour ---------------------------
+  add_fused_formula_cols(wb, sheet, n_rows = nrow(df), header_row = 2)
+  add_match_col(wb, sheet, n_rows = nrow(df), header_row = 2)
 }
+
+
+
 
 # keep one tract_id and stratum on points
 add_id_if_missing <- function(p, tr){
@@ -277,6 +301,7 @@ add_id_if_missing <- function(p, tr){
   }
   p
 }
+
 canon_id_stratum <- function(p, tr){
   co <- function(df, vars){
     v <- lapply(vars, \(x) if (x %in% names(df)) as.character(df[[x]]) else NA_character_)
@@ -321,9 +346,9 @@ for (cd in coders) {
   outfile <- mk_outfile(city_tag, cd)
   
   if (file.exists(outfile) && !rebuild_excels) {
-    message("Validation workbook for coder", cd, " already exists, not overwriting: ", outfile)
+    message("Validation workbook for coder ", cd, " already exists, not overwriting: ", outfile)
   } else {
-    message("Creating validation workbook for coder", cd, ": ", outfile)
+    message("Creating validation workbook for coder ", cd, ": ", outfile)
     wb <- openxlsx::createWorkbook()
     
     write_one(wb, add_tbl, "ADD")

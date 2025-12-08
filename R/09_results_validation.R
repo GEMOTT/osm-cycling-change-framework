@@ -17,7 +17,7 @@ coder2_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_coder2.xls
 joined_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_joined_results.xlsx"))
 
 # Set to TRUE only when you want to rebuild joined_file from coder Excels
-rebuild_joined <- FALSE
+rebuild_joined <- TRUE
 
 # -------------------------------------------------------------------
 # 1) Helpers to read coder sheets and build joined sheets
@@ -82,18 +82,31 @@ read_coder_sheet <- function(path, sheet_name, coder_prefix) {
   if (!"tract_id" %in% names(df)) df$tract_id <- NA_character_
   if (!"stratum"  %in% names(df)) df$stratum  <- NA_character_
   
-  # fused presence columns in coder files
-  if (!"present_baseline" %in% names(df)) df$present_baseline <- NA
-  if (!"present_followup" %in% names(df)) df$present_followup <- NA
+  # --- NEW: locate fused columns under old or new names ----------------------
+  fu_col <- dplyr::case_when(
+    "pres_fu"          %in% names(df) ~ "pres_fu",           # new template
+    "present_followup" %in% names(df) ~ "present_followup",  # old template
+    TRUE                               ~ NA_character_
+  )
+  bl_col <- dplyr::case_when(
+    "pres_bl"          %in% names(df) ~ "pres_bl",           # new template
+    "present_baseline" %in% names(df) ~ "present_baseline",  # old template
+    TRUE                               ~ NA_character_
+  )
+  
+  if (is.na(fu_col)) df$present_followup <- NA_integer_ else
+    df$present_followup <- norm01(df[[fu_col]])
+  
+  if (is.na(bl_col)) df$present_baseline <- NA_integer_ else
+    df$present_baseline <- norm01(df[[bl_col]])
+  # ---------------------------------------------------------------------------
   
   df %>%
     dplyr::mutate(
       id       = as.numeric(id),
       class    = as.character(class),
       tract_id = as.character(tract_id),
-      stratum  = as.character(stratum),
-      present_baseline = norm01(present_baseline),
-      present_followup = norm01(present_followup)
+      stratum  = as.character(stratum)
     ) %>%
     dplyr::select(id, class, tract_id, stratum,
                   present_baseline, present_followup) %>%
@@ -102,6 +115,7 @@ read_coder_sheet <- function(path, sheet_name, coder_prefix) {
       !!paste0(coder_prefix, "_fu") := present_followup
     )
 }
+
 
 build_joined_sheet_for_class <- function(sheet_name,
                                          coder1_file,
@@ -241,7 +255,6 @@ build_joined_results <- function(city_tag,
 }
 
 
-
 # -------------------------------------------------------------------
 # 2) Build joined_results (once, or when forced)
 # -------------------------------------------------------------------
@@ -331,11 +344,25 @@ safe_read_exact <- function(path, sheet_name){
 
 # --- stratum lookup ------------------------------------------------
 
-get_stratum_lookup <- function(){
-  tr <- if (exists("tracts_work")) tracts_work else if (exists("tracts")) tracts else NULL
-  if (is.null(tr)) return(NULL)
+get_stratum_lookup <- function() {
+  # 1) Pick which tracts object to use
+  tr <- if (exists("barcelona_tracts")) {
+    barcelona_tracts
+  } else if (exists("tracts_work")) {
+    tracts_work
+  } else if (exists("tracts")) {
+    tracts
+  } else {
+    return(NULL)
+  }
   
-  nm <- names(tr)
+  out <- tr |>
+    sf::st_drop_geometry() |>
+    tibble::as_tibble()
+  
+  nm <- names(out)
+  
+  # 2) Identify the tract ID column
   id_col <- dplyr::case_when(
     "tract_id"    %in% nm ~ "tract_id",
     "CUSEC"       %in% nm ~ "CUSEC",
@@ -343,36 +370,36 @@ get_stratum_lookup <- function(){
     TRUE ~ nm[1]
   )
   
-  has_stratum <- "stratum" %in% nm
-  dens_col <- if ("density_class"    %in% nm) "density_class" else if ("dens_class" %in% nm) "dens_class" else NA
-  cent_col <- if ("centrality_class" %in% nm) "centrality_class" else if ("centr_class"%in% nm) "centr_class" else NA
-  
-  out <- tr %>% sf::st_drop_geometry() %>% tibble::as_tibble()
-  
-  if (!has_stratum && !is.na(dens_col) && !is.na(cent_col)) {
-    out <- out %>%
-      dplyr::mutate(
-        density_class    = if (is.numeric(.data[[dens_col]])) dplyr::ntile(.data[[dens_col]], 3) else .data[[dens_col]],
-        centrality_class = if (is.numeric(.data[[cent_col]])) dplyr::ntile(.data[[cent_col]], 3) else .data[[cent_col]],
-        stratum = paste0("D", density_class, "_C", centrality_class)
-      )
+  # 3) Ensure we have a "stratum" column
+  if (!"stratum" %in% nm) {
+    
+    if ("stratum_id" %in% nm) {
+      # From your 11-tracts-stratify chunk
+      out$stratum <- as.character(out$stratum_id)
+      
+    } else if (all(c("dens_stratum", "cent_stratum") %in% nm)) {
+      # Rebuild from numeric classes if needed
+      out$stratum <- paste0("D", out$dens_stratum, "_C", out$cent_stratum)
+      
+    } else {
+      # Nothing to build from
+      return(NULL)
+    }
   }
   
-  if (!("stratum" %in% names(out))) return(NULL)
+  # 4) Keep only ID + stratum and normalise names
+  out <- out[, c(id_col, "stratum"), drop = FALSE]
+  names(out) <- c("tract_id", "stratum")
   
-  out %>%
-    dplyr::transmute(
-      tract_id = as.character(.data[[id_col]]),
-      stratum  = as.character(stratum)
-    ) %>%
-    dplyr::distinct()
+  dplyr::distinct(out)
 }
 
 strata_lkp <- get_stratum_lookup()
 
-fill_stratum <- function(df){
+fill_stratum <- function(df) {
   if (is.null(strata_lkp) || !"tract_id" %in% names(df)) {
-    df %>% dplyr::mutate(stratum = dplyr::coalesce(stratum, "All"))
+    df %>%
+      dplyr::mutate(stratum = dplyr::coalesce(stratum, "All"))
   } else {
     df %>%
       dplyr::left_join(strata_lkp, by = "tract_id", suffix = c("", ".lkp")) %>%
@@ -380,6 +407,8 @@ fill_stratum <- function(df){
       dplyr::select(-dplyr::any_of("stratum.lkp"))
   }
 }
+
+
 
 # read three sheets, fill stratum, build summary
 add_tbl   <- safe_read_exact(FILE, "ADD")    %>% fill_stratum() %>% dplyr::mutate(class = "ADD")
@@ -405,23 +434,60 @@ for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
   summary_stratum_class[[cc]] <- 0L
 }
 
+summary_stratum_class <- usable_tbl %>%
+  dplyr::count(stratum, class, name = "n") %>%
+  tidyr::complete(
+    stratum = all_strata,
+    class   = c("ADD", "REMOVE", "NONCI"),
+    fill    = list(n = 0L)
+  ) %>%
+  tidyr::pivot_wider(names_from = class, values_from = n, values_fill = 0L)
+
+wanted_cols <- c("stratum", "ADD", "REMOVE", "NONCI")
+for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
+  summary_stratum_class[[cc]] <- 0L
+}
+
 summary_stratum_class <- summary_stratum_class %>%
   dplyr::select(dplyr::all_of(wanted_cols)) %>%
   dplyr::mutate(Total = REMOVE + ADD + NONCI) %>%
-  dplyr::arrange(stratum)
+  dplyr::arrange(stratum) %>%
+  # split "D1_C2" into "D" and "C"
+  tidyr::separate(stratum, into = c("D", "C"), sep = "_", remove = FALSE)
 
+# Add human–readable Description for each stratum
+summary_stratum_class_full <- summary_stratum_class %>%
+  dplyr::mutate(
+    Description = dplyr::case_when(
+      stratum == "D1_C1" ~ "Low density, peripheral",
+      stratum == "D1_C2" ~ "Low density, intermediate",
+      stratum == "D1_C3" ~ "Low density, central",
+      stratum == "D2_C1" ~ "Medium density, peripheral",
+      stratum == "D2_C2" ~ "Medium density, intermediate",
+      stratum == "D2_C3" ~ "Medium density, central",
+      stratum == "D3_C1" ~ "High density, peripheral",
+      stratum == "D3_C2" ~ "High density, intermediate",
+      stratum == "D3_C3" ~ "High density, central",
+      TRUE               ~ NA_character_
+    )
+  ) %>%
+  dplyr::select(
+    stratum, Description, ADD, REMOVE, NONCI, Total
+  )
+
+# Add TOTAL row (with Description)
 summary_stratum_class_full <- dplyr::bind_rows(
-  summary_stratum_class,
+  summary_stratum_class_full,
   dplyr::summarise(
-    summary_stratum_class,
-    stratum = "TOTAL",
-    ADD     = sum(ADD,     na.rm = TRUE),
-    REMOVE  = sum(REMOVE,  na.rm = TRUE),
-    NONCI   = sum(NONCI,   na.rm = TRUE),
-    Total   = sum(Total,   na.rm = TRUE)
+    summary_stratum_class_full,
+    stratum     = "TOTAL",
+    Description = "All strata combined",
+    ADD         = sum(ADD,     na.rm = TRUE),
+    REMOVE      = sum(REMOVE,  na.rm = TRUE),
+    NONCI       = sum(NONCI,   na.rm = TRUE),
+    Total       = sum(Total,   na.rm = TRUE)
   )
 )
-
 
 # -------------------------------------------------------------------
 # 4) Validation metrics using ONLY consens

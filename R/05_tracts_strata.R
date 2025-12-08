@@ -59,8 +59,9 @@ barcelona_tracts <- barcelona_tracts |>
   mutate(
     dens_stratum = ntile(dens_2022, 3),
     cent_stratum = ntile(-dist_centre_km, 3),
-    stratum_id = paste0("D", dens_stratum, "_C", cent_stratum)
+    stratum_id   = paste0("D", dens_stratum, "_C", cent_stratum)
   )
+
 
 set.seed(123)
 per_stratum <- 6  # try 3–6 depending on effort

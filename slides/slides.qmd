@@ -6,11 +6,11 @@ editor: visual
 
 ## Context and aim
 
-- Urban transformations such as new bike lanes reshape mobility and health, yet standardised datasets tracking infrastructure change over time remain scarce.
+-   Urban transformations such as new bike lanes reshape mobility and health, yet standardised datasets tracking infrastructure change over time remain scarce.
 
-- OpenStreetMap (OSM) offers open, historical data but its reliability for detecting change is still uncertain.
+-   OpenStreetMap (OSM) offers open, historical data but its reliability for detecting change is still uncertain.
 
-- **Aim**: Assess whether OSM reliably reflects new or removed bike lanes in Barcelona (2015–2023) using Google Street View (GSV) as ground truth, as a basis for scalable validation in other cities.
+-   **Aim**: Assess whether OSM reliably reflects new or removed bike lanes in Barcelona (2015–2023) using Google Street View (GSV) as ground truth, as a basis for scalable validation in other cities.
 
 ## Data and methods
 
@@ -272,7 +272,6 @@ knitr::kable(
 )
 
 ```
-
 
 ## Results
 

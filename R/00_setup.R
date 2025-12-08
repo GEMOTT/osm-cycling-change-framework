@@ -6,8 +6,7 @@
 # ----------------------------
 
 library(sf); sf::sf_use_s2(FALSE)
-library(dplyr); library(tidyr); library(stringr); library(tibble)
-library(ggplot2); library(cowplot)
+library(tidyverse); library(cowplot)
 library(osmdata); library(osmextract)
 library(readxl); library(openxlsx)
 library(leaflet); library(htmlwidgets)

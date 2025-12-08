@@ -1,9 +1,3 @@
-h1.title {
-  background-image: url(full-shot-happy-friends-outdoors.jpg);
-  background-repeat: no-repeat;
-  background-size: 200px;
-}
-
 /* Reduce overall font size for better slide fit */
 .reveal .slides section {
   font-size: 0.57em;

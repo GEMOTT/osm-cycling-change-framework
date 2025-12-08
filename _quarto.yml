@@ -6,6 +6,7 @@ project:
 format:
   html:
     toc: true
+    css: templates/styles.css
   pdf:
     documentclass: article
     include-in-header:
