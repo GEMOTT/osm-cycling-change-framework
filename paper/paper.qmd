@@ -35,7 +35,7 @@ keywords:
   - Barcelona
 format: 
   # docx
-  html
+  gfm
 bibliography: ../refs/references.bib 
 ---
 
