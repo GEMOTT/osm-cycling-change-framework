@@ -52,7 +52,6 @@ min_len <- 10   # minimum segment length in metres
 # ----------------------------
 # Coordinate Reference Systems
 # ----------------------------
-
 crs_work <- 25831   # metric CRS for analysis (may change by city)
 crs_wgs  <- 4326    # WGS84 for web + lon/lat 
 

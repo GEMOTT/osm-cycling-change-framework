@@ -33,25 +33,62 @@ as_wgs_lines <- function(x){
   sf::st_transform(x, crs_wgs)
 }
 
-get_boundary_wgs <- function(){
+get_boundary_wgs <- function() {
   b <- NULL
-  if (exists("city_perimeter") && inherits(city_perimeter,"sf") && nrow(city_perimeter)) {
+  
+  if (exists("city_perimeter") && inherits(city_perimeter, "sf") && nrow(city_perimeter)) {
     b <- city_perimeter
-  } else if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
-    b <- sf::st_union(tracts) |> sf::st_as_sf()
-  } else if (exists("barcelona_tracts") && inherits(barcelona_tracts,"sf") && nrow(barcelona_tracts)) {
-    b <- sf::st_union(barcelona_tracts) |> sf::st_as_sf()
+  } else if (exists("tracts") && inherits(tracts, "sf") && nrow(tracts)) {
+    b <- tracts
+  } else if (exists("barcelona_tracts") && inherits(barcelona_tracts, "sf") && nrow(barcelona_tracts)) {
+    b <- barcelona_tracts
   } else {
     return(NULL)
   }
   
   b <- sf::st_make_valid(b)
-  b <- sf::st_cast(b, "MULTIPOLYGON", warn = FALSE)
-  polys <- sf::st_cast(b, "POLYGON", warn = FALSE)
-  rings <- sf::st_sfc(lapply(sf::st_geometry(polys), sf::st_exterior_ring), crs = sf::st_crs(polys))
-  bnd  <- sf::st_as_sf(data.frame(id = seq_along(rings)), geometry = rings)
-  sf::st_transform(bnd, crs_wgs)
+  
+  gt <- unique(as.character(sf::st_geometry_type(b)))
+  
+  # Case 1: polygon input (what we want)
+  if (any(gt %in% c("POLYGON", "MULTIPOLYGON"))) {
+    poly <- b |>
+      sf::st_collection_extract("POLYGON", warn = FALSE) |>
+      sf::st_union()
+    
+    out <- sf::st_boundary(poly)
+    out <- sf::st_as_sf(sf::st_sfc(out, crs = sf::st_crs(b)))
+    out <- suppressWarnings(sf::st_collection_extract(out, "LINESTRING", warn = FALSE))
+    out <- suppressWarnings(sf::st_cast(out, "LINESTRING"))
+    
+    out <- out[!sf::st_is_empty(sf::st_geometry(out)), , drop = FALSE]
+    return(sf::st_transform(out, crs_wgs))
+  }
+  
+  # Case 2: line input (polygonise first, then outline)
+  if (any(gt %in% c("LINESTRING", "MULTILINESTRING"))) {
+    ln <- b |>
+      sf::st_collection_extract("LINESTRING", warn = FALSE) |>
+      sf::st_union() |>
+      suppressWarnings(sf::st_line_merge())
+    
+    pg <- suppressWarnings(sf::st_polygonize(ln))
+    if (is.null(pg) || length(pg) == 0) return(NULL)
+    
+    poly <- sf::st_union(pg)
+    out  <- sf::st_boundary(poly)
+    
+    out <- sf::st_as_sf(sf::st_sfc(out, crs = sf::st_crs(b)))
+    out <- suppressWarnings(sf::st_collection_extract(out, "LINESTRING", warn = FALSE))
+    out <- suppressWarnings(sf::st_cast(out, "LINESTRING"))
+    
+    out <- out[!sf::st_is_empty(sf::st_geometry(out)), , drop = FALSE]
+    return(sf::st_transform(out, crs_wgs))
+  }
+  
+  NULL
 }
+
 
 
 # ---- 1) Bivariate tract stratification (static) -----------------------------
@@ -310,7 +347,7 @@ p_change <- ggplot() +
   { if (!is.null(removed_wgs) && nrow(removed_wgs))
     geom_sf(
       data        = removed_wgs,
-      aes(colour  = "Removed (2015–2023)"),
+      aes(colour  = "Removed (15→23)"),
       alpha       = alpha_removed,
       linewidth   = 0.4,
       show.legend = TRUE
@@ -318,7 +355,7 @@ p_change <- ggplot() +
   { if (!is.null(added_wgs) && nrow(added_wgs))
     geom_sf(
       data        = added_wgs,
-      aes(colour  = "Added (2015–2023)"),
+      aes(colour  = "Added (15→23)"),
       alpha       = alpha_added,
       linewidth   = 0.4,
       show.legend = TRUE
@@ -332,8 +369,8 @@ p_change <- ggplot() +
     name = NULL,
     values = c(
       "2015"                = col_2015,
-      "Added (2015–2023)"   = col_added,
-      "Removed (2015–2023)" = col_removed
+      "Added (15→23)"   = col_added,
+      "Removed (15→23)" = col_removed
     )
   ) +
   theme_void() +
@@ -456,7 +493,7 @@ make_validation_points_interactive_map <- function() {
   
   tract_stroke <- "#000000"
   tract_fill   <- "#FFFFFF"
-  col_nonci    <- "red"
+  col_nonci    <- "#BDBDBD"
   
   # base map and panes
   m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE)) %>%
@@ -532,7 +569,7 @@ make_validation_points_interactive_map <- function() {
   if (inherits(gnet_wgs, "sf") && nrow(gnet_wgs)) {
     m <- m %>% leaflet::addPolylines(
       data    = gnet_wgs,
-      group   = "General (non-CI) net",
+      group   = "General (non-CI) 2023",
       weight  = 1,
       color   = col_nonci,
       opacity = 1,
@@ -544,7 +581,7 @@ make_validation_points_interactive_map <- function() {
   if (exists("cyc15_n") && inherits(cyc15_n, "sf") && nrow(cyc15_n)) {
     m <- m %>% leaflet::addPolylines(
       data    = sf::st_transform(cyc15_n, crs_wgs),
-      group   = "2015 net",
+      group   = "2015 CI",
       weight  = 2,
       color   = "#666666",
       opacity = 0.7,
@@ -555,18 +592,10 @@ make_validation_points_interactive_map <- function() {
   # Removed net (use consistent removed_map)
   if (!is.null(removed_map) && inherits(removed_map, "sf") && nrow(removed_map)) {
     m <- m %>% leaflet::addPolylines(
-      data    = sf::st_transform(removed_map, crs_wgs),
-      group   = "Removed net",
-      weight  = 2.6,
-      color   = "#000000",
-      opacity = 0.18,
-      options = leaflet::pathOptions(pane = "nets")
-    ) %>%
-      leaflet::addPolylines(
         data    = sf::st_transform(removed_map, crs_wgs),
-        group   = "Removed net",
+        group   = "Removed (15→23)",
         weight  = 2.0,
-        color   = "#FFFFFF",
+        color   = "#D95F02",
         opacity = 1,
         options = leaflet::pathOptions(pane = "nets")
       )
@@ -576,7 +605,7 @@ make_validation_points_interactive_map <- function() {
   if (!is.null(added_map) && inherits(added_map, "sf") && nrow(added_map)) {
     m <- m %>% leaflet::addPolylines(
       data    = sf::st_transform(added_map, crs_wgs),
-      group   = "Added net",
+      group   = "Added (15→23)",
       weight  = 2,
       color   = "#0072B2",
       opacity = 0.95,
@@ -587,9 +616,9 @@ make_validation_points_interactive_map <- function() {
   if (exists("cyc23_n") && inherits(cyc23_n, "sf") && nrow(cyc23_n)) {
     m <- m %>% leaflet::addPolylines(
       data    = sf::st_transform(cyc23_n, crs_wgs),
-      group   = "2023 net",
+      group   = "2023 CI",
       weight  = 2,
-      color   = "#0072B2",
+      color   = "#1B9E77",
       opacity = 0.6,
       options = leaflet::pathOptions(pane = "nets")
     )
@@ -684,16 +713,16 @@ make_validation_points_interactive_map <- function() {
       baseGroups = c("Positron"),
       overlayGroups = c(
         "Barcelona boundary", "Tracts", "Area labels",
-        "2015 net", "Added net", "Removed net", "2023 net",
-        "General (non-CI) net",
+        "2015 CI", "Added (15→23)", "Removed (15→23)", "2023 CI",
+        "General (non-CI) 2023",
         "ADD pts", "REMOVE pts", "NONCI pts",
         "ADD IDs", "REMOVE IDs", "NONCI IDs"
       ),
       options = leaflet::layersControlOptions(collapsed = TRUE)
     ) %>%
     leaflet::hideGroup(c(
-      "2015 net", "Area labels", "Added net", "Removed net", "2023 net",
-      "General (non-CI) net",
+      "2015 CI", "Area labels", "Added (15→23)", "Removed (15→23)", "2023 CI",
+      "General (non-CI) 2023",
       "ADD IDs", "REMOVE IDs", "NONCI IDs"
     )) %>%
     leaflet::fitBounds(bounds[1], bounds[2], bounds[3], bounds[4])
@@ -755,7 +784,7 @@ make_infra_change_interactive_map <- function() {
   col_added   <- "#0072B2"
   col_removed <- "#D95F02"
   col_2023    <- "#1B9E77"
-  col_nonci   <- "grey80"
+  col_nonci   <- "#BDBDBD"
   
   alpha_2015  <- 0.65
   alpha_added <- 0.95
@@ -768,7 +797,14 @@ make_infra_change_interactive_map <- function() {
   added_wgs   <- if (!is.null(added_map)   && inherits(added_map, "sf")   && nrow(added_map))   as_wgs_lines(added_map)   else NULL
   removed_wgs <- if (!is.null(removed_map) && inherits(removed_map, "sf") && nrow(removed_map)) as_wgs_lines(removed_map) else NULL
   cyc23_wgs   <- if (exists("cyc23_n")) as_wgs_lines(cyc23_n) else NULL
-  nonci_wgs   <- if (exists("general1523_n")) as_wgs_lines(general1523_n) else NULL
+  nonci_wgs <- if (exists("nonci1523_n") && inherits(nonci1523_n, "sf") && nrow(nonci1523_n)) {
+    as_wgs_lines(nonci1523_n)
+  } else if (exists("nonci1523") && inherits(nonci1523, "sf") && nrow(nonci1523)) {
+    as_wgs_lines(nonci1523)
+  } else {
+    NULL
+  }
+  
   
   # bounds
   get_bbox <- function(obj) {

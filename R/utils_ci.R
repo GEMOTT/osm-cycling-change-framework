@@ -1,13 +1,16 @@
 # ================================================================
 # utils_ci.R
-# Shared helpers to classify cycling infrastructure from OSM tags.
+# Shared helpers for extracting and cleaning cycling infrastructure
+# (CI) from OSM sf "lines" using tag-based rules.
 #
-# Inputs:  OSM sf "lines" with tag columns
-# Outputs: helper functions (pick_cycle_strict, etc.)
+# Inputs: OSM sf object of LINESTRING/MULTILINESTRING features ("lines") with tag columns
+# Outputs: Helper functions (has_cycleway_vals, pick_cycle_infra, drop_onroad_near_cycleway)
 # ================================================================
 
+# Define which cycleway tag values count as “core” ci in this workflow.
 CORE_VALS <- c("lane", "track", "opposite_lane", "opposite_track")
 
+# For each feature, check whether any cycleway* tag column contains one of the target values (allowing multiple values separated by ";").
 has_cycleway_vals <- function(x, vals = CORE_VALS) {
   cols <- names(x)[grepl("^cycleway($|:)", names(x), ignore.case = TRUE)]
   if (!length(cols)) return(rep(FALSE, nrow(x)))
@@ -28,6 +31,7 @@ has_cycleway_vals <- function(x, vals = CORE_VALS) {
   out
 }
 
+# Select a conservative cycling-infrastructure subset: either explicit highway=cycleway, or anything with a qualifying cycleway* value (e.g., lane/track).
 pick_cycle_infra <- function(x) {
   stopifnot(inherits(x, "sf"))
   if (!nrow(x)) return(x[0, ])
@@ -39,6 +43,7 @@ pick_cycle_infra <- function(x) {
   x[is_cyclewy | has_lane, , drop = FALSE]
 }
 
+# Reduce double-counting by dropping on-road lane segments when they largely overlap a mapped cycleway within a buffer (keeps true standalone on-road lanes).
 drop_onroad_near_cycleway <- function(core_ll, tol_m = 15, prop_in_buf = 0.5, min_in_buf_m = 20) {
   stopifnot(inherits(core_ll, "sf"))
   if (!nrow(core_ll)) return(core_ll)
