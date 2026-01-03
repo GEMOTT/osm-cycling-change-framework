@@ -45,10 +45,10 @@ source("../R/10_maps.R")
 ```{r}
 #| label: fig-workflow
 #| fig-cap: Main workflow steps (2015–2023).
-#| out-width: 100%
+#| out-width: 25%
 #| echo: false
 
-knitr::include_graphics("../figs/osm_gsv_flowchart.png")
+knitr::include_graphics("../figs/flowchart.png")
 
 ```
 
@@ -133,7 +133,7 @@ knitr::include_graphics("../figs/stratified_sample_bivariate_map.png")
 #| warning: false
 #| fig-cap: Distribution of validation points (with GSV links).
 
-make_validation_points_map()
+make_validation_points_interactive_map()
 
 ```
 
@@ -211,7 +211,7 @@ Full details are in **Supplement S1 (protocol)** and **Supplement S2 (Excel work
 #| echo: false
 #| fig-cap: Distribution of validation points (with GSV links).
 
-make_infra_change_map()
+make_infra_change_interactive_map()
 
 ```
 

@@ -1,8 +1,60 @@
-# ============================================================
-# Static maps
-# ============================================================
+# ================================================================
+# 10_maps.R
+# Produce maps of networks, changes, strata and sampled points for the paper.
+#
+# Inputs:  perimeters/tracts/networks/samples, CRS settings
+# Outputs: map figures (and optional interactive maps)
+# ================================================================
 
-# ---- 1) Bivariate tract stratification (static) ------------
+# ---- 0) Housekeeping + consistent change layers -----------------------------
+
+fs::dir_create("../figs")
+fs::dir_create("../supplements")
+
+# Use evaluation pool for maps (fallback to added/removed for backwards compatibility)
+added_map <- if (exists("added_eval") && inherits(added_eval, "sf")) added_eval else
+  if (exists("added") && inherits(added, "sf")) added else NULL
+
+removed_map <- if (exists("removed_eval") && inherits(removed_eval, "sf")) removed_eval else
+  if (exists("removed") && inherits(removed, "sf")) removed else NULL
+
+
+# Helpers
+
+as_wgs_lines <- function(x){
+  if (!inherits(x, "sf") || !nrow(x)) return(NULL)
+  x <- sf::st_make_valid(x)
+  keep <- sf::st_geometry_type(x) %in% c("LINESTRING","MULTILINESTRING","GEOMETRYCOLLECTION")
+  x <- x[keep, , drop = FALSE]
+  if (!nrow(x)) return(NULL)
+  x <- suppressWarnings(sf::st_collection_extract(x, "LINESTRING", warn = FALSE))
+  x <- suppressWarnings(sf::st_cast(x, "LINESTRING"))
+  x <- x[!sf::st_is_empty(sf::st_geometry(x)), , drop = FALSE]
+  sf::st_transform(x, crs_wgs)
+}
+
+get_boundary_wgs <- function(){
+  b <- NULL
+  if (exists("city_perimeter") && inherits(city_perimeter,"sf") && nrow(city_perimeter)) {
+    b <- city_perimeter
+  } else if (exists("tracts") && inherits(tracts,"sf") && nrow(tracts)) {
+    b <- sf::st_union(tracts) |> sf::st_as_sf()
+  } else if (exists("barcelona_tracts") && inherits(barcelona_tracts,"sf") && nrow(barcelona_tracts)) {
+    b <- sf::st_union(barcelona_tracts) |> sf::st_as_sf()
+  } else {
+    return(NULL)
+  }
+  
+  b <- sf::st_make_valid(b)
+  b <- sf::st_cast(b, "MULTIPOLYGON", warn = FALSE)
+  polys <- sf::st_cast(b, "POLYGON", warn = FALSE)
+  rings <- sf::st_sfc(lapply(sf::st_geometry(polys), sf::st_exterior_ring), crs = sf::st_crs(polys))
+  bnd  <- sf::st_as_sf(data.frame(id = seq_along(rings)), geometry = rings)
+  sf::st_transform(bnd, crs_wgs)
+}
+
+
+# ---- 1) Bivariate tract stratification (static) -----------------------------
 
 # barcelona_tracts must already exist with dist_centre_km and dens_2022
 barcelona_tracts <- barcelona_tracts |>
@@ -45,22 +97,22 @@ bivar_map <- ggplot() +
   )
 
 bivar_legend <- bi_legend(
-  pal = "DkBlue2",
-  dim = 3,
+  pal  = "DkBlue2",
+  dim  = 3,
   xlab = "Higher density",
   ylab = "More central",
   size = 9
 ) +
   theme(
-    axis.title      = element_text(size = 14),
-    axis.text       = element_blank(),
-    plot.margin     = margin(5, 5, 5, 5),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_blank(),
+    plot.margin      = margin(5, 5, 5, 5),
     panel.background = element_blank(),
     plot.background  = element_blank()
   )
 
 final_plot <- cowplot::ggdraw() +
-  cowplot::draw_plot(bivar_map,    x = 0,    y = 0, width = 1,   height = 1) +
+  cowplot::draw_plot(bivar_map,    x = 0,    y = 0,    width = 1,    height = 1) +
   cowplot::draw_plot(bivar_legend, x = 0.73, y = 0.03, width = 0.26, height = 0.26)
 
 ggsave(
@@ -72,14 +124,14 @@ ggsave(
 )
 
 
-# ---- 2) Validation points (static) -------------------------
+# ---- 2) Validation points (static) ------------------------------------------
 
 make_validation_points_static_map <- function() {
   
   # colours copied from leaflet map
-  col_add_pt <- "#0072B2"  # green  = ADD
-  col_rem_pt <- "#D95F02"  # orange = REMOVE
-  col_gen_pt <- "#E6AB02"  # purple (or another clearly distinct, neutral colour)
+  col_add_pt <- "#0072B2"  # ADD
+  col_rem_pt <- "#D95F02"  # REMOVE
+  col_gen_pt <- "#E6AB02"  # NONCI
   
   # target CRS: use tracts / bivariate map CRS
   target_crs <- sf::st_crs(barcelona_tracts)
@@ -107,9 +159,9 @@ make_validation_points_static_map <- function() {
   
   pts_all <- dplyr::bind_rows(pts_list)
   
-  # --- NEW: bbox centred on points, with a bit of padding --------------------
+  # bbox centred on points, with padding
   bb_pts <- sf::st_bbox(pts_all)
-  pad_factor <- 0.05  # 5 % padding on each side
+  pad_factor <- 0.05
   
   x_range <- as.numeric(bb_pts["xmax"] - bb_pts["xmin"])
   y_range <- as.numeric(bb_pts["ymax"] - bb_pts["ymin"])
@@ -119,7 +171,6 @@ make_validation_points_static_map <- function() {
   
   xlim <- c(bb_pts["xmin"] - x_pad, bb_pts["xmax"] + x_pad)
   ylim <- c(bb_pts["ymin"] - y_pad, bb_pts["ymax"] + y_pad)
-  # --------------------------------------------------------------------------
   
   # optional: non-CI network for context (reproject to target CRS)
   nonci_net <- NULL
@@ -129,53 +180,42 @@ make_validation_points_static_map <- function() {
   
   gg <- ggplot() +
     geom_sf(
-      data   = sf::st_transform(barcelona_tracts, target_crs),
-      fill   = "grey95",
-      colour = "white",
+      data      = sf::st_transform(barcelona_tracts, target_crs),
+      fill      = "grey95",
+      colour    = "white",
       linewidth = 0.1
     ) +
-    
     { if (!is.null(nonci_net))
       geom_sf(data = nonci_net, colour = "grey80", linewidth = 0.1)
       else NULL } +
-    
     { if (exists("sampled_tracts") && inherits(sampled_tracts, "sf") && nrow(sampled_tracts))
-      geom_sf(data = sf::st_transform(sampled_tracts, target_crs),
-              fill = NA, colour = "black", linewidth = 0.4)
+      geom_sf(
+        data = sf::st_transform(sampled_tracts, target_crs),
+        fill = NA, colour = "black", linewidth = 0.4
+      )
       else NULL } +
-    
     geom_sf(
       data   = pts_all,
       aes(colour = type),
       size   = 2.7,
       stroke = 0.4
     ) +
-    
     coord_sf(
       xlim   = xlim,
       ylim   = ylim,
       expand = FALSE,
       crs    = target_crs
     ) +
-    
     scale_colour_manual(
       name   = NULL,
-      values = c(
-        "ADD"    = col_add_pt,
-        "REMOVE" = col_rem_pt,
-        "NONCI"  = col_gen_pt
-      ),
+      values = c("ADD" = col_add_pt, "REMOVE" = col_rem_pt, "NONCI" = col_gen_pt),
       breaks = c("ADD", "REMOVE", "NONCI"),
       labels = c("ADD", "REMOVE", "NON-CI")
     ) +
-    
-    guides(colour = guide_legend(
-      override.aes = list(size = 4, stroke = 0.6)
-    )) +
-    
+    guides(colour = guide_legend(override.aes = list(size = 4, stroke = 0.6))) +
     theme_void() +
     theme(
-      legend.position      = c(0.98, 0.02),              # bottom-right
+      legend.position      = c(0.98, 0.02),
       legend.justification = c("right", "bottom"),
       legend.title         = element_text(size = 14),
       legend.text          = element_text(size = 13),
@@ -197,22 +237,22 @@ ggsave(
 )
 
 
-# ---- 3) OSM infra change (static) --------------------------
+# ---- 3) OSM infra change (static) -------------------------------------------
 
 # colours: harmonised with validation points map
-col_2015    <- "#4A4A4A"   # slightly darker grey so it stands out on grey95
-col_added   <- "#0072B2"   # green
-col_removed <- "#D95F02"   # orange
+col_2015    <- "#4A4A4A"
+col_added   <- "#0072B2"
+col_removed <- "#D95F02"
 
 alpha_2015    <- 0.8
 alpha_added   <- 1
 alpha_removed <- 1
 
-# ---- prep layers -----------------------------------------------------------
-bnd_wgs     <- get_boundary_wgs()  # still used for bbox if you like
+# prep layers
+bnd_wgs     <- get_boundary_wgs()
 cyc15_wgs   <- if (exists("cyc15_n")) as_wgs_lines(cyc15_n) else NULL
-added_wgs   <- if (exists("added"))   as_wgs_lines(added)   else NULL
-removed_wgs <- if (exists("removed")) as_wgs_lines(removed) else NULL
+added_wgs   <- if (!is.null(added_map)   && inherits(added_map, "sf")   && nrow(added_map))   as_wgs_lines(added_map)   else NULL
+removed_wgs <- if (!is.null(removed_map) && inherits(removed_map, "sf") && nrow(removed_map)) as_wgs_lines(removed_map) else NULL
 
 # choose CRS for background to match the networks
 bg_crs <- if (!is.null(cyc15_wgs)) {
@@ -230,7 +270,7 @@ bg_crs <- if (!is.null(cyc15_wgs)) {
 bcn_bg <- barcelona_tracts |>
   sf::st_transform(bg_crs)
 
-# ---- bounds ----------------------------------------------------------------
+# bounds helper
 get_bbox <- function(obj){
   if (!is.null(obj) && inherits(obj, "sf") && nrow(obj)) sf::st_bbox(obj) else NULL
 }
@@ -252,93 +292,80 @@ if (is.null(bb)) {
   }
 }
 
-# ---- build static map ------------------------------------------------------
 p_change <- ggplot() +
-  # BACKGROUND: same as validation-points map
   geom_sf(
-    data   = bcn_bg,
-    fill   = "grey95",
-    colour = "white",
+    data      = bcn_bg,
+    fill      = "grey95",
+    colour    = "white",
     linewidth = 0.1
   ) +
-  # 2015 CI
   { if (!is.null(cyc15_wgs) && nrow(cyc15_wgs))
     geom_sf(
-      data = cyc15_wgs,
-      aes(colour = "2015"),
-      alpha = alpha_2015,
-      linewidth = 0.2,
+      data        = cyc15_wgs,
+      aes(colour  = "2015"),
+      alpha       = alpha_2015,
+      linewidth   = 0.2,
       show.legend = TRUE
-    )
-  } +
-  # Removed segments (orange)
+    ) } +
   { if (!is.null(removed_wgs) && nrow(removed_wgs))
     geom_sf(
-      data = removed_wgs,
-      aes(colour = "Removed (2015–2023)"),
-      alpha = alpha_removed,
-      linewidth = 0.4,
+      data        = removed_wgs,
+      aes(colour  = "Removed (2015–2023)"),
+      alpha       = alpha_removed,
+      linewidth   = 0.4,
       show.legend = TRUE
-    )
-  } +
-  # Added segments (green)
+    ) } +
   { if (!is.null(added_wgs) && nrow(added_wgs))
     geom_sf(
-      data = added_wgs,
-      aes(colour = "Added (2015–2023)"),
-      alpha = alpha_added,
-      linewidth = 0.4,
+      data        = added_wgs,
+      aes(colour  = "Added (2015–2023)"),
+      alpha       = alpha_added,
+      linewidth   = 0.4,
       show.legend = TRUE
-    )
-  } +
+    ) } +
   coord_sf(
-    xlim = c(bb["xmin"], bb["xmax"]),
-    ylim = c(bb["ymin"], bb["ymax"]),
+    xlim   = c(bb["xmin"], bb["xmax"]),
+    ylim   = c(bb["ymin"], bb["ymax"]),
     expand = FALSE
   ) +
   scale_colour_manual(
     name = NULL,
     values = c(
-      "2015"                 = col_2015,
-      "Added (2015–2023)"    = col_added,
-      "Removed (2015–2023)"  = col_removed
+      "2015"                = col_2015,
+      "Added (2015–2023)"   = col_added,
+      "Removed (2015–2023)" = col_removed
     )
   ) +
   theme_void() +
   theme(
-    legend.position    = "bottom",   # bottom, like you preferred
-    legend.title       = element_text(size = 14),
-    legend.text        = element_text(size = 13),
-    legend.key.size    = grid::unit(0.8, "cm"),
-    plot.margin        = margin(5, 5, 5, 5),
-    panel.background   = element_rect(fill = NA, colour = NA),
-    plot.background    = element_rect(fill = NA, colour = NA),
-    legend.background  = element_rect(fill = "white", colour = NA)
+    legend.position   = "bottom",
+    legend.title      = element_text(size = 14),
+    legend.text       = element_text(size = 13),
+    legend.key.size   = grid::unit(0.8, "cm"),
+    plot.margin       = margin(5, 5, 5, 5),
+    panel.background  = element_rect(fill = NA, colour = NA),
+    plot.background   = element_rect(fill = NA, colour = NA),
+    legend.background = element_rect(fill = "white", colour = NA)
   )
-
-p_change
 
 ggsave(
   filename = "../figs/infra_change_map.png",
-  plot = p_change,
-  width = 9,
-  height = 9,
-  dpi = 300,
-  bg = "transparent"
+  plot     = p_change,
+  width    = 9,
+  height   = 9,
+  dpi      = 300,
+  bg       = "transparent"
 )
 
-# ============================================================
-# Interactive maps
-# ============================================================
 
-# ---- 4) Validation points (interactive) --------------------
+# ---- 4) Validation points (interactive) -------------------------------------
 
 make_validation_points_interactive_map <- function() {
   
   # helper to prep points: WGS84 + lon/lat + popup
   prep_pts <- function(x) {
     if (!inherits(x, "sf") || !nrow(x)) return(NULL)
-    w  <- sf::st_transform(x, 4326)
+    w  <- sf::st_transform(x, crs_wgs)
     xy <- sf::st_coordinates(w)
     good <- is.finite(xy[, 1]) & is.finite(xy[, 2])
     if (!any(good)) return(NULL)
@@ -377,7 +404,7 @@ make_validation_points_interactive_map <- function() {
   stopifnot(exists("nonci1523"), inherits(nonci1523, "sf"))
   gnet_wgs <- nonci1523 |>
     sf::st_make_valid() |>
-    sf::st_transform(4326)
+    sf::st_transform(crs_wgs)
   
   keep <- sf::st_geometry_type(gnet_wgs, by_geometry = TRUE) %in%
     c("LINESTRING", "MULTILINESTRING", "GEOMETRYCOLLECTION")
@@ -422,9 +449,9 @@ make_validation_points_interactive_map <- function() {
   bounds <- as.numeric(unname(c(bb["xmin"], bb["ymin"], bb["xmax"], bb["ymax"])))
   
   # colours – harmonised with static validation points map
-  col_add_pt <- "#0072B2"  # ADD
-  col_rem_pt <- "#D95F02"  # REMOVE
-  col_gen_pt <- "#E6AB02"  # NONCI
+  col_add_pt <- "#0072B2"
+  col_rem_pt <- "#D95F02"
+  col_gen_pt <- "#E6AB02"
   stroke     <- "#666666"
   
   tract_stroke <- "#000000"
@@ -434,11 +461,11 @@ make_validation_points_interactive_map <- function() {
   # base map and panes
   m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE)) %>%
     leaflet::addProviderTiles("CartoDB.Positron", group = "Positron") %>%
-    leaflet::addMapPane("tracts",   zIndex = 410) %>%
-    leaflet::addMapPane("nets",     zIndex = 420) %>%
-    leaflet::addMapPane("boundary", zIndex = 430) %>%
-    leaflet::addMapPane("points",   zIndex = 440) %>%
-    leaflet::addMapPane("labels",   zIndex = 450) %>%
+    leaflet::addMapPane("tracts",    zIndex = 410) %>%
+    leaflet::addMapPane("nets",      zIndex = 420) %>%
+    leaflet::addMapPane("boundary",  zIndex = 430) %>%
+    leaflet::addMapPane("points",    zIndex = 440) %>%
+    leaflet::addMapPane("labels",    zIndex = 450) %>%
     leaflet::addMapPane("id_labels", zIndex = 460)
   
   # boundary
@@ -456,15 +483,15 @@ make_validation_points_interactive_map <- function() {
   # tracts and labels
   if (exists("tracts") && inherits(tracts, "sf") && nrow(tracts)) {
     m <- m %>% leaflet::addPolygons(
-      data       = sf::st_transform(tracts, 4326),
-      group      = "Tracts",
-      color      = tract_stroke,
-      weight     = 1,
-      opacity    = 0.7,
-      fillColor  = tract_fill,
-      fillOpacity = 0.05,
+      data         = sf::st_transform(tracts, crs_wgs),
+      group        = "Tracts",
+      color        = tract_stroke,
+      weight       = 1,
+      opacity      = 0.7,
+      fillColor    = tract_fill,
+      fillOpacity  = 0.05,
       smoothFactor = 0.5,
-      options    = leaflet::pathOptions(pane = "tracts"),
+      options      = leaflet::pathOptions(pane = "tracts"),
       highlightOptions = leaflet::highlightOptions(
         weight = 2, color = "#111827",
         fillOpacity = 0.1, bringToFront = FALSE
@@ -478,24 +505,24 @@ make_validation_points_interactive_map <- function() {
     
     m <- m %>%
       leaflet::addCircleMarkers(
-        data  = tract_centres,
-        group = "Area labels",
-        radius = 0.1,
-        stroke = FALSE,
+        data        = tract_centres,
+        group       = "Area labels",
+        radius      = 0.1,
+        stroke      = FALSE,
         fillOpacity = 0,
-        label = ~as.character(tract_id),
-        options = leaflet::pathOptions(pane = "labels"),
+        label       = ~as.character(tract_id),
+        options     = leaflet::pathOptions(pane = "labels"),
         labelOptions = leaflet::labelOptions(
-          noHide = TRUE,
+          noHide    = TRUE,
           direction = "center",
           style = list(
-            "background"      = "transparent",
-            "border"          = "none",
-            "box-shadow"      = "none",
-            "padding"         = "0px",
-            "color"           = "rgba(0,0,0,0.25)",
-            "text-shadow"     = "none",
-            "pointer-events"  = "none"
+            "background"     = "transparent",
+            "border"         = "none",
+            "box-shadow"     = "none",
+            "padding"        = "0px",
+            "color"          = "rgba(0,0,0,0.25)",
+            "text-shadow"    = "none",
+            "pointer-events" = "none"
           )
         )
       )
@@ -516,7 +543,7 @@ make_validation_points_interactive_map <- function() {
   # optional CI networks
   if (exists("cyc15_n") && inherits(cyc15_n, "sf") && nrow(cyc15_n)) {
     m <- m %>% leaflet::addPolylines(
-      data    = sf::st_transform(cyc15_n, 4326),
+      data    = sf::st_transform(cyc15_n, crs_wgs),
       group   = "2015 net",
       weight  = 2,
       color   = "#666666",
@@ -525,9 +552,10 @@ make_validation_points_interactive_map <- function() {
     )
   }
   
-  if (exists("removed") && inherits(removed, "sf") && nrow(removed)) {
+  # Removed net (use consistent removed_map)
+  if (!is.null(removed_map) && inherits(removed_map, "sf") && nrow(removed_map)) {
     m <- m %>% leaflet::addPolylines(
-      data    = sf::st_transform(removed, 4326),
+      data    = sf::st_transform(removed_map, crs_wgs),
       group   = "Removed net",
       weight  = 2.6,
       color   = "#000000",
@@ -535,7 +563,7 @@ make_validation_points_interactive_map <- function() {
       options = leaflet::pathOptions(pane = "nets")
     ) %>%
       leaflet::addPolylines(
-        data    = sf::st_transform(removed, 4326),
+        data    = sf::st_transform(removed_map, crs_wgs),
         group   = "Removed net",
         weight  = 2.0,
         color   = "#FFFFFF",
@@ -544,12 +572,13 @@ make_validation_points_interactive_map <- function() {
       )
   }
   
-  if (exists("added") && inherits(added, "sf") && nrow(added)) {
+  # Added net (use consistent added_map)
+  if (!is.null(added_map) && inherits(added_map, "sf") && nrow(added_map)) {
     m <- m %>% leaflet::addPolylines(
-      data    = sf::st_transform(added, 4326),
+      data    = sf::st_transform(added_map, crs_wgs),
       group   = "Added net",
       weight  = 2,
-      color   = "#0072B2",  # match static "added"
+      color   = "#0072B2",
       opacity = 0.95,
       options = leaflet::pathOptions(pane = "nets")
     )
@@ -557,7 +586,7 @@ make_validation_points_interactive_map <- function() {
   
   if (exists("cyc23_n") && inherits(cyc23_n, "sf") && nrow(cyc23_n)) {
     m <- m %>% leaflet::addPolylines(
-      data    = sf::st_transform(cyc23_n, 4326),
+      data    = sf::st_transform(cyc23_n, crs_wgs),
       group   = "2023 net",
       weight  = 2,
       color   = "#0072B2",
@@ -569,49 +598,49 @@ make_validation_points_interactive_map <- function() {
   # points
   if (!is.null(add_wgs) && nrow(add_wgs) > 0) {
     m <- m %>% leaflet::addCircleMarkers(
-      data    = add_wgs,
-      lng     = ~lon,
-      lat     = ~lat,
-      group   = "ADD pts",
-      radius  = 4,
-      weight  = 1,
-      color   = stroke,
-      fillColor = col_add_pt,
+      data        = add_wgs,
+      lng         = ~lon,
+      lat         = ~lat,
+      group       = "ADD pts",
+      radius      = 4,
+      weight      = 1,
+      color       = stroke,
+      fillColor   = col_add_pt,
       fillOpacity = 0.95,
-      popup   = add_wgs$popup_html,
-      options = leaflet::pathOptions(pane = "points")
+      popup       = add_wgs$popup_html,
+      options     = leaflet::pathOptions(pane = "points")
     )
   }
   
   if (!is.null(rem_wgs) && nrow(rem_wgs) > 0) {
     m <- m %>% leaflet::addCircleMarkers(
-      data    = rem_wgs,
-      lng     = ~lon,
-      lat     = ~lat,
-      group   = "REMOVE pts",
-      radius  = 4,
-      weight  = 1,
-      color   = stroke,
-      fillColor = col_rem_pt,
+      data        = rem_wgs,
+      lng         = ~lon,
+      lat         = ~lat,
+      group       = "REMOVE pts",
+      radius      = 4,
+      weight      = 1,
+      color       = stroke,
+      fillColor   = col_rem_pt,
       fillOpacity = 0.95,
-      popup   = rem_wgs$popup_html,
-      options = leaflet::pathOptions(pane = "points")
+      popup       = rem_wgs$popup_html,
+      options     = leaflet::pathOptions(pane = "points")
     )
   }
   
   if (!is.null(gen_wgs) && nrow(gen_wgs) > 0) {
     m <- m %>% leaflet::addCircleMarkers(
-      data    = gen_wgs,
-      lng     = ~lon,
-      lat     = ~lat,
-      group   = "NONCI pts",
-      radius  = 4,
-      weight  = 1,
-      color   = stroke,
-      fillColor = col_gen_pt,
+      data        = gen_wgs,
+      lng         = ~lon,
+      lat         = ~lat,
+      group       = "NONCI pts",
+      radius      = 4,
+      weight      = 1,
+      color       = stroke,
+      fillColor   = col_gen_pt,
       fillOpacity = 0.95,
-      popup   = gen_wgs$popup_html,
-      options = leaflet::pathOptions(pane = "points")
+      popup       = gen_wgs$popup_html,
+      options     = leaflet::pathOptions(pane = "points")
     )
   }
   
@@ -682,7 +711,7 @@ function(el, x){
 }
 ")
   
-  # legend (bottom-right) – updated colours
+  # legend
   legend_html <- "
 <div style='background:white; padding:8px; border-radius:4px;
             box-shadow:0 0 4px rgba(0,0,0,0.25); font-size:11px;'>
@@ -718,14 +747,10 @@ function(el, x){
 }
 
 
-
-# ---- 5) Infra change (interactive) ------------------------
-
-# ---- 5) Infra change (interactive) ------------------------
+# ---- 5) Infra change (interactive) ------------------------------------------
 
 make_infra_change_interactive_map <- function() {
   
-  # colours – harmonised with static infra map
   col_2015    <- "#4A4A4A"
   col_added   <- "#0072B2"
   col_removed <- "#D95F02"
@@ -737,12 +762,12 @@ make_infra_change_interactive_map <- function() {
   alpha_2023  <- 0.60
   alpha_nonci <- 0.40
   
-  # prep layers
+  # prep layers (use consistent map layers with fallback)
   bnd_wgs     <- get_boundary_wgs()
-  cyc15_wgs   <- if (exists("cyc15_n"))       as_wgs_lines(cyc15_n)       else NULL
-  added_wgs   <- if (exists("added"))         as_wgs_lines(added)         else NULL
-  removed_wgs <- if (exists("removed"))       as_wgs_lines(removed)       else NULL
-  cyc23_wgs   <- if (exists("cyc23_n"))       as_wgs_lines(cyc23_n)       else NULL
+  cyc15_wgs   <- if (exists("cyc15_n")) as_wgs_lines(cyc15_n) else NULL
+  added_wgs   <- if (!is.null(added_map)   && inherits(added_map, "sf")   && nrow(added_map))   as_wgs_lines(added_map)   else NULL
+  removed_wgs <- if (!is.null(removed_map) && inherits(removed_map, "sf") && nrow(removed_map)) as_wgs_lines(removed_map) else NULL
+  cyc23_wgs   <- if (exists("cyc23_n")) as_wgs_lines(cyc23_n) else NULL
   nonci_wgs   <- if (exists("general1523_n")) as_wgs_lines(general1523_n) else NULL
   
   # bounds
@@ -838,12 +863,12 @@ make_infra_change_interactive_map <- function() {
   
   if (!is.null(nonci_wgs)) {
     m <- m %>% leaflet::addPolylines(
-      data        = nonci_wgs,
-      group       = "General (non-CI) 2023",
-      weight      = 1,
-      color       = col_nonci,
-      opacity     = alpha_nonci,
-      options     = leaflet::pathOptions(pane = "nets"),
+      data         = nonci_wgs,
+      group        = "General (non-CI) 2023",
+      weight       = 1,
+      color        = col_nonci,
+      opacity      = alpha_nonci,
+      options      = leaflet::pathOptions(pane = "nets"),
       smoothFactor = 0.5
     )
   }
@@ -860,7 +885,6 @@ make_infra_change_interactive_map <- function() {
     leaflet::hideGroup(c("2023 CI", "General (non-CI) 2023")) %>%
     leaflet::fitBounds(bounds[1], bounds[2], bounds[3], bounds[4])
   
-  # legend – colours updated to match palette
   legend_html <- "
 <div style='background:white; padding:8px; border-radius:4px;
             box-shadow:0 0 4px rgba(0,0,0,0.2); font-size:11px;'>
@@ -894,17 +918,14 @@ make_infra_change_interactive_map <- function() {
 }
 
 
-# ---- 6) Export interactive maps as HTML supplements -----------------
-
-# Make sure the directory exists
-fs::dir_create("../supplements")
+# ---- 6) Export interactive maps as HTML supplements -------------------------
 
 # 1) Validation points interactive map
 val_map_widget <- make_validation_points_interactive_map()
 
 htmlwidgets::saveWidget(
-  widget       = val_map_widget,
-  file         = "../supplements/validation_points_map.html",
+  widget        = val_map_widget,
+  file          = "../supplements/validation_points_map.html",
   selfcontained = TRUE
 )
 
@@ -912,9 +933,7 @@ htmlwidgets::saveWidget(
 infra_map_widget <- make_infra_change_interactive_map()
 
 htmlwidgets::saveWidget(
-  widget       = infra_map_widget,
-  file         = "../supplements/infra_change_map.html",
+  widget        = infra_map_widget,
+  file          = "../supplements/infra_change_map.html",
   selfcontained = TRUE
 )
-
-                                        

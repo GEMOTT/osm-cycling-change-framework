@@ -1,3 +1,11 @@
+# ================================================================
+# 99_workflow_diagram.R
+# Create/update a workflow diagram of the pipeline steps and data products.
+#
+# Inputs:  pipeline definitions
+# Outputs: workflow diagram file
+# ================================================================
+
 dot <- grViz("
 digraph {
   graph [rankdir=TB, splines=true, nodesep=0.6, ranksep=0.7]
@@ -75,12 +83,16 @@ digraph {
 }
 ")
 
+# Ensure output folder exists
+dir.create("../figs", recursive = TRUE, showWarnings = FALSE)
 
+# Export to SVG/PNG
 svg_txt <- export_svg(dot)
-rsvg_svg(charToRaw(svg_txt), file = "figs/osm_gsv_flowchart.svg")
+rsvg_svg(charToRaw(svg_txt), file = "../figs/flowchart.svg")
 rsvg_png(
   charToRaw(svg_txt),
-  file   = "figs/osm_gsv_flowchart.png",
-  width  = 2400,
-  height = 1400
+  file   = "../figs/flowchart.png",
+  width  = 1400,
+  height = 2400
 )
+

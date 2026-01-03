@@ -1,8 +1,10 @@
+# ================================================================
 # 09_results_validation.R
-# - Uses coder1 / coder2 Excel files created by 07_export_excel.R
-# - Builds a joined_results workbook (once, or when forced)
-# - Uses only consens as ground truth for metrics
-# - A row is usable when consens_bl and consens_fu are both 0/1
+# Build joined_results workbook, derive consensus, and compute validation metrics.
+#
+# Inputs:  coder1/coder2 workbooks (from 07)
+# Outputs: joined_results workbook + metrics tables in R
+# ================================================================
 
 # -------------------------------------------------------------------
 # 0) File paths and options
@@ -17,7 +19,7 @@ coder2_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_coder2.xls
 joined_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_joined_results.xlsx"))
 
 # Set to TRUE only when you want to rebuild joined_file from coder Excels
-rebuild_joined <- TRUE
+rebuild_joined <- FALSE
 
 # -------------------------------------------------------------------
 # 1) Helpers to read coder sheets and build joined sheets
@@ -429,20 +431,6 @@ summary_stratum_class <- usable_tbl %>%
   ) %>%
   tidyr::pivot_wider(names_from = class, values_from = n, values_fill = 0L)
 
-wanted_cols <- c("stratum","ADD", "REMOVE","NONCI")
-for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
-  summary_stratum_class[[cc]] <- 0L
-}
-
-summary_stratum_class <- usable_tbl %>%
-  dplyr::count(stratum, class, name = "n") %>%
-  tidyr::complete(
-    stratum = all_strata,
-    class   = c("ADD", "REMOVE", "NONCI"),
-    fill    = list(n = 0L)
-  ) %>%
-  tidyr::pivot_wider(names_from = class, values_from = n, values_fill = 0L)
-
 wanted_cols <- c("stratum", "ADD", "REMOVE", "NONCI")
 for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
   summary_stratum_class[[cc]] <- 0L
@@ -453,7 +441,7 @@ summary_stratum_class <- summary_stratum_class %>%
   dplyr::mutate(Total = REMOVE + ADD + NONCI) %>%
   dplyr::arrange(stratum) %>%
   # split "D1_C2" into "D" and "C"
-  tidyr::separate(stratum, into = c("D", "C"), sep = "_", remove = FALSE)
+  tidyr::separate(stratum, into = c("D", "C"), sep = "_", remove = FALSE, fill = "right")
 
 # Add human–readable Description for each stratum
 summary_stratum_class_full <- summary_stratum_class %>%

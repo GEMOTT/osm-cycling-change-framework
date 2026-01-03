@@ -1,7 +1,19 @@
-## 01_osm_download.R
-## Download OSM lines for Spain (two snapshots) and clip to city perimeter
+# ================================================================
+# 01_osm_download.R
+# Download OSM "lines" for two snapshots and clip to the city perimeter.
+#
+# Inputs:  city_tag/city_name, ver_code_15/ver_code_23, proc_dir, FORCE_* flags
+# Outputs: proc_dir/<city>_<ver>_lines.gpkg (x2), proc_dir/<city>_perimeter.gpkg
+# ================================================================
 
 # -------------------- PATHS --------------------------------------------------
+# Files (on disk):
+#   gpkg15/gpkg23: GeoPackages that store clipped OSM "lines" for each snapshot
+#   perim_file:    GeoPackage that stores the city perimeter polygon
+#
+# Layers (inside each GeoPackage):
+#   lyr15/lyr23: layer names inside gpkg15/gpkg23
+#   perim_lyr:   layer name inside perim_file
 
 gpkg15 <- file.path(proc_dir, paste0(city_tag, "_", ver15, "_lines.gpkg"))
 gpkg23 <- file.path(proc_dir, paste0(city_tag, "_", ver23, "_lines.gpkg"))
@@ -19,7 +31,7 @@ read_or_build_perimeter <- function(force = FALSE) {
     message("↪ Using cached perimeter: ", basename(perim_file))
     return(
       st_read(perim_file, layer = perim_lyr, quiet = TRUE) |>
-        st_transform(4326)
+        st_transform(crs_wgs)
     )
   }
   
@@ -40,7 +52,7 @@ read_or_build_perimeter <- function(force = FALSE) {
   if ("wikidata" %in% names(perim) && any(perim$wikidata == "Q1492")) {
     perim <- perim[perim$wikidata == "Q1492", ]
   } else {
-    perim <- perim[which.max(st_area(perim)), ]
+    perim <- perim[which.max(st_area(st_transform(perim, crs_work))), ]
   }
   
   # Dissolve perimeter for clean clipping
@@ -49,7 +61,7 @@ read_or_build_perimeter <- function(force = FALSE) {
     st_transform(crs_work) |>
     st_union() |>
     st_cast("MULTIPOLYGON") |>
-    st_transform(4326)
+    st_transform(crs_wgs)
   
   st_write(
     perim, perim_file,
@@ -82,16 +94,28 @@ fetch_crop_write <- function(version_code,
     boundary      = st_bbox(perimeter),
     boundary_type = "clipsrc",
     extra_tags    = c(
-      "cycleway","cycleway:left","cycleway:right","cycleway:both",
+      "highway", "cycleway","cycleway:left","cycleway:right","cycleway:both",
       "bicycle","bicycle_road","oneway:bicycle","segregated"
     ),
     quiet         = FALSE
   )
   
+  # Guard: oe_get() should return sf (avoid st_geometry_type() crashing)
+  if (!inherits(ln, "sf")) {
+    stop(sprintf("oe_get() did not return an sf object. ver=%s", version_code))
+  }
+  
   # Keep lines only
   is_line <- st_geometry_type(ln) %in% c("LINESTRING","MULTILINESTRING")
   ln <- ln[is_line, ]
-  stopifnot(nrow(ln) > 0)
+  
+  # Clear failure message (and correct context)
+  if (nrow(ln) == 0) {
+    stop(sprintf(
+      "OSM download/clip returned 0 features. Check: internet, perimeter bbox/CRS, snapshot code. ver=%s, gpkg=%s, layer=%s",
+      version_code, out_gpkg, out_layer
+    ))
+  }
   
   # Clip lines using dissolved perimeter
   ln <- st_intersection(st_make_valid(ln), st_make_valid(perimeter))

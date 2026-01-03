@@ -113,10 +113,10 @@ window.Quarto = {
   <li><a href="#acknowledgements" id="toc-acknowledgements" class="nav-link" data-scroll-target="#acknowledgements">Acknowledgements</a></li>
   <li><a href="#supplements" id="toc-supplements" class="nav-link" data-scroll-target="#supplements">Supplements</a>
   <ul class="collapse">
-  <li><a href="#s1.-google-street-view-validation-protocol-pdf" id="toc-s1.-google-street-view-validation-protocol-pdf" class="nav-link" data-scroll-target="#s1.-google-street-view-validation-protocol-pdf">S1. Google Street View validation protocol (PDF)</a></li>
-  <li><a href="#s2.-raw-validation-workbooks-coder-1-and-coder-2-xlsx" id="toc-s2.-raw-validation-workbooks-coder-1-and-coder-2-xlsx" class="nav-link" data-scroll-target="#s2.-raw-validation-workbooks-coder-1-and-coder-2-xlsx">S2. Raw validation workbooks: coder 1 and coder 2 (XLSX)</a></li>
-  <li><a href="#s3.-final-adjudicated-validation-results-xlsx" id="toc-s3.-final-adjudicated-validation-results-xlsx" class="nav-link" data-scroll-target="#s3.-final-adjudicated-validation-results-xlsx">S3. Final adjudicated validation results (XLSX)</a></li>
-  <li><a href="#s4.-interactive-maps-html" id="toc-s4.-interactive-maps-html" class="nav-link" data-scroll-target="#s4.-interactive-maps-html">S4. Interactive maps (HTML)</a></li>
+  <li><a href="#s1-interactive-maps" id="toc-s1-interactive-maps" class="nav-link" data-scroll-target="#s1-interactive-maps">S1. Interactive maps (HTML)</a></li>
+  <li><a href="#s2-gsv-protocol" id="toc-s2-gsv-protocol" class="nav-link" data-scroll-target="#s2-gsv-protocol">S2. Google Street View validation protocol (PDF)</a></li>
+  <li><a href="#s3-workbooks" id="toc-s3-workbooks" class="nav-link" data-scroll-target="#s3-workbooks">S3. Raw validation workbooks: coder 1 and coder 2 (XLSX)</a></li>
+  <li><a href="#s4-joined-results" id="toc-s4-joined-results" class="nav-link" data-scroll-target="#s4-joined-results">S4. Final adjudicated validation results (XLSX)</a></li>
   </ul></li>
   <li><a href="#declaration-of-generative-ai-and-ai-assisted-technologies-in-the-writing-process" id="toc-declaration-of-generative-ai-and-ai-assisted-technologies-in-the-writing-process" class="nav-link" data-scroll-target="#declaration-of-generative-ai-and-ai-assisted-technologies-in-the-writing-process">Declaration of Generative AI and AI-assisted technologies in the writing process</a></li>
   <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
@@ -142,9 +142,9 @@ window.Quarto = {
 <div>
   <div class="abstract">
     <div class="block-title">Abstract</div>
-    <p>Cities are expanding their cycling networks rapidly, yet longitudinal data describing how these networks change remain limited. Official inventories are often incomplete, inconsistent, or not maintained over time, while field audits are costly and difficult to scale. Volunteered Geographic Information, particularly OpenStreetMap (OSM), offers time-stamped spatial data on urban infrastructure, but its temporal reliability for detecting cycling-infrastructure change is uncertain. This study evaluates how well OSM identifies additions and removals of cycling infrastructure in Barcelona between 2015 and 2023, using Google Street View (GSV) as ground truth.</p>
-    <p>Baseline and follow-up cycling networks were derived from dated OSM snapshots representing 2016 and 2024, and geometric differencing was used to detect apparent additions and removals. Barcelona’s 1,063 census tracts were stratified by population density and centrality into nine groups, from which 54 were sampled. Within these, candidate additions, removals and non-cycling controls were selected with probabilities proportional to segment length, yielding 105 locations, of which 96 had usable GSV imagery. Two trained coders independently classified each site to determine true transitions and false positives.</p>
-    <p>OSM indicates an 88% increase in cycling-infrastructure length, with most additions located in denser and more central areas. Validation shows that OSM captures all observed additions and removals (recall = 1.00) but includes several false positives, especially for removals. Precision is about 0.73 for additions and 0.29 for removals, producing an overall precision of 0.67 and an F1 score of 0.80.</p>
+    <p>Cities are expanding their cycling networks rapidly, yet longitudinal data describing how these networks change remain limited. Volunteered Geographic Information, particularly OpenStreetMap (OSM), offers time-stamped spatial data on urban infrastructure, but its temporal reliability for detecting cycling-infrastructure change is uncertain. This study evaluates how well OSM identifies additions and removals of cycling infrastructure in Barcelona between 2015 and 2023, using Google Street View (GSV) as ground truth.</p>
+    <p>Baseline and follow-up cycling networks were derived from dated OSM snapshots representing 2016 and 2024, and geometric differencing was used to detect apparent additions and removals. Barcelona’s 1,063 census tracts were stratified by population density and centrality into nine groups, from which six tracts per stratum were selected (54 in total). Within these tracts, candidate additions, removals and non-cycling controls were sampled, yielding 105 locations, of which 96 had usable GSV imagery. Two trained coders independently classified each site to identify true additions and removals, false positives and false negatives.</p>
+    <p>OSM indicates an 88% increase in cycling-infrastructure length, with most additions located in denser and more central areas. Validation shows that OSM captures all observed additions and removals in our sample (recall = 1.00) but includes several false positives, especially for removals. Precision is about 0.73 for additions and 0.29 for removals, producing an overall precision of 0.67 and an F1 score of 0.80.</p>
     <p>The study presents a reproducible workflow for assessing temporal OSM data and supports broader efforts to evaluate the validity of volunteered geographic information for urban and transport research.</p>
   </div>
 </div>
@@ -164,17 +164,18 @@ window.Quarto = {
 <p>In recent years, many cities worldwide have expanded their cycling networks in pursuit of cleaner, healthier and more equitable mobility <span class="citation" data-cites="szell_growing_2022 buehler_cycling_2021">(<a href="#ref-szell_growing_2022" role="doc-biblioref">Szell et al. 2022</a>; <a href="#ref-buehler_cycling_2021" role="doc-biblioref">Buehler and Pucher 2021</a>)</span>. Reliable data on how these networks evolve are essential to guide fair and evidence-based planning and to enable robust longitudinal research on their impacts. Yet longitudinal information is often missing: official inventories are rarely maintained consistently, while local field audits, though accurate, are costly and difficult to reproduce at scale. As a result, even in cities with substantial cycling expansion, consistent and longitudinally comparable data on infrastructure change are often limited and fragmented.</p>
 <p>The growing availability of Volunteered Geographic Information (VGI) <span class="citation" data-cites="goodchild_citizens_2007">(<a href="#ref-goodchild_citizens_2007" role="doc-biblioref">Goodchild 2007</a>)</span> offers new opportunities to address these data gaps. Among such sources, OpenStreetMap (OSM) stands out for providing open, editable and time-stamped spatial data on a wide range of urban features. In principle, OSM could enable the reconstruction of past infrastructure networks and support empirical studies of built-environment transformations.</p>
 <p>However, the use of OSM for longitudinal analysis faces several challenges. Previous research has shown that not all edits correspond to physical change (false positives), some genuine changes may remain unmapped (false negatives), and even valid updates are not always recorded at the time they occur <span class="citation" data-cites="barron_comprehensive_2014 ferster_using_2020 viero_how_2025">(<a href="#ref-barron_comprehensive_2014" role="doc-biblioref">Barron, Neis, and Zipf 2014</a>; <a href="#ref-ferster_using_2020" role="doc-biblioref">Ferster et al. 2020</a>; <a href="#ref-viero_how_2025" role="doc-biblioref">Vierø, Vybornova, and Szell 2025</a>)</span>. These uncertainties raise questions about whether OSM’s temporal record can be trusted to detect infrastructure additions and removals.</p>
+<p><span class="citation" data-cites="winters_mapping_2025">(<a href="#ref-winters_mapping_2025" role="doc-biblioref">Winters, Ferster, and Laberee 2025</a>)</span> <span class="citation" data-cites="schmidl_approach_2021">(<a href="#ref-schmidl_approach_2021" role="doc-biblioref">Schmidl, Navratil, and Giannopoulos 2021</a>)</span> <span class="citation" data-cites="bres_analysis_2023">(<a href="#ref-bres_analysis_2023" role="doc-biblioref">Bres et al. 2023</a>)</span> <span class="citation" data-cites="hochmair_assessing_2015">(<a href="#ref-hochmair_assessing_2015" role="doc-biblioref">Hochmair, Zielstra, and Neis 2015</a>)</span></p>
 <p>This study addresses these questions by evaluating the reliability of OSM for detecting cycling-infrastructure change in Barcelona between 2015 and 2023, using Google Street View (GSV) imagery as ground truth. It assesses OSM’s ability to identify added and removed cycle lanes and introduces a simple calibration framework to adjust OSM-based estimates to real-world conditions. The work forms part of the ATRAPA project (The Active Travel Backlash Paradox), which studies how people perceive and respond to built-environment sustainable-travel interventions across European cities <span class="citation" data-cites="gemott_research_group_atrapa_2025">(<a href="#ref-gemott_research_group_atrapa_2025" role="doc-biblioref">GEMOTT Research Group 2025</a>)</span>.</p>
 </section>
 <section id="data-and-methods" class="level2">
 <h2 class="anchored" data-anchor-id="data-and-methods">Data and methods</h2>
-<p>The analysis followed a five-step reproducible workflow (<a href="#fig-workflow" class="quarto-xref">Figure&nbsp;1</a>) with two main components: temporal differencing of dated OSM extracts to detect additions and removals of cycling infrastructure, and stratified GSV validation to check a sample of these detected changes. All stages were implemented in R using open-source packages, including <em>osmextract</em> to retrieve dated OSM snapshots.</p>
-<div class="cell">
+<p>The analysis followed a five-step reproducible workflow (<a href="#fig-workflow" class="quarto-xref">Figure&nbsp;1</a>) with two main components: temporal differencing of dated OSM extracts to detect additions and removals of cycling infrastructure, and stratified GSV validation to check a sample of these detected changes. All stages were implemented in R using open-source packages, including <em>osmextract</em> <span class="citation" data-cites="gilardi_osmextract_2025">(<a href="#ref-gilardi_osmextract_2025" role="doc-biblioref">Gilardi et al. 2025</a>)</span> to retrieve dated OSM snapshots.</p>
+<div class="cell" data-layout-align="center">
 <div class="cell-output-display">
-<div id="fig-workflow" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-workflow" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-workflow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="../figs/osm_gsv_flowchart.png" class="img-fluid figure-img" style="width:100.0%">
+<img src="../figs/flowchart.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:50.0%">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-workflow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;1: Main workflow steps.
@@ -185,26 +186,25 @@ Figure&nbsp;1: Main workflow steps.
 </div>
 <section id="osm-temporal-differencing" class="level3">
 <h3 class="anchored" data-anchor-id="osm-temporal-differencing">OSM temporal differencing</h3>
-<p>We constructed baseline and follow-up cycling networks from OSM extracts dated 1 January 2016 and 1 January 2024, approximating conditions in 2015 and 2023. From each extract, road segments were classified as cycling infrastructure (CI) or non-cycling (NONCI) based on their OSM tags.</p>
-<p>A segment was classified as CI if any of the following conditions were met.</p>
-<ul>
-<li><p><code>highway = cycleway</code></p></li>
-<li><p>Any of the tags <code>cycleway</code>, <code>cycleway:left</code>, <code>cycleway:right</code>, or <code>cycleway:both</code> had a value in {<code>lane</code>, <code>track</code>, <code>opposite_lane</code>, <code>opposite_track</code>, <code>separate</code>}</p></li>
-<li><p><code>bicycle_road = yes</code></p></li>
-<li><p><code>highway</code> was in {<code>service</code>, <code>unclassified</code>} and <code>bicycle</code> was in {<code>yes</code>, <code>designated</code>} and <code>motor_vehicle = no</code></p></li>
-</ul>
+<p>We constructed baseline and follow-up cycling networks from OSM extracts dated 1 January 2016 and 1 January 2024, approximating conditions in 2015 and 2023. From each extract, we derived a CORE cycling-infrastructure (CI) network intended to represent bicycle-specific, physically visible infrastructure while minimising double counting arising from alternative OSM representations.</p>
+<p>A segment was classified as CI (CORE RAW) if it met either of the following conditions:</p>
+<p>highway = cycleway; or</p>
+<p>any cycleway* tag (including cycleway, cycleway:left, cycleway:right, cycleway:both, and other cycleway:* keys where present) had a value in {lane, track, opposite_lane, opposite_track}.</p>
+<p>Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above. We excluded cycleway=separate because it indicates the presence of a cycling facility located elsewhere rather than cycling infrastructure represented by the road segment geometry.</p>
+<p>To reduce double counting, we applied a no-double-counting (NDC) procedure. After classifying CORE RAW segments as either cycleway (from highway=cycleway) or onroad_lanes (from cycleway* tags), we removed any onroad_lanes segment whose geometry lay within DEDUPe_TOL_M metres of a cycleway geometry. The resulting CORE NDC network was used for all subsequent length calculations, differencing, and validation.</p>
 <p>A segment was classified as NONCI if it did not meet any of the CI criteria above and its <code>highway</code> tag was in {<code>primary</code>, <code>secondary</code>, <code>tertiary</code>, <code>unclassified</code>, <code>residential</code>, <code>primary_link</code>, <code>secondary_link</code>, <code>tertiary_link</code>, <code>living_street</code>, <code>pedestrian</code>}.</p>
 <p>After cleaning and projecting the networks, the 2015 and 2023 layers were compared geometrically. Segments present only in 2023 were classified as additions and those present only in 2015 were classified as removals. Cases where an apparent addition lay immediately adjacent to a corresponding removal were excluded, since these typically reflected minor positional realignments in OSM rather than actual physical change.</p>
 </section>
 <section id="stratified-gsv-validation" class="level3">
 <h3 class="anchored" data-anchor-id="stratified-gsv-validation">Stratified GSV validation</h3>
-<p>To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we implemented a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; <a href="#fig-strata-validation" class="quarto-xref">Figure&nbsp;2</a> a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was expressed as straight-line distance in kilometres from the tract centroid to Plaça Catalunya, treated as the city centre. Both variables were divided into terciles, ranked from 1 (lowest density / most peripheral) to 3 (highest density / most central). Combining density and centrality terciles yielded nine density–centrality strata labelled D1_C1 to D3_C3, where Di indicates density tercile i and Cj centrality tercile j. From each stratum, six tracts were randomly selected (54 in total). Within each sampled tract, we drew up to two OSM-detected additions, two removals and one non-cycling control, with selection probabilities proportional to segment length (<a href="#fig-strata-validation" class="quarto-xref">Figure&nbsp;2</a> b). The midpoint of each selected segment served as the validation location and was linked to the nearest GSV panorama.</p>
+<p>To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we implemented a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; <a href="#fig-strata-validation" class="quarto-xref">Figure&nbsp;2</a> a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was expressed as straight-line distance from the tract centroid to Plaça Catalunya, treated as the city centre. Both variables were divided into terciles, ranked from 1 (lowest density / most peripheral) to 3 (highest density / most central). Combining density and centrality terciles yielded nine density–centrality strata labelled D1_C1 to D3_C3, where Di indicates density tercile i and Cj centrality tercile j. From each stratum, six tracts were randomly selected (54 in total).</p>
+<p>Within each sampled tract, we drew up to two OSM-detected additions, two removals and one non-cycling control, with selection probabilities proportional to segment length (<a href="#fig-strata-validation" class="quarto-xref">Figure&nbsp;2</a> b). The midpoint of each selected segment served as the validation location and was linked to the nearest available GSV panorama. An interactive version of the validation-points map, including clickable links to the corresponding GSV panoramas for every sampled location, is provided in <a href="#s1-interactive-maps">Supplement S1</a>.</p>
 <div id="fig-strata-validation" class="quarto-layout-panel">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-strata-validation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="quarto-layout-row">
 <div class="cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-strata-validation" style="flex-basis: 50.0%;justify-content: center;">
-<div id="fig-strata-validation-1" class="quarto-float quarto-figure quarto-figure-center anchored" width="100%" data-fig-align="center">
+<div id="fig-strata-validation-1" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center" width="100%">
 <figure class="quarto-float quarto-subfloat-fig figure">
 <div aria-describedby="fig-strata-validation-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="../figs/stratified_sample_bivariate_map.png" id="fig-strata-validation-1" class="img-fluid quarto-figure quarto-figure-center anchored figure-img" style="width:100.0%" data-ref-parent="fig-strata-validation">
@@ -216,7 +216,7 @@ Figure&nbsp;1: Main workflow steps.
 </div>
 </div>
 <div class="cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-strata-validation" style="flex-basis: 50.0%;justify-content: center;">
-<div id="fig-strata-validation-2" class="quarto-float quarto-figure quarto-figure-center anchored" width="100%" data-fig-align="center">
+<div id="fig-strata-validation-2" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center" width="100%">
 <figure class="quarto-float quarto-subfloat-fig figure">
 <div aria-describedby="fig-strata-validation-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="../figs/validation_points_map.png" id="fig-strata-validation-2" class="img-fluid quarto-figure quarto-figure-center anchored figure-img" style="width:100.0%" data-ref-parent="fig-strata-validation">
@@ -234,7 +234,7 @@ Figure&nbsp;2: Outputs used in the validation design: (a) Bivariate tract strati
 </figcaption>
 </figure>
 </div>
-<p>Each point was independently coded by two trained coders following a standardised protocol (Supplement S1). Coders examined the GSV panoramas for two periods corresponding to the OSM reference dates: a follow-up around 1 January 2024 and a baseline around 1 January 2016. Because GSV does not provide panoramas for the exact OSM reference dates, we used the closest available imagery surrounding each period. To avoid coder judgement about temporal proximity, coders inspected a predefined set of allowable years—2024 and 2023 for the follow-up and 2016 and 2015 for the baseline. For each of these years, they recorded whether cycling infrastructure was present (1/0/blank) and the month number displayed in GSV.</p>
+<p>Each point was independently coded by two trained coders following a standardised protocol. Coders examined the GSV panoramas for two periods corresponding to the OSM reference dates: a follow-up around 1 January 2024 and a baseline around 1 January 2016. Because GSV does not provide panoramas for the exact OSM reference dates, we used the closest available imagery surrounding each period. To avoid coder judgement about temporal proximity, coders inspected a predefined set of allowable years—2024 and 2023 for the follow-up and 2016 and 2015 for the baseline. For each of these years, they recorded whether cycling infrastructure was present (1/0/blank) and the month number displayed in GSV.</p>
 <p>The year hierarchy was fixed: coders attempted the main years first, and if neither was interpretable, they reviewed a fallback year (2022 for follow-up, 2014 for baseline). If none of the allowed years yielded a usable view, the period was coded as missing.</p>
 <p>Following coding, the spreadsheet automatically selected, for each period, the GSV month closest to the relevant OSM reference date. These closest-in-time observations formed the adjudicated baseline and follow-up values used to classify OSM-detected additions, removals and non-cycling controls.</p>
 <p>Intercoder agreement was high (XXX %), with XXX of XXX cases requiring reconciliation.</p>
@@ -257,13 +257,13 @@ Figure&nbsp;2: Outputs used in the validation design: (a) Bivariate tract strati
 <li>Used to identify False Negatives (FN): genuine 0→1 or 1→0 transitions visible in GSV but not detected in OSM.</li>
 </ul></li>
 </ul>
-<p>Examples of TP additions and removals are shown in <a href="#fig-gsv-examples" class="quarto-xref">Figure&nbsp;3</a>. Full protocol details and the coding workbook are provided in Supplement S1 and Supplement S2.</p>
+<p>Examples of TP additions and removals are shown in <a href="#fig-gsv-examples" class="quarto-xref">Figure&nbsp;3</a>. Full protocol details and the coding workbooks are provided in <a href="#s2-gsv-protocol">Supplement S2</a> and <a href="#s3-workbooks">Supplement S3</a>. The joined results are available in <a href="#s4-joined-results">Supplement S4</a>.</p>
 <div id="fig-gsv-examples" class="quarto-layout-panel">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-gsv-examples-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="quarto-layout-row">
 <div class="cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-gsv-examples" style="flex-basis: 50.0%;justify-content: center;">
-<div id="fig-gsv-examples-1" class="quarto-float quarto-figure quarto-figure-center anchored" width="100%" data-fig-align="center">
+<div id="fig-gsv-examples-1" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center" width="100%">
 <figure class="quarto-float quarto-subfloat-fig figure">
 <div aria-describedby="fig-gsv-examples-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="../figs/addition-2015.png" id="fig-gsv-examples-1" class="img-fluid quarto-figure quarto-figure-center anchored figure-img" style="width:100.0%" data-ref-parent="fig-gsv-examples">
@@ -275,7 +275,7 @@ Figure&nbsp;2: Outputs used in the validation design: (a) Bivariate tract strati
 </div>
 </div>
 <div class="cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-gsv-examples" style="flex-basis: 50.0%;justify-content: center;">
-<div id="fig-gsv-examples-2" class="quarto-float quarto-figure quarto-figure-center anchored" width="100%" data-fig-align="center">
+<div id="fig-gsv-examples-2" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center" width="100%">
 <figure class="quarto-float quarto-subfloat-fig figure">
 <div aria-describedby="fig-gsv-examples-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="../figs/addition-2023.png" id="fig-gsv-examples-2" class="img-fluid quarto-figure quarto-figure-center anchored figure-img" style="width:100.0%" data-ref-parent="fig-gsv-examples">
@@ -289,7 +289,7 @@ Figure&nbsp;2: Outputs used in the validation design: (a) Bivariate tract strati
 </div>
 <div class="quarto-layout-row">
 <div class="cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-gsv-examples" style="flex-basis: 50.0%;justify-content: center;">
-<div id="fig-gsv-examples-3" class="quarto-float quarto-figure quarto-figure-center anchored" width="100%" data-fig-align="center">
+<div id="fig-gsv-examples-3" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center" width="100%">
 <figure class="quarto-float quarto-subfloat-fig figure">
 <div aria-describedby="fig-gsv-examples-3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="../figs/removal-2015.png" id="fig-gsv-examples-3" class="img-fluid quarto-figure quarto-figure-center anchored figure-img" style="width:100.0%" data-ref-parent="fig-gsv-examples">
@@ -301,7 +301,7 @@ Figure&nbsp;2: Outputs used in the validation design: (a) Bivariate tract strati
 </div>
 </div>
 <div class="cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-gsv-examples" style="flex-basis: 50.0%;justify-content: center;">
-<div id="fig-gsv-examples-4" class="quarto-float quarto-figure quarto-figure-center anchored" width="100%" data-fig-align="center">
+<div id="fig-gsv-examples-4" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center" width="100%">
 <figure class="quarto-float quarto-subfloat-fig figure">
 <div aria-describedby="fig-gsv-examples-4-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="../figs/removal-2023.png" id="fig-gsv-examples-4" class="img-fluid quarto-figure quarto-figure-center anchored figure-img" style="width:100.0%" data-ref-parent="fig-gsv-examples">
@@ -353,31 +353,31 @@ Table&nbsp;1: Consistency between yearly totals and differencing estimates (2015
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Total 2015</td>
-<td style="text-align: right;">153.6</td>
+<td style="text-align: right;">127.0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Total 2023</td>
-<td style="text-align: right;">288.4</td>
+<td style="text-align: right;">231.4</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Net growth</td>
-<td style="text-align: right;">134.8</td>
+<td style="text-align: right;">104.4</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Added</td>
-<td style="text-align: right;">155.7</td>
+<td style="text-align: right;">124.1</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Removed</td>
-<td style="text-align: right;">24.6</td>
+<td style="text-align: right;">25.2</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Added − Removed</td>
-<td style="text-align: right;">131.1</td>
+<td style="text-align: right;">98.9</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Gap: (Added − Removed) − Net</td>
-<td style="text-align: right;">-3.7</td>
+<td style="text-align: right;">-5.5</td>
 </tr>
 </tbody>
 </table>
@@ -418,80 +418,80 @@ Table&nbsp;2: OSM-estimated additions and removals (2015–2023) by density × c
 <tr class="odd">
 <td style="text-align: left;">D1_C1</td>
 <td style="text-align: left;">Low density, peripheral</td>
-<td style="text-align: right;">31.1</td>
-<td style="text-align: right;">6.7</td>
-<td style="text-align: right;">20.0</td>
-<td style="text-align: right;">27.4</td>
+<td style="text-align: right;">28.4</td>
+<td style="text-align: right;">7.4</td>
+<td style="text-align: right;">22.9</td>
+<td style="text-align: right;">29.5</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">D1_C2</td>
 <td style="text-align: left;">Low density, intermediate</td>
-<td style="text-align: right;">29.2</td>
-<td style="text-align: right;">0.9</td>
-<td style="text-align: right;">18.8</td>
-<td style="text-align: right;">3.8</td>
+<td style="text-align: right;">15.8</td>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">12.7</td>
+<td style="text-align: right;">4.0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D1_C3</td>
 <td style="text-align: left;">Low density, central</td>
-<td style="text-align: right;">33.3</td>
-<td style="text-align: right;">10.9</td>
-<td style="text-align: right;">21.4</td>
-<td style="text-align: right;">44.5</td>
+<td style="text-align: right;">29.5</td>
+<td style="text-align: right;">9.3</td>
+<td style="text-align: right;">23.8</td>
+<td style="text-align: right;">37.1</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">D2_C1</td>
 <td style="text-align: left;">Medium density, peripheral</td>
-<td style="text-align: right;">2.3</td>
-<td style="text-align: right;">0.5</td>
-<td style="text-align: right;">1.5</td>
 <td style="text-align: right;">2.0</td>
+<td style="text-align: right;">0.4</td>
+<td style="text-align: right;">1.6</td>
+<td style="text-align: right;">1.8</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D2_C2</td>
 <td style="text-align: left;">Medium density, intermediate</td>
-<td style="text-align: right;">14.4</td>
-<td style="text-align: right;">0.6</td>
-<td style="text-align: right;">9.3</td>
-<td style="text-align: right;">2.3</td>
+<td style="text-align: right;">10.8</td>
+<td style="text-align: right;">1.5</td>
+<td style="text-align: right;">8.7</td>
+<td style="text-align: right;">5.9</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">D2_C3</td>
 <td style="text-align: left;">Medium density, central</td>
-<td style="text-align: right;">16.4</td>
-<td style="text-align: right;">2.5</td>
-<td style="text-align: right;">10.5</td>
-<td style="text-align: right;">10.2</td>
+<td style="text-align: right;">14.7</td>
+<td style="text-align: right;">2.8</td>
+<td style="text-align: right;">11.9</td>
+<td style="text-align: right;">11.1</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D3_C1</td>
 <td style="text-align: left;">High density, peripheral</td>
-<td style="text-align: right;">1.8</td>
-<td style="text-align: right;">0.3</td>
-<td style="text-align: right;">1.2</td>
-<td style="text-align: right;">1.2</td>
+<td style="text-align: right;">1.4</td>
+<td style="text-align: right;">0.1</td>
+<td style="text-align: right;">1.1</td>
+<td style="text-align: right;">0.4</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">D3_C2</td>
 <td style="text-align: left;">High density, intermediate</td>
-<td style="text-align: right;">12.5</td>
-<td style="text-align: right;">0.6</td>
-<td style="text-align: right;">8.0</td>
-<td style="text-align: right;">2.6</td>
+<td style="text-align: right;">9.7</td>
+<td style="text-align: right;">1.3</td>
+<td style="text-align: right;">7.8</td>
+<td style="text-align: right;">5.0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D3_C3</td>
 <td style="text-align: left;">High density, central</td>
-<td style="text-align: right;">14.6</td>
-<td style="text-align: right;">1.5</td>
+<td style="text-align: right;">11.6</td>
+<td style="text-align: right;">1.3</td>
 <td style="text-align: right;">9.4</td>
-<td style="text-align: right;">5.9</td>
+<td style="text-align: right;">5.2</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">TOTAL</td>
 <td style="text-align: left;">All strata combined</td>
-<td style="text-align: right;">155.7</td>
-<td style="text-align: right;">24.6</td>
+<td style="text-align: right;">123.9</td>
+<td style="text-align: right;">24.9</td>
 <td style="text-align: right;">100.0</td>
 <td style="text-align: right;">100.0</td>
 </tr>
@@ -541,84 +541,20 @@ Table&nbsp;3: Validation points by class and stratum (usable points only)
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">D1_C1</td>
-<td style="text-align: left;">Low density, peripheral</td>
-<td style="text-align: right;">5</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">5</td>
-<td style="text-align: right;">11</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">D1_C2</td>
-<td style="text-align: left;">Low density, intermediate</td>
-<td style="text-align: right;">8</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">4</td>
-<td style="text-align: right;">13</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">D1_C3</td>
-<td style="text-align: left;">Low density, central</td>
-<td style="text-align: right;">6</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">5</td>
-<td style="text-align: right;">12</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">D2_C1</td>
-<td style="text-align: left;">Medium density, peripheral</td>
-<td style="text-align: right;">2</td>
-<td style="text-align: right;">2</td>
-<td style="text-align: right;">6</td>
-<td style="text-align: right;">10</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">D2_C2</td>
-<td style="text-align: left;">Medium density, intermediate</td>
-<td style="text-align: right;">5</td>
+<td style="text-align: left;">All</td>
+<td style="text-align: left;">NA</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">6</td>
-<td style="text-align: right;">11</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">D2_C3</td>
-<td style="text-align: left;">Medium density, central</td>
-<td style="text-align: right;">4</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">4</td>
-<td style="text-align: right;">9</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">D3_C1</td>
-<td style="text-align: left;">High density, peripheral</td>
-<td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">5</td>
-<td style="text-align: right;">6</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">D3_C2</td>
-<td style="text-align: left;">High density, intermediate</td>
-<td style="text-align: right;">7</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">5</td>
-<td style="text-align: right;">12</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">D3_C3</td>
-<td style="text-align: left;">High density, central</td>
-<td style="text-align: right;">6</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">5</td>
-<td style="text-align: right;">12</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">TOTAL</td>
 <td style="text-align: left;">All strata combined</td>
-<td style="text-align: right;">44</td>
-<td style="text-align: right;">7</td>
-<td style="text-align: right;">45</td>
-<td style="text-align: right;">96</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
 </tr>
 </tbody>
 </table>
@@ -643,9 +579,9 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 <col style="width: 4%">
 <col style="width: 4%">
 <col style="width: 4%">
-<col style="width: 27%">
-<col style="width: 25%">
-<col style="width: 7%">
+<col style="width: 29%">
+<col style="width: 24%">
+<col style="width: 4%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -662,33 +598,33 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">ADD</td>
-<td style="text-align: right;">44</td>
-<td style="text-align: right;">32</td>
-<td style="text-align: right;">12</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0.73 [0.58-0.84]</td>
-<td style="text-align: right;">1.00 [0.89-1.00]</td>
-<td style="text-align: right;">0.84</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">NA [NA-NA]</td>
+<td style="text-align: right;">NA [NA-NA]</td>
+<td style="text-align: right;">NA</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">REMOVE</td>
-<td style="text-align: right;">7</td>
-<td style="text-align: right;">2</td>
-<td style="text-align: right;">5</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0.29 [0.08-0.64]</td>
-<td style="text-align: right;">1.00 [0.34-1.00]</td>
-<td style="text-align: right;">0.44</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">NA [NA-NA]</td>
+<td style="text-align: right;">NA [NA-NA]</td>
+<td style="text-align: right;">NA</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Pooled</td>
-<td style="text-align: right;">51</td>
-<td style="text-align: right;">34</td>
-<td style="text-align: right;">17</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0.67 [0.53-0.78]</td>
-<td style="text-align: right;">1.00 [0.90-1.00]</td>
-<td style="text-align: right;">0.80</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">NA [NA-NA]</td>
+<td style="text-align: right;">NA [NA-NA]</td>
+<td style="text-align: right;">NA</td>
 </tr>
 </tbody>
 </table>
@@ -718,24 +654,24 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 </section>
 <section id="supplements" class="level2 unnumbered">
 <h2 class="unnumbered anchored" data-anchor-id="supplements">Supplements</h2>
-<section id="s1.-google-street-view-validation-protocol-pdf" class="level3">
-<h3 class="anchored" data-anchor-id="s1.-google-street-view-validation-protocol-pdf">S1. Google Street View validation protocol (PDF)</h3>
+<section id="s1-interactive-maps" class="level3">
+<h3 class="anchored" data-anchor-id="s1-interactive-maps">S1. Interactive maps (HTML)</h3>
+<p><a href="../supplements/validation_points_map.html">View: Interactive validation points map (with GSV links)</a><br>
+<a href="../supplements/infra_change_map.html">View: Interactive OSM change-detection map</a></p>
+<p>These maps allow zooming, panning and inspection of individual validation points and network segments.</p>
+</section>
+<section id="s2-gsv-protocol" class="level3">
+<h3 class="anchored" data-anchor-id="s2-gsv-protocol">S2. Google Street View validation protocol (PDF)</h3>
 <p><a href="../supplements/GSV_validation_protocol.pdf">Download: here</a></p>
 </section>
-<section id="s2.-raw-validation-workbooks-coder-1-and-coder-2-xlsx" class="level3">
-<h3 class="anchored" data-anchor-id="s2.-raw-validation-workbooks-coder-1-and-coder-2-xlsx">S2. Raw validation workbooks: coder 1 and coder 2 (XLSX)</h3>
+<section id="s3-workbooks" class="level3">
+<h3 class="anchored" data-anchor-id="s3-workbooks">S3. Raw validation workbooks: coder 1 and coder 2 (XLSX)</h3>
 <p><a href="../supplements/barcelona_samples_2015_2023_coder1.xlsx">Download: coder 1</a><br>
 <a href="../supplements/barcelona_samples_2015_2023_coder2.xlsx">Download: coder 2</a></p>
 </section>
-<section id="s3.-final-adjudicated-validation-results-xlsx" class="level3">
-<h3 class="anchored" data-anchor-id="s3.-final-adjudicated-validation-results-xlsx">S3. Final adjudicated validation results (XLSX)</h3>
+<section id="s4-joined-results" class="level3">
+<h3 class="anchored" data-anchor-id="s4-joined-results">S4. Final adjudicated validation results (XLSX)</h3>
 <p><a href="../supplements/barcelona_samples_2015_2023_joined_results.xlsx">Download: joined results</a></p>
-</section>
-<section id="s4.-interactive-maps-html" class="level3">
-<h3 class="anchored" data-anchor-id="s4.-interactive-maps-html">S4. Interactive maps (HTML)</h3>
-<p><a href="../supplements/validation_points_map.html">View: Interactive validation points map</a><br>
-<a href="../supplements/infra_change_map.html">View: Interactive OSM change-detection map</a></p>
-<p>These maps allow zooming, panning and inspection of individual validation points and network segments.</p>
 </section>
 </section>
 <section id="declaration-of-generative-ai-and-ai-assisted-technologies-in-the-writing-process" class="level2 unnumbered">
@@ -751,6 +687,9 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 <div id="ref-barron_comprehensive_2014" class="csl-entry" role="listitem">
 Barron, Christopher, Pascal Neis, and Alexander Zipf. 2014. <span>“A <span>Comprehensive</span> <span>Framework</span> for <span>Intrinsic</span> <span>OpenStreetMap</span> <span>Quality</span> <span>Analysis</span>.”</span> <em>Transactions in GIS</em> 18 (6): 877–95. <a href="https://doi.org/10.1111/tgis.12073">https://doi.org/10.1111/tgis.12073</a>.
 </div>
+<div id="ref-bres_analysis_2023" class="csl-entry" role="listitem">
+Bres, Raphaël, Veronika Peralta, Arnaud Le-Guilcher, Thomas Devogele, Ana-Maria Olteanu Raimond, and Cyril De Runz. 2023. <span>“Analysis of Cycling Network Evolution in <span>OpenStreetMap</span> Through a Data Quality Prism.”</span> <em>AGILE: GIScience Series</em> 4 (June): 1–9. <a href="https://doi.org/10.5194/agile-giss-4-3-2023">https://doi.org/10.5194/agile-giss-4-3-2023</a>.
+</div>
 <div id="ref-buehler_cycling_2021" class="csl-entry" role="listitem">
 Buehler, Ralph, and John Pucher, eds. 2021. <em>Cycling for Sustainable Cities</em>. Urban and <span>Industrial</span> <span>Environments</span>. Cambridge: MIT Press.
 </div>
@@ -760,14 +699,26 @@ Ferster, Colin, Jaimy Fischer, Kevin Manaugh, Trisalyn Nelson, and Meghan Winter
 <div id="ref-gemott_research_group_atrapa_2025" class="csl-entry" role="listitem">
 GEMOTT Research Group. 2025. <span>“<span>ATRAPA</span> – <span>The</span> <span>Active</span> <span>Travel</span> <span>Backlash</span> <span>Paradox</span>.”</span> <a href="https://webs.uab.cat/atrapa/">https://webs.uab.cat/atrapa/</a>.
 </div>
+<div id="ref-gilardi_osmextract_2025" class="csl-entry" role="listitem">
+Gilardi, Andrea, Robin Lovelace, Barry Rowlingson, Salva Fernández (Salva reviewed the package (v 0 1) for rOpenSci, see &lt;https://github.com/ropensci/software-review/issues/395&gt;), Nicholas Potter (Nicholas reviewed the package (v 0 1) for rOpenSci, and see &lt;https://github.com/ropensci/software-review/issues/395&gt;). 2025. <span>“Osmextract: <span>Download</span> and <span>Import</span> <span>Open</span> <span>Street</span> <span>Map</span> <span>Data</span> <span>Extracts</span>.”</span> <a href="https://cran.r-project.org/web/packages/osmextract/index.html">https://cran.r-project.org/web/packages/osmextract/index.html</a>.
+</div>
 <div id="ref-goodchild_citizens_2007" class="csl-entry" role="listitem">
 Goodchild, Michael F. 2007. <span>“Citizens as Sensors: The World of Volunteered Geography.”</span> <em>GeoJournal</em> 69 (4): 211–21. <a href="https://doi.org/10.1007/s10708-007-9111-y">https://doi.org/10.1007/s10708-007-9111-y</a>.
+</div>
+<div id="ref-hochmair_assessing_2015" class="csl-entry" role="listitem">
+Hochmair, Hartwig H., Dennis Zielstra, and Pascal Neis. 2015. <span>“Assessing the <span>Completeness</span> of <span>Bicycle</span> <span>Trail</span> and <span>Lane</span> <span>Features</span> in <span>&lt;</span>Span Style="font-Variant:small-Caps;"<span>&gt;</span><span>O</span><span>&lt;</span>/Span<span>&gt;</span> Pen <span>&lt;</span>Span Style="font-Variant:small-Caps;"<span>&gt;</span><span>S</span><span>&lt;</span>/Span<span>&gt;</span> Treet <span>&lt;</span>Span Style="font-Variant:small-Caps;"<span>&gt;</span><span>M</span><span>&lt;</span>/Span<span>&gt;</span> Ap for the <span>&lt;</span>Span Style="font-Variant:small-Caps;"<span>&gt;</span><span>U</span><span>&lt;</span>/Span<span>&gt;</span> Nited <span>&lt;</span>Span Style="font-Variant:small-Caps;"<span>&gt;</span><span>S</span><span>&lt;</span>/Span<span>&gt;</span> Tates.”</span> <em>Transactions in GIS</em> 19 (1): 63–81. <a href="https://doi.org/10.1111/tgis.12081">https://doi.org/10.1111/tgis.12081</a>.
+</div>
+<div id="ref-schmidl_approach_2021" class="csl-entry" role="listitem">
+Schmidl, Martin, Gerhard Navratil, and Ioannis Giannopoulos. 2021. <span>“An <span>Approach</span> to <span>Assess</span> the <span>Effect</span> of <span>Currentness</span> of <span>Spatial</span> <span>Data</span> on <span>Routing</span> <span>Quality</span>.”</span> <em>AGILE: GIScience Series</em> 2 (June): 1–12. <a href="https://doi.org/10.5194/agile-giss-2-13-2021">https://doi.org/10.5194/agile-giss-2-13-2021</a>.
 </div>
 <div id="ref-szell_growing_2022" class="csl-entry" role="listitem">
 Szell, Michael, Sayat Mimar, Tyler Perlman, Gourab Ghoshal, and Roberta Sinatra. 2022. <span>“Growing Urban Bicycle Networks.”</span> <em>Scientific Reports</em> 12 (1): 6765. <a href="https://doi.org/10.1038/s41598-022-10783-y">https://doi.org/10.1038/s41598-022-10783-y</a>.
 </div>
 <div id="ref-viero_how_2025" class="csl-entry" role="listitem">
 Vierø, Ane Rahbek, Anastassia Vybornova, and Michael Szell. 2025. <span>“How <span>Good</span> <span>Is</span> <span>Open</span> <span>Bicycle</span> <span>Network</span> <span>Data</span>? <span>A</span> <span>Countrywide</span> <span>Case</span> <span>Study</span> of <span>Denmark</span>.”</span> <em>Geographical Analysis</em> 57 (1): 52–87. <a href="https://doi.org/10.1111/gean.12400">https://doi.org/10.1111/gean.12400</a>.
+</div>
+<div id="ref-winters_mapping_2025" class="csl-entry" role="listitem">
+Winters, Meghan, Colin Ferster, and Karen Laberee. 2025. <span>“Mapping Change in Cycling Infrastructure Across <span>Canada</span>: <span>What</span>, Where, and for Whom?”</span> <em>Canadian Journal of Public Health</em>, December. <a href="https://doi.org/10.17269/s41997-025-01139-w">https://doi.org/10.17269/s41997-025-01139-w</a>.
 </div>
 </div></section></div></main>
 <!-- /main column -->

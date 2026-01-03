@@ -1,5 +1,14 @@
+# ================================================================
+# 05_tracts_strata.R
+# Stratify tracts (density × centrality) and select sampled tracts per stratum.
+#
+# Inputs:  processed tracts dataset, stratification settings/seed
+# Outputs: sampled_tracts (sf) + optional saved files
+# ================================================================
 
-rds_tracts_proc  <- file.path(proc_dir, "barcelona_tracts_proc_25831.rds")
+# Census tracts (processed, EPSG:25831)
+rds_tracts_proc  <- file.path(proc_dir, sprintf("%s_tracts_proc_25831.rds",  city_tag))
+gpkg_tracts_proc <- file.path(proc_dir, sprintf("%s_tracts_proc_25831.gpkg", city_tag))
 
 barcelona_tracts <- .cache(
   rds_tracts_proc,
@@ -27,7 +36,7 @@ barcelona_tracts <- .cache(
       dplyr::select(CUSEC, dplyr::starts_with("pop_"), geometry = dplyr::last_col())
     
     # ---- project once (UTM31N) ----
-    x <- sf::st_transform(x, 25831)
+    x <- sf::st_transform(x, crs_work)
     
     # ---- area + density (NA-safe) ----
     area_km2 <- as.numeric(sf::st_area(x)) / 1e6
@@ -38,7 +47,7 @@ barcelona_tracts <- .cache(
       dens_2022 = dplyr::if_else(area_km2 > 0, pop_2022 / area_km2, NA_real_)
     )
     
-    # ---- distance to Plaça Catalunya (planar) ----
+    # ---- distance to Plaça Catalunya (planar) ---- Barcelona-specific implementation (centre = Plaça Catalunya, BCN census tracts)
     pc_pt <- sf::st_sfc(sf::st_point(c(431870, 4581450)), crs = 25831)  # already in same CRS
     ctr   <- sf::st_point_on_surface(sf::st_geometry(x))
     x$dist_centre_km <- as.numeric(sf::st_distance(ctr, pc_pt)) / 1000

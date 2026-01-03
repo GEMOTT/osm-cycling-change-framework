@@ -1,3 +1,11 @@
+# ================================================================
+# 07_export_excel.R
+# Export coder workbooks for manual validation (coder1 and coder2).
+#
+# Inputs:  samples_tbl
+# Outputs: outdir/<city>_samples_2015_2023_coder1.xlsx and coder2.xlsx
+# ================================================================
+
 # --- setup -------------------------------------------------------
 
 # which coders to prepare workbooks for
