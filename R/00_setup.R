@@ -66,5 +66,3 @@ dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
 # Output-data directory
 outdir <- "../outputs"
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
-
-

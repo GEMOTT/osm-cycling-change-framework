@@ -23,16 +23,17 @@
 }
 
 # Safer line normalizer (won’t choke on POINT / GEOMETRYCOLLECTION)
-normalize_lines_safe <- function(x){
+normalize_lines_safe <- function(x) {
   if (!inherits(x, "sf") || !nrow(x)) return(x[0, ])
+  
   x <- sf::st_make_valid(x)
-  # pull out only the line components from any collections
-  x <- suppressWarnings(sf::st_collection_extract(x, "LINESTRING", warn = FALSE))
-  # keep only line-like
-  keep <- sf::st_geometry_type(x) %in% c("LINESTRING","MULTILINESTRING")
-  x <- x[keep, , drop = FALSE]
+  x <- x[!sf::st_is_empty(x), , drop = FALSE]
   if (!nrow(x)) return(x[0, ])
-  # explode MULTILINESTRING → LINESTRING; drop empties
+  
+  gt <- sf::st_geometry_type(x)
+  x <- x[gt %in% c("LINESTRING", "MULTILINESTRING"), , drop = FALSE]
+  if (!nrow(x)) return(x[0, ])
+  
   x <- suppressWarnings(sf::st_cast(x, "LINESTRING"))
   x <- x[!sf::st_is_empty(x), , drop = FALSE]
   sf::st_make_valid(x)

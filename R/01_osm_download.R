@@ -75,6 +75,11 @@ read_or_build_perimeter <- function(force = FALSE) {
   perim
 }
 
+# =========================
+# VALIDATION: 01_osm_download.R
+# Replace ONLY fetch_crop_write() with this getting-equivalent sequence
+# (do not change your setup variables)
+# =========================
 fetch_crop_write <- function(version_code,
                              perimeter,
                              out_gpkg,
@@ -85,45 +90,45 @@ fetch_crop_write <- function(version_code,
     return(invisible(out_gpkg))
   }
   
-  message("→ Downloading Spain lines @ ", version_code, " …")
+  message("→ Downloading lines @ ", version_code, " …")
   
-  ln <- oe_get(
-    place         = "spain",
-    version       = version_code,
-    layer         = "lines",
-    boundary      = st_bbox(perimeter),
-    boundary_type = "clipsrc",
-    extra_tags    = c(
-      "highway", "cycleway","cycleway:left","cycleway:right","cycleway:both",
-      "bicycle","bicycle_road","oneway:bicycle","segregated"
-    ),
-    quiet         = FALSE
+  ln <- osmextract::oe_get(
+    place                 = "Spain",
+    boundary              = sf::st_bbox(perimeter),
+    boundary_type         = "clipsrc",
+    layer                 = "lines",
+    version               = version_code,
+    extra_tags = c(extra_tags = c(
+      "highway",
+      "cycleway", "cycleway:left", "cycleway:right", "cycleway:both",
+      "bicycle", "foot", "segregated"
+    )),
+    force_vectortranslate = TRUE,
+    quiet                 = FALSE
   )
   
-  # Guard: oe_get() should return sf (avoid st_geometry_type() crashing)
   if (!inherits(ln, "sf")) {
     stop(sprintf("oe_get() did not return an sf object. ver=%s", version_code))
   }
   
-  # Keep lines only
-  is_line <- st_geometry_type(ln) %in% c("LINESTRING","MULTILINESTRING")
-  ln <- ln[is_line, ]
+  # match getting: transform to metric, intersect in metric, then normalise
+  perim_m <- sf::st_transform(perimeter, crs_work)
+  ln_m    <- sf::st_transform(ln,        crs_work)
   
-  # Clear failure message (and correct context)
-  if (nrow(ln) == 0) {
-    stop(sprintf(
-      "OSM download/clip returned 0 features. Check: internet, perimeter bbox/CRS, snapshot code. ver=%s, gpkg=%s, layer=%s",
-      version_code, out_gpkg, out_layer
-    ))
-  }
+  ln_m <- sf::st_intersection(
+    sf::st_make_valid(ln_m),
+    sf::st_make_valid(perim_m)
+  )
   
-  # Clip lines using dissolved perimeter
-  ln <- st_intersection(st_make_valid(ln), st_make_valid(perimeter))
+  if (!nrow(ln_m)) stop("0 features after clipping for version ", version_code)
   
-  message("→ Writing ", basename(out_gpkg), " (", nrow(ln), " features) …")
+  ln_m <- normalize_lines_safe(ln_m)
+  if (!nrow(ln_m)) stop("0 line features after normalisation for version ", version_code)
   
-  st_write(
-    ln, out_gpkg,
+  message("→ Writing ", basename(out_gpkg), " (", nrow(ln_m), " features) …")
+  
+  sf::st_write(
+    ln_m, out_gpkg,
     layer  = out_layer,
     driver = "GPKG",
     append = FALSE,
@@ -132,6 +137,7 @@ fetch_crop_write <- function(version_code,
   
   invisible(out_gpkg)
 }
+
 
 # -------------------- RUN ----------------------------------------------------
 

@@ -1,61 +1,64 @@
-# ================================================================
-# 02_ci_networks.R
-# Build cleaned cycling-infrastructure (CI) line networks for baseline and follow-up.
-#
-# Inputs:
-#   gpkg15, gpkg23, lyr15, lyr23      # OSM line layers from 01 (GeoPackages + layer names)
-#   proc_dir, city_tag, ver15, ver23  # for deterministic output names
-#   crs_work                          # projected CRS used for metric operations
-#   CI tag rules (utils_ci)           # functions/logic defining what counts as CI
-#   prep_lines(), snap_like(), etc.   # geometry hygiene helpers (if used)
-#   .cache()                          # caching helper (if enabled)
-#
-# Outputs (in memory):
-#   cyc15_n, cyc23_n                  # cleaned CI networks (sf)
-#
-# Outputs (cached RDS in proc_dir, if enabled):
-#   {city_tag}_{ver15}_cyc_n.rds
-#   {city_tag}_{ver23}_cyc_n.rds
-# ================================================================
+# =========================
+# VALIDATION: 02_ci_networks.R
+# Replace build blocks so they call the getting-equivalent functions
+# (strong+moderate only + NDC flagging then exclude flagged)
+# =========================
+
+# Local defaults (no setup changes required)
+ENABLE_NDC       <- TRUE
+NDC_TOL_M        <- 15
+NDC_PROP_IN_BUF  <- 0.5
+NDC_MIN_IN_BUF_M <- 20
 
 # Reads the raw OSM lines (outputs from Script 01)
 l15 <- sf::st_read(gpkg15, layer = lyr15, quiet = TRUE)
 l23 <- sf::st_read(gpkg23, layer = lyr23, quiet = TRUE)
 
-# Defines cache paths for the cleaned cycling networks
 rds_cyc15 <- file.path(proc_dir, sprintf("%s_%s_cyc_n.rds", city_tag, ver15))
 rds_cyc23 <- file.path(proc_dir, sprintf("%s_%s_cyc_n.rds", city_tag, ver23))
 
-# Builds the cleaned cycling infrastructure network (with caching)
-cyc23_n <- .cache(
-  rds_cyc23,
-  build = function() {
-    core <- l23 |>
-      pick_cycle_infra() |>
-      sf::st_transform(crs_work) |>
-      normalize_lines_safe()
+build_one <- function(lines_sf) {
+  
+  # 1) normalise in crs_work (same idea/order as getting)
+  lines_m <- lines_sf |>
+    sf::st_transform(crs_work) |>
+    normalize_lines_safe()
+  
+  # 2) select strong+moderate only, and add cycle_cat
+  core_m <- pick_visible_ci(lines_m)
+  
+  # 3) NDC p1 flagging in WGS, using crs_work for metric ops (same as getting)
+  core_ll <- sf::st_transform(core_m, crs_wgs)
+  
+  if (isTRUE(ENABLE_NDC)) {
+    core_ll$ndc_keep       <- TRUE
+    core_ll$ndc_pass       <- NA_character_
+    core_ll$ndc_ref_cat    <- NA_character_
+    core_ll$ndc_target_cat <- NA_character_
     
-    core_ll  <- sf::st_transform(core, 4326)
-    core_ndc <- drop_onroad_near_cycleway(core_ll, tol_m = 15, prop_in_buf = 0.5, min_in_buf_m = 20)
-    
-    # return in crs_work if the rest of your validation expects metric CRS
-    sf::st_transform(core_ndc, crs_work)
-  },
-  inputs = gpkg23
-)
+    core_ll <- ndc_pass_flag(
+      core_ll,
+      ref_cat      = "strong_ci",
+      target_cat   = "moderate_ci",
+      tol_m        = NDC_TOL_M,
+      prop_in_buf  = NDC_PROP_IN_BUF,
+      min_in_buf_m = NDC_MIN_IN_BUF_M,
+      crs_metric   = crs_work,
+      pass_label   = "p1"
+    )
+  } else {
+    core_ll$ndc_keep       <- NA
+    core_ll$ndc_pass       <- NA_character_
+    core_ll$ndc_ref_cat    <- NA_character_
+    core_ll$ndc_target_cat <- NA_character_
+  }
+  
+  # 4) EXCLUDE flagged (match getting EXCL_NDC)
+  excl_ndc <- core_ll[is.na(core_ll$ndc_keep) | core_ll$ndc_keep, , drop = FALSE]
+  
+  # 5) back to metric CRS for the rest of validation
+  sf::st_transform(excl_ndc, crs_work)
+}
 
-cyc15_n <- .cache(
-  rds_cyc15,
-  build = function() {
-    core <- l15 |>
-      pick_cycle_infra() |>
-      sf::st_transform(crs_work) |>
-      normalize_lines_safe()
-    
-    core_ll  <- sf::st_transform(core, 4326)
-    core_ndc <- drop_onroad_near_cycleway(core_ll, tol_m = 15, prop_in_buf = 0.5, min_in_buf_m = 20)
-    
-    sf::st_transform(core_ndc, crs_work)
-  },
-  inputs = gpkg15
-)
+cyc23_n <- .cache(rds_cyc23, build = function() build_one(l23), inputs = gpkg23)
+cyc15_n <- .cache(rds_cyc15, build = function() build_one(l15), inputs = gpkg15)
