@@ -39,65 +39,62 @@ has_cycleway_vals <- function(x, vals) {
 # --- classification MUST match getting:
 # strong_ci if highway=cycleway OR has track/opposite_track
 # moderate_ci if not strong, but has lane/opposite_lane
-# classify_cycle_cat <- function(x) {
-#   stopifnot(inherits(x, "sf"))
-#   
-#   if (!nrow(x)) {
-#     x$cycle_cat <- character(0)
-#     return(x)
-#   }
-#   
-#   highway <- .get_chr(x, "highway")
-#   is_cycleway_geom <- !is.na(highway) & highway == "cycleway"
-#   
-#   # OFF-ROAD / PEDESTRIAN INFRA: do NOT treat cycleway=lane/track as on-road CI
-#   is_ped_infra <- !is.na(highway) & highway %in% c("footway", "path", "pedestrian")
-#   
-#   has_strong   <- has_cycleway_vals(x, STRONG_VALS)
-#   has_moderate <- has_cycleway_vals(x, MODERATE_VALS)
-#   
-#   # Key line: ignore cycleway-tags on pedestrian infrastructure
-#   has_strong[is_ped_infra]   <- FALSE
-#   has_moderate[is_ped_infra] <- FALSE
-#   
-#   x$cycle_cat <- NA_character_
-#   x$cycle_cat[is_cycleway_geom | has_strong] <- "strong_ci"
-#   
-#   sel <- is.na(x$cycle_cat)
-#   x$cycle_cat[sel & has_moderate] <- "moderate_ci"
-#   
-#   x
-# }
 
 classify_cycle_cat <- function(x) {
   stopifnot(inherits(x, "sf"))
-
+  
   if (!nrow(x)) {
     x$cycle_cat <- character(0)
     return(x)
   }
-
+  
   highway <- .get_chr(x, "highway")
   is_cycleway_geom <- !is.na(highway) & highway == "cycleway"
-
-  # OFF-ROAD / PEDESTRIAN INFRA: do NOT treat cycleway=lane/track as on-road CI
-  is_ped_infra <- !is.na(highway) & highway %in% c("footway", "path", "pedestrian")
-
+  
+  # Previous behaviour: treat cycleway=lane/track the same everywhere,
+  # including on footway/path/pedestrian (so "pavement lanes" are included).
   has_strong   <- has_cycleway_vals(x, STRONG_VALS)
   has_moderate <- has_cycleway_vals(x, MODERATE_VALS)
-
-  # Key line: ignore cycleway-tags on pedestrian infrastructure
-  has_strong[is_ped_infra]   <- FALSE
-  has_moderate[is_ped_infra] <- FALSE
-
+  
   x$cycle_cat <- NA_character_
   x$cycle_cat[is_cycleway_geom | has_strong] <- "strong_ci"
-
+  
   sel <- is.na(x$cycle_cat)
   x$cycle_cat[sel & has_moderate] <- "moderate_ci"
-
+  
   x
 }
+
+
+# classify_cycle_cat <- function(x) {
+#   stopifnot(inherits(x, "sf"))
+# 
+#   if (!nrow(x)) {
+#     x$cycle_cat <- character(0)
+#     return(x)
+#   }
+# 
+#   highway <- .get_chr(x, "highway")
+#   is_cycleway_geom <- !is.na(highway) & highway == "cycleway"
+# 
+#   # OFF-ROAD / PEDESTRIAN INFRA: do NOT treat cycleway=lane/track as on-road CI
+#   is_ped_infra <- !is.na(highway) & highway %in% c("footway", "path", "pedestrian")
+# 
+#   has_strong   <- has_cycleway_vals(x, STRONG_VALS)
+#   has_moderate <- has_cycleway_vals(x, MODERATE_VALS)
+# 
+#   # Key line: ignore cycleway-tags on pedestrian infrastructure
+#   has_strong[is_ped_infra]   <- FALSE
+#   has_moderate[is_ped_infra] <- FALSE
+# 
+#   x$cycle_cat <- NA_character_
+#   x$cycle_cat[is_cycleway_geom | has_strong] <- "strong_ci"
+# 
+#   sel <- is.na(x$cycle_cat)
+#   x$cycle_cat[sel & has_moderate] <- "moderate_ci"
+# 
+#   x
+# }
 
 # --- selector: strong+moderate only
 pick_visible_ci <- function(x) {

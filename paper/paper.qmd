@@ -95,11 +95,7 @@ knitr::include_graphics("../figs/flowchart.png")
 
 We constructed baseline and follow-up cycling networks from OSM extracts dated 1 January 2016 and 1 January 2024, approximating conditions in 2015 and 2023. From each extract, we derived a CORE cycling-infrastructure (CI) network intended to represent bicycle-specific, physically visible infrastructure while minimising double counting arising from alternative OSM representations.
 
-A segment was classified as CI (CORE RAW) if it met either of the following conditions:
-
-highway = cycleway; or
-
-any cycleway\* tag (including cycleway, cycleway:left, cycleway:right, cycleway:both, and other cycleway:\* keys where present) had a value in {lane, track, opposite_lane, opposite_track}.
+A segment was classified as CI (CORE RAW) if it met either of the following conditions: highway = cycleway; orany cycleway\* tag (including cycleway, cycleway:left, cycleway:right, cycleway:both, and other cycleway:\* keys where present) had a value in {lane, track, opposite_lane, opposite_track}.
 
 Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above. We excluded cycleway=separate because it indicates the presence of a cycling facility located elsewhere rather than cycling infrastructure represented by the road segment geometry.
 

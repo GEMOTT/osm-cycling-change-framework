@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.7.32">
+<meta name="generator" content="quarto-1.8.25">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -47,14 +47,15 @@ div.csl-indent {
 <script src="paper_files/libs/clipboard/clipboard.min.js"></script>
 <script src="paper_files/libs/quarto-html/quarto.js" type="module"></script>
 <script src="paper_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="paper_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
 <script src="paper_files/libs/quarto-html/popper.min.js"></script>
 <script src="paper_files/libs/quarto-html/tippy.umd.min.js"></script>
 <script src="paper_files/libs/quarto-html/anchor.min.js"></script>
 <link href="paper_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="paper_files/libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="paper_files/libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="paper_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="paper_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="paper_files/libs/bootstrap/bootstrap-be1c3f4972a3204a2c2ae467f9423287.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="paper_files/libs/bootstrap/bootstrap-e332e9a4e8325e9973181cc682d82422.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
@@ -70,7 +71,7 @@ const typesetMath = (el) => {
     var macros = [];
     for (var i = 0; i < mathElements.length; i++) {
       var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN") {
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
         window.katex.render(texText.data, mathElements[i], {
           displayMode: mathElements[i].classList.contains('display'),
           throwOnError: false,
@@ -186,9 +187,7 @@ Figure&nbsp;1: Main workflow steps.
 <section id="osm-temporal-differencing" class="level3">
 <h3 class="anchored" data-anchor-id="osm-temporal-differencing">OSM temporal differencing</h3>
 <p>We constructed baseline and follow-up cycling networks from OSM extracts dated 1 January 2016 and 1 January 2024, approximating conditions in 2015 and 2023. From each extract, we derived a CORE cycling-infrastructure (CI) network intended to represent bicycle-specific, physically visible infrastructure while minimising double counting arising from alternative OSM representations.</p>
-<p>A segment was classified as CI (CORE RAW) if it met either of the following conditions:</p>
-<p>highway = cycleway; or</p>
-<p>any cycleway* tag (including cycleway, cycleway:left, cycleway:right, cycleway:both, and other cycleway:* keys where present) had a value in {lane, track, opposite_lane, opposite_track}.</p>
+<p>A segment was classified as CI (CORE RAW) if it met either of the following conditions: highway = cycleway; orany cycleway* tag (including cycleway, cycleway:left, cycleway:right, cycleway:both, and other cycleway:* keys where present) had a value in {lane, track, opposite_lane, opposite_track}.</p>
 <p>Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above. We excluded cycleway=separate because it indicates the presence of a cycling facility located elsewhere rather than cycling infrastructure represented by the road segment geometry.</p>
 <p>To reduce double counting, we applied a no-double-counting (NDC) procedure. After classifying CORE RAW segments as either cycleway (from highway=cycleway) or onroad_lanes (from cycleway* tags), we removed any onroad_lanes segment whose geometry lay within DEDUPe_TOL_M metres of a cycleway geometry. The resulting CORE NDC network was used for all subsequent length calculations, differencing, and validation.</p>
 <p>A segment was classified as NONCI if it did not meet any of the CI criteria above and its <code>highway</code> tag was in {<code>primary</code>, <code>secondary</code>, <code>tertiary</code>, <code>unclassified</code>, <code>residential</code>, <code>primary_link</code>, <code>secondary_link</code>, <code>tertiary_link</code>, <code>living_street</code>, <code>pedestrian</code>}.</p>
@@ -540,20 +539,84 @@ Table&nbsp;3: Validation points by class and stratum (usable points only)
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">All</td>
-<td style="text-align: left;">NA</td>
+<td style="text-align: left;">D1_C1</td>
+<td style="text-align: left;">Low density, peripheral</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">12</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D1_C2</td>
+<td style="text-align: left;">Low density, intermediate</td>
+<td style="text-align: right;">6</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D1_C3</td>
+<td style="text-align: left;">Low density, central</td>
+<td style="text-align: right;">6</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">11</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D2_C1</td>
+<td style="text-align: left;">Medium density, peripheral</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D2_C2</td>
+<td style="text-align: left;">Medium density, intermediate</td>
+<td style="text-align: right;">4</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D2_C3</td>
+<td style="text-align: left;">Medium density, central</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">9</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D3_C1</td>
+<td style="text-align: left;">High density, peripheral</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">7</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D3_C2</td>
+<td style="text-align: left;">High density, intermediate</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D3_C3</td>
+<td style="text-align: left;">High density, central</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">9</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">TOTAL</td>
 <td style="text-align: left;">All strata combined</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">35</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">48</td>
+<td style="text-align: right;">88</td>
 </tr>
 </tbody>
 </table>
@@ -578,9 +641,9 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 <col style="width: 4%">
 <col style="width: 4%">
 <col style="width: 4%">
-<col style="width: 29%">
-<col style="width: 24%">
-<col style="width: 4%">
+<col style="width: 27%">
+<col style="width: 25%">
+<col style="width: 7%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -597,33 +660,33 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">ADD</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">NA [NA-NA]</td>
-<td style="text-align: right;">NA [NA-NA]</td>
-<td style="text-align: right;">NA</td>
+<td style="text-align: right;">35</td>
+<td style="text-align: right;">27</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0.77 [0.61-0.88]</td>
+<td style="text-align: right;">0.96 [0.82-0.99]</td>
+<td style="text-align: right;">0.86</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">REMOVE</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">NA [NA-NA]</td>
-<td style="text-align: right;">NA [NA-NA]</td>
-<td style="text-align: right;">NA</td>
+<td style="text-align: right;">0.20 [0.04-0.62]</td>
+<td style="text-align: right;">1.00 [0.21-1.00]</td>
+<td style="text-align: right;">0.33</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Pooled</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">NA [NA-NA]</td>
-<td style="text-align: right;">NA [NA-NA]</td>
-<td style="text-align: right;">NA</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">28</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0.70 [0.55-0.82]</td>
+<td style="text-align: right;">0.97 [0.83-0.99]</td>
+<td style="text-align: right;">0.81</td>
 </tr>
 </tbody>
 </table>
@@ -772,13 +835,14 @@ Winters, Meghan, Colin Ferster, and Karen Laberee. 2025. <span>“Mapping Change
       e.clearSelection();
     }
     const getTextToCopy = function(trigger) {
-        const codeEl = trigger.previousElementSibling.cloneNode(true);
-        for (const childEl of codeEl.children) {
-          if (isCodeAnnotation(childEl)) {
-            childEl.remove();
-          }
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
         }
-        return codeEl.innerText;
+      }
+      return codeEl.innerText;
     }
     const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
       text: getTextToCopy

@@ -150,12 +150,18 @@ add_match_col <- function(wb, sheet, n_rows, header_row = 2) {
   col_match <- 24  # X
   
   # use V (pres_fu), W (pres_bl), B (class)
-  tmpl_match <- paste0(
+  tmpl_match <- tmpl_match <- paste0(
     'IF(OR(V%1$d="",W%1$d=""),"",',
-    'IF(B%1$d="ADD",AND(W%1$d=0,V%1$d=1),',
-    'IF(B%1$d="REMOVE",AND(W%1$d=1,V%1$d=0),',
-    'IF(B%1$d="NONCI",AND(W%1$d=0,V%1$d=0),""))))'
+    'IF(OR(IFERROR(VALUE(V%1$d),-1)=-1,IFERROR(VALUE(W%1$d),-1)=-1),"",',
+    'IF(B%1$d="ADD",AND(IFERROR(VALUE(V%1$d),-1)=1,IFERROR(VALUE(W%1$d),-1)=0),',
+    'IF(B%1$d="REMOVE",AND(IFERROR(VALUE(V%1$d),-1)=0,IFERROR(VALUE(W%1$d),-1)=1),',
+    'IF(B%1$d="NONCI",AND(IFERROR(VALUE(V%1$d),-1)=0,IFERROR(VALUE(W%1$d),-1)=0),"")',
+    ')',
+    ')',
+    ')',
+    ')'
   )
+  
   
   for (r in r1:rN) {
     f_match <- paste0("=", sprintf(tmpl_match, r))
