@@ -493,7 +493,7 @@ make_validation_points_interactive_map <- function() {
   
   tract_stroke <- "#000000"
   tract_fill   <- "#FFFFFF"
-  col_nonci    <- "#BDBDBD"
+  col_nonci    <- "#A6761D"
   
   # base map and panes
   m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE)) %>%
@@ -784,7 +784,7 @@ make_infra_change_interactive_map <- function() {
   col_added   <- "#0072B2"
   col_removed <- "#D95F02"
   col_2023    <- "#1B9E77"
-  col_nonci   <- "#BDBDBD"
+  col_nonci   <- "#A6761D"
   
   alpha_2015  <- 0.65
   alpha_added <- 0.95

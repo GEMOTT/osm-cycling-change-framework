@@ -147,18 +147,16 @@ build_joined_sheet_for_class <- function(sheet_name,
     )
   
   # 2) Flag rows that still need consensus:
-  #    any time consens_* is NA but at least one coder has given info
   joined <- joined %>%
     dplyr::mutate(
       needs_consens = dplyr::case_when(
         (is.na(consens_fu) & (!is.na(c1_fu) | !is.na(c2_fu))) |
           (is.na(consens_bl) & (!is.na(c1_bl) | !is.na(c2_bl))) ~ TRUE,
-        TRUE                                                  ~ FALSE
+        TRUE                                                    ~ FALSE
       )
     )
   
   # 3) FINAL columns (what you actually use in the analysis)
-  #    Default = coder consensus; you can override in Excel.
   joined <- joined %>%
     dplyr::mutate(
       fu_fin = consens_fu,
@@ -166,16 +164,13 @@ build_joined_sheet_for_class <- function(sheet_name,
     )
   
   # 4) Column for comments about the final decision
-  if (!"fin_note" %in% names(joined)) {
-    joined$fin_note <- NA_character_
-  }
+  if (!"fin_note" %in% names(joined)) joined$fin_note <- NA_character_
   
-  # 5) Add an empty 'usable' column; we will fill it with an Excel formula later
-  if (!"usable" %in% names(joined)) {
-    joined$usable <- NA_integer_
-  }
+  # 5) Add empty helper columns (filled later in Excel)
+  if (!"usable" %in% names(joined)) joined$usable <- NA_integer_
+  if (!"match"  %in% names(joined)) joined$match  <- NA
   
-  # FINAL COLUMN ORDER (coders → consensus → flags → final → note → usable)
+  # FINAL COLUMN ORDER
   base_order <- c(
     "id", "class", "tract_id", "stratum",
     "c1_fu", "c1_bl",
@@ -183,10 +178,10 @@ build_joined_sheet_for_class <- function(sheet_name,
     "consens_fu", "consens_bl",
     "needs_consens",
     "fu_fin", "bl_fin",
+    "match",
     "usable",
     "fin_note"
   )
-  
   
   joined %>%
     dplyr::select(dplyr::any_of(base_order))
@@ -211,39 +206,68 @@ build_joined_results <- function(city_tag,
   wb <- openxlsx::createWorkbook()
   
   for (sh in sheets) {
-    df_sh   <- joined_list[[sh]]
-    n_rows  <- nrow(df_sh)
+    df_sh  <- joined_list[[sh]]
+    n_rows <- nrow(df_sh)
     
     openxlsx::addWorksheet(wb, sh)
     openxlsx::writeData(wb, sh, df_sh, startRow = 2, startCol = 1, colNames = TRUE)
     
     if (n_rows > 0) {
-      nm      <- names(df_sh)
-      col_fu  <- match("fu_fin",   nm)
-      col_bl  <- match("bl_fin",   nm)
-      col_use <- match("usable",   nm)
+      nm        <- names(df_sh)
       
-      if (any(is.na(c(col_fu, col_bl, col_use)))) {
-        stop("Expected columns fu_fin, bl_fin, usable in joined sheet for ", sh)
+      col_class <- match("class",  nm)
+      col_fu    <- match("fu_fin", nm)
+      col_bl    <- match("bl_fin", nm)
+      col_match <- match("match",  nm)
+      col_use   <- match("usable", nm)
+      
+      if (any(is.na(c(col_class, col_fu, col_bl, col_match, col_use)))) {
+        stop("Expected columns class, fu_fin, bl_fin, match, usable in joined sheet for ", sh)
       }
       
       C        <- openxlsx::int2col
+      class_l  <- C(col_class)
       fu_col_l <- C(col_fu)
       bl_col_l <- C(col_bl)
-      use_col  <- col_use
       
-      # Add formula: usable = 1 if both final cols are non-blank, else ""
+      # Row-wise formulas
       for (r in seq_len(n_rows)) {
-        excel_row <- r + 2  # because data start at row 3
-        formula <- sprintf(
+        excel_row <- r + 2  # header at row 2, data start at row 3
+        
+        # usable = 1 if both final cols are non-blank, else ""
+        f_usable <- sprintf(
           'IF(AND(NOT(ISBLANK(%s%d)),NOT(ISBLANK(%s%d))),1,"")',
           fu_col_l, excel_row,
           bl_col_l, excel_row
         )
         openxlsx::writeFormula(
           wb, sh,
-          x = formula,
-          startCol = use_col,
+          x = f_usable,
+          startCol = col_use,
+          startRow = excel_row
+        )
+        
+        # match = TRUE/FALSE (or blank) based on class and (fu_fin, bl_fin)
+        f_match <- sprintf(
+          paste0(
+            'IF(OR(ISBLANK(%s%d),ISBLANK(%s%d)),"",',
+            'IF(%s%d="ADD",AND(%s%d=1,%s%d=0),',
+            'IF(%s%d="REMOVE",AND(%s%d=0,%s%d=1),',
+            'IF(%s%d="NONCI",AND(%s%d=0,%s%d=0),"" )',
+            ')',
+            ')',
+            ')'
+          ),
+          fu_col_l, excel_row, bl_col_l, excel_row,
+          class_l, excel_row, fu_col_l, excel_row, bl_col_l, excel_row,
+          class_l, excel_row, fu_col_l, excel_row, bl_col_l, excel_row,
+          class_l, excel_row, fu_col_l, excel_row, bl_col_l, excel_row
+        )
+        
+        openxlsx::writeFormula(
+          wb, sh,
+          x = f_match,
+          startCol = col_match,
           startRow = excel_row
         )
       }
@@ -255,6 +279,7 @@ build_joined_results <- function(city_tag,
   
   invisible(out_file)
 }
+
 
 
 # -------------------------------------------------------------------

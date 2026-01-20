@@ -34,17 +34,15 @@ mk_gsv_cbll <- function(lat, lon, heading = NA_real_) {
 }
 
 # Ensure correct structure and order of columns, matching the template
+# Behaviour:
+# - Do NOT export lon/lat
+# - Keep gsv_link but hide it in Excel (width 0)
+# - Show only clickable "Open GSV" in column GSV
 ensure_export_cols <- function(df){
-  # prefer existing link in 'gsv_link', else 'gsv_url', else create cbll
+  
+  # prefer existing link in 'gsv_link', else 'gsv_url'
   if (!"gsv_link" %in% names(df)) {
     if ("gsv_url" %in% names(df)) df$gsv_link <- df$gsv_url else df$gsv_link <- NA_character_
-  }
-  need_link <- is.na(df$gsv_link) | !nzchar(df$gsv_link)
-  if (any(need_link) && all(c("lat","lon") %in% names(df))) {
-    df$gsv_link[need_link] <- mk_gsv_cbll(
-      df$lat[need_link], df$lon[need_link],
-      if ("heading" %in% names(df)) df$heading[need_link] else NA_real_
-    )
   }
   
   # clean id: 1..N
@@ -68,103 +66,114 @@ ensure_export_cols <- function(df){
   if ("tract_id" %in% names(df)) df$tract_id <- as.character(df$tract_id)
   if ("stratum"  %in% names(df)) df$stratum  <- as.character(df$stratum)
   
-  # exact order in export
+  # export order (NO lon/lat shown)
   wanted <- c(
-    "id","class","tract_id","stratum","lon","lat","gsv_link","GSV",
+    "id","class","tract_id","stratum",
+    "gsv_link","GSV",
     "pres24","mon24","pres23","mon23",
     "pres22","mon22",
     "pres16","mon16","pres15","mon15",
     "pres14","mon14",
     "notes","pres_fu","pres_bl","match"
   )
+  
   for (nm in setdiff(wanted, names(df))) df[[nm]] <- NA
   df[, wanted, drop = FALSE]
 }
 
 # -------------------------------------------------------------------
 # Fused presence formulas: pres_fu (follow-up) and pres_bl (baseline)
-# Layout after ensure_export_cols:
-#   I  pres24   J  mon24
-#   K  pres23   L  mon23
-#   M  pres22   N  mon22
-#   O  pres16   P  mon16
-#   Q  pres15   R  mon15
-#   S  pres14   T  mon14
-#   V  pres_fu  W  pres_bl  X  match
+# Robust to column position changes (no hard-coded letters).
 # -------------------------------------------------------------------
-add_fused_formula_cols <- function(wb, sheet, n_rows, header_row = 2){
+add_fused_formula_cols <- function(wb, sheet, df, n_rows, header_row = 2){
   if (n_rows == 0) return(invisible(NULL))
   
   r1 <- header_row + 1
   rN <- header_row + n_rows
   
-  # follow-up fused:
-  # 1) if pres24 and pres23 both empty:
-  #       use pres22 if available, else ""
-  # 2) if only one of pres24/pres23 is filled: use that
-  # 3) if both filled: choose year whose month is closer to January
+  xl  <- openxlsx::int2col
+  col <- setNames(seq_along(names(df)), names(df))
+  
+  # Excel column letters
+  p24 <- xl(col["pres24"]); m24 <- xl(col["mon24"])
+  p23 <- xl(col["pres23"]); m23 <- xl(col["mon23"])
+  p22 <- xl(col["pres22"])
+  
+  p16 <- xl(col["pres16"]); m16 <- xl(col["mon16"])
+  p15 <- xl(col["pres15"]); m15 <- xl(col["mon15"])
+  p14 <- xl(col["pres14"])
+  
+  col_fu <- col["pres_fu"]
+  col_bl <- col["pres_bl"]
+  
   tmpl_fu <- paste0(
-    'IF(AND(I%1$d="",K%1$d=""),',
-    'IF(M%1$d<>"",M%1$d,""),',
-    'IF(AND(I%1$d<>"",K%1$d=""),I%1$d,',
-    'IF(AND(I%1$d="",K%1$d<>""),K%1$d,',
-    'IF(ABS(J%1$d-1)<=ABS(13-L%1$d),I%1$d,K%1$d))))'
+    'IF(AND(', p24, '%d="",', p23, '%d=""),',
+    'IF(', p22, '%d<>"",', p22, '%d,""),',
+    'IF(AND(', p24, '%d<>"",', p23, '%d=""),', p24, '%d,',
+    'IF(AND(', p24, '%d="",', p23, '%d<>""),', p23, '%d,',
+    'IF(ABS(', m24, '%d-1)<=ABS(13-', m23, '%d),', p24, '%d,', p23, '%d)',
+    ')',
+    ')',
+    ')'
   )
   
-  # baseline fused:
-  # 1) if pres16 and pres15 both empty:
-  #       use pres14 if available, else ""
-  # 2) if only one of pres16/pres15 is filled: use that
-  # 3) if both filled: choose year whose month is closer to January
   tmpl_bl <- paste0(
-    'IF(AND(O%1$d="",Q%1$d=""),',
-    'IF(S%1$d<>"",S%1$d,""),',
-    'IF(AND(O%1$d<>"",Q%1$d=""),O%1$d,',
-    'IF(AND(O%1$d="",Q%1$d<>""),Q%1$d,',
-    'IF(ABS(P%1$d-1)<=ABS(13-R%1$d),O%1$d,Q%1$d))))'
+    'IF(AND(', p16, '%d="",', p15, '%d=""),',
+    'IF(', p14, '%d<>"",', p14, '%d,""),',
+    'IF(AND(', p16, '%d<>"",', p15, '%d=""),', p16, '%d,',
+    'IF(AND(', p16, '%d="",', p15, '%d<>""),', p15, '%d,',
+    'IF(ABS(', m16, '%d-1)<=ABS(13-', m15, '%d),', p16, '%d,', p15, '%d)',
+    ')',
+    ')',
+    ')'
   )
   
-  col_fu <- 22  # V
-  col_bl <- 23  # W
-  
+  # each template uses 14 %d slots
   for (r in r1:rN) {
-    f_fu <- paste0("=", sprintf(tmpl_fu, r))
-    f_bl <- paste0("=", sprintf(tmpl_bl, r))
+    f_fu <- paste0("=", sprintf(tmpl_fu, r,r, r,r, r,r, r, r,r, r, r,r, r, r))
+    f_bl <- paste0("=", sprintf(tmpl_bl, r,r, r,r, r,r, r, r,r, r, r,r, r, r))
+    
     openxlsx::writeFormula(wb, sheet, x = f_fu, startCol = col_fu, startRow = r)
     openxlsx::writeFormula(wb, sheet, x = f_bl, startCol = col_bl, startRow = r)
   }
   
-  # only widths, no colours
   openxlsx::setColWidths(wb, sheet, cols = c(col_fu, col_bl), widths = 13)
 }
 
 # -------------------------------------------------------------------
-# Match column in X: comparison of class vs (pres_bl, pres_fu)
-# Returns TRUE/FALSE (logical), which Excel may show as TRUE/FALSE
+# Match column: comparison of class vs (pres_bl, pres_fu)
+# Robust to column position changes (no hard-coded letters).
 # -------------------------------------------------------------------
-add_match_col <- function(wb, sheet, n_rows, header_row = 2) {
+add_match_col <- function(wb, sheet, df, n_rows, header_row = 2) {
   if (n_rows == 0) return(invisible(NULL))
   
   r1 <- header_row + 1
   rN <- header_row + n_rows
-  col_match <- 24  # X
   
-  # use V (pres_fu), W (pres_bl), B (class)
-  tmpl_match <- tmpl_match <- paste0(
-    'IF(OR(V%1$d="",W%1$d=""),"",',
-    'IF(OR(IFERROR(VALUE(V%1$d),-1)=-1,IFERROR(VALUE(W%1$d),-1)=-1),"",',
-    'IF(B%1$d="ADD",AND(IFERROR(VALUE(V%1$d),-1)=1,IFERROR(VALUE(W%1$d),-1)=0),',
-    'IF(B%1$d="REMOVE",AND(IFERROR(VALUE(V%1$d),-1)=0,IFERROR(VALUE(W%1$d),-1)=1),',
-    'IF(B%1$d="NONCI",AND(IFERROR(VALUE(V%1$d),-1)=0,IFERROR(VALUE(W%1$d),-1)=0),"")',
+  xl  <- openxlsx::int2col
+  col <- setNames(seq_along(names(df)), names(df))
+  
+  c_class <- xl(col["class"])
+  c_fu    <- xl(col["pres_fu"])
+  c_bl    <- xl(col["pres_bl"])
+  
+  col_match <- col["match"]
+  
+  tmpl_match <- paste0(
+    'IF(OR(', c_fu, '%d="",', c_bl, '%d=""),"",',
+    'IF(OR(IFERROR(VALUE(', c_fu, '%d),-1)=-1,IFERROR(VALUE(', c_bl, '%d),-1)=-1),"",',
+    'IF(', c_class, '%d="ADD",AND(IFERROR(VALUE(', c_fu, '%d),-1)=1,IFERROR(VALUE(', c_bl, '%d),-1)=0),',
+    'IF(', c_class, '%d="REMOVE",AND(IFERROR(VALUE(', c_fu, '%d),-1)=0,IFERROR(VALUE(', c_bl, '%d),-1)=1),',
+    'IF(', c_class, '%d="NONCI",AND(IFERROR(VALUE(', c_fu, '%d),-1)=0,IFERROR(VALUE(', c_bl, '%d),-1)=0),"")',
     ')',
     ')',
     ')',
     ')'
   )
   
-  
+  # tmpl_match uses 11 %d slots
   for (r in r1:rN) {
-    f_match <- paste0("=", sprintf(tmpl_match, r))
+    f_match <- paste0("=", sprintf(tmpl_match, r,r, r,r, r, r,r, r, r,r, r, r,r))
     openxlsx::writeFormula(wb, sheet, x = f_match, startCol = col_match, startRow = r)
   }
   
@@ -178,8 +187,12 @@ add_match_col <- function(wb, sheet, n_rows, header_row = 2) {
 #       * YELLOW: pres22, mon22, pres14, mon14
 #       * GREEN: notes
 #   - pres_fu, pres_bl, match: no colour
+# Behaviour:
+#   - gsv_link hidden, GSV clickable text shown
+#   - Freeze columns from id through GSV
+#   - Group headers computed from column names (robust)
 # -------------------------------------------------------------------
-write_one <- function(wb, df, sheet, freeze_cols = 3){
+write_one <- function(wb, df, sheet){
   df <- ensure_export_cols(df)
   
   openxlsx::addWorksheet(
@@ -191,23 +204,32 @@ write_one <- function(wb, df, sheet, freeze_cols = 3){
   openxlsx::writeData(wb, sheet, df, startRow = 2, startCol = 1,
                       colNames = TRUE, withFilter = FALSE)
   
-  # clickable GSV (H column)
+  # locate columns
+  col_gsv     <- match("GSV", names(df))
+  col_gsvlink <- match("gsv_link", names(df))
+  
+  # clickable Open GSV in the GSV column
   if (nrow(df)) {
     openxlsx::writeFormula(
       wb, sheet,
       x = paste0('HYPERLINK("', df$gsv_link, '","Open GSV")'),
-      startCol = 8,  # H
+      startCol = col_gsv,
       startRow = 3
     )
   }
   
   openxlsx::setColWidths(wb, sheet, cols = 1:ncol(df), widths = 13)
-  openxlsx::freezePane(wb, sheet, firstActiveRow = 3, firstActiveCol = freeze_cols + 1)
+  
+  # hide raw link
+  if (!is.na(col_gsvlink)) openxlsx::setColWidths(wb, sheet, cols = col_gsvlink, widths = 0)
+  
+  # freeze columns from id through GSV
+  openxlsx::freezePane(wb, sheet, firstActiveRow = 3, firstActiveCol = col_gsv + 1)
   
   # centre "Open GSV"
   style_center <- openxlsx::createStyle(halign = "center")
   openxlsx::addStyle(wb, sheet, style = style_center,
-                     rows = 2:(nrow(df)+2), cols = 8, gridExpand = TRUE)
+                     rows = 2:(nrow(df)+2), cols = col_gsv, gridExpand = TRUE)
   
   # ----- row 1 group headers --------------------------------------------------
   group_style <- openxlsx::createStyle(
@@ -221,51 +243,32 @@ write_one <- function(wb, df, sheet, freeze_cols = 3){
     startRow = 1, startCol = 1, colNames = FALSE
   )
   
-  # Follow-up block over I..N (pres24/23/22 + months)
-  openxlsx::writeData(wb, sheet, x = "Follow-up", startRow = 1, startCol = 9, colNames = FALSE)
-  openxlsx::mergeCells(wb, sheet, rows = 1, cols = 9:14)
+  # Follow-up block over pres24..mon22
+  c_followup <- match("pres24", names(df)) : match("mon22", names(df))
+  openxlsx::writeData(wb, sheet, x = "Follow-up", startRow = 1, startCol = min(c_followup), colNames = FALSE)
+  openxlsx::mergeCells(wb, sheet, rows = 1, cols = c_followup)
   openxlsx::addStyle(wb, sheet, style = group_style,
-                     rows = 1, cols = 9:14, gridExpand = TRUE)
+                     rows = 1, cols = c_followup, gridExpand = TRUE)
   
-  # Baseline block over O..T (pres16/15/14 + months)
-  openxlsx::writeData(wb, sheet, x = "Baseline", startRow = 1, startCol = 15, colNames = FALSE)
-  openxlsx::mergeCells(wb, sheet, rows = 1, cols = 15:20)
+  # Baseline block over pres16..mon14
+  c_baseline <- match("pres16", names(df)) : match("mon14", names(df))
+  openxlsx::writeData(wb, sheet, x = "Baseline", startRow = 1, startCol = min(c_baseline), colNames = FALSE)
+  openxlsx::mergeCells(wb, sheet, rows = 1, cols = c_baseline)
   openxlsx::addStyle(wb, sheet, style = group_style,
-                     rows = 1, cols = 15:20, gridExpand = TRUE)
-  
-  # No special style for V..X
-  
-  # ----- overwrite header text to the exact names we want --------------------
-  hdr <- c(
-    "id","class","tract_id","stratum","lon","lat","gsv_link","GSV",
-    "pres24","mon24","pres23","mon23",
-    "pres22","mon22",
-    "pres16","mon16","pres15","mon15",
-    "pres14","mon14",
-    "notes","pres_fu","pres_bl","match"
-  )
-  
-  openxlsx::writeData(
-    wb, sheet,
-    x = matrix(hdr, nrow = 1),
-    startRow = 2, startCol = 1, colNames = FALSE
-  )
+                     rows = 1, cols = c_baseline, gridExpand = TRUE)
   
   # ----- header colours: ONLY coder-editable cols ----------------------------
   header_blue   <- openxlsx::createStyle(fgFill = "#DCEBFA", textDecoration = "bold")
   header_yellow <- openxlsx::createStyle(fgFill = "#FFF4C2", textDecoration = "bold")
   header_green  <- openxlsx::createStyle(fgFill = "#E4F8D2", textDecoration = "bold")
   
-  # figure out positions by name (robust)
-  nm <- hdr
+  nm <- names(df)
   
   blue_cols <- which(nm %in% c(
     "pres24","mon24","pres23","mon23",
     "pres16","mon16","pres15","mon15"
   ))
-  yellow_cols <- which(nm %in% c(
-    "pres22","mon22","pres14","mon14"
-  ))
+  yellow_cols <- which(nm %in% c("pres22","mon22","pres14","mon14"))
   green_col <- which(nm == "notes")
   
   if (length(blue_cols)) {
@@ -282,9 +285,10 @@ write_one <- function(wb, df, sheet, freeze_cols = 3){
   }
   
   # ----- make data cells for coder inputs text-formatted ----------------------
-  # I..T (9:20) are coder input fields
-  input_cols <- 9:20
+  input_cols <- c(match("pres24", nm):match("mon22", nm),
+                  match("pres16", nm):match("mon14", nm))
   sty_text <- openxlsx::createStyle(numFmt = "@")
+  
   if (nrow(df) > 0) {
     openxlsx::addStyle(
       wb, sheet, style = sty_text,
@@ -300,12 +304,9 @@ write_one <- function(wb, df, sheet, freeze_cols = 3){
   }
   
   # ----- fused presence + match formulas, no colour ---------------------------
-  add_fused_formula_cols(wb, sheet, n_rows = nrow(df), header_row = 2)
-  add_match_col(wb, sheet, n_rows = nrow(df), header_row = 2)
+  add_fused_formula_cols(wb, sheet, df = df, n_rows = nrow(df), header_row = 2)
+  add_match_col(wb, sheet, df = df, n_rows = nrow(df), header_row = 2)
 }
-
-
-
 
 # keep one tract_id and stratum on points
 add_id_if_missing <- function(p, tr){
@@ -319,18 +320,22 @@ add_id_if_missing <- function(p, tr){
 canon_id_stratum <- function(p, tr){
   co <- function(df, vars){
     v <- lapply(vars, \(x) if (x %in% names(df)) as.character(df[[x]]) else NA_character_)
-    z <- v[[1]]; if (length(v)>1) for (k in 2:length(v)) z <- dplyr::coalesce(z, v[[k]])
-    z[trimws(z)==""] <- NA_character_; z
+    z <- v[[1]]
+    if (length(v) > 1) for (k in 2:length(v)) z <- dplyr::coalesce(z, v[[k]])
+    z[trimws(z)==""] <- NA_character_
+    z
   }
   p$tract_id <- co(p, c("tract_id","tract_id.x","tract_id.y"))
   p$stratum  <- co(p, c("stratum","stratum.x","stratum.y","stratum_id"))
   if (any(is.na(p$stratum)) && "tract_id" %in% names(p)) {
     lk <- sf::st_drop_geometry(tr)[,c("tract_id","stratum")]
     p  <- dplyr::left_join(p, lk, by="tract_id", suffix=c("",".lkp"))
-    p$stratum <- dplyr::coalesce(p$stratum, p$stratum.lkp); p$stratum.lkp <- NULL
+    p$stratum <- dplyr::coalesce(p$stratum, p$stratum.lkp)
+    p$stratum.lkp <- NULL
   }
   p[c("tract_id.x","tract_id.y","stratum.x","stratum.y","stratum_id")] <- NULL
-  p$stratum <- as.character(p$stratum); p$tract_id <- as.character(p$tract_id)
+  p$stratum <- as.character(p$stratum)
+  p$tract_id <- as.character(p$tract_id)
   p
 }
 
@@ -383,3 +388,4 @@ for (cd in coders) {
     openxlsx::saveWorkbook(wb, outfile, overwrite = TRUE)
   }
 }
+
