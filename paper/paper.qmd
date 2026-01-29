@@ -37,8 +37,8 @@ keywords:
   - Reproducible workflows
   - Barcelona
 format: 
-  # docx
-  html
+  docx: default
+  # html
 bibliography: ../refs/references.bib 
 ---
 
@@ -92,11 +92,11 @@ knitr::include_graphics("../figs/flowchart.png")
 
 ### OSM temporal differencing
 
-We constructed baseline and follow-up cycling networks from OSM extracts dated 1 January 2016 and 1 January 2024, approximating conditions in 2015 and 2023. From each extract, we derived a *core cycling-infrastructure (CI) network* intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry, while minimising double counting arising from alternative OSM representations. A segment was classified as CI if it met either of the following conditions: `highway = cycleway`; or any `cycleway*` tag (including `cycleway`, `cycleway:left`, `cycleway:right`, `cycleway:both`, and other `cycleway:*` keys where present) had a value in {`lane`, `track`, `opposite_lane`, `opposite_track`}. Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above. To reduce double counting, we applied a no-double-counting (NDC) procedure by removing on-road cycling segments whose geometry lay within a fixed spatial tolerance of a dedicated cycleway geometry. 
+We constructed baseline and follow-up cycling networks from OSM extracts dated 1 January 2016 and 1 January 2024, used to approximate network conditions in 2015 and 2023, respectively. We focus on 2015–2023 to align the observation window with the ATRAPA project design and relevant municipal electoral cycles, rather than using the most recent available year. From each extract, we derived a *core cycling-infrastructure (CI) network* intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry, while minimising double counting arising from alternative OSM representations. A segment was classified as CI if it met either of the following conditions: `highway = cycleway`; or any or any `cycleway`-related tag (including `cycleway`, `cycleway:left`, `cycleway:right`, `cycleway:both`, and other `cycleway:*` keys where present) had a value in {`lane`, `track`, `opposite_lane`, `opposite_track`}. Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above. To reduce double counting, we applied a no-double-counting (NDC) procedure by removing on-road cycling segments whose geometry lay within a fixed spatial tolerance of a dedicated cycleway geometry. 
 
 After cleaning and projecting the networks, the 2015 and 2023 CI layers were compared geometrically to detect network change. Segments present only in 2023 were classified as additions, and those present only in 2015 as removals. Cases where an apparent addition lay immediately adjacent to a corresponding removal were excluded, as these typically reflected minor positional realignments in OSM rather than actual physical change.
 
-For validation controls, we also defined a non-cycling network (NONCI) as the set of road segments that did not meet any of the cycling-infrastructure (CI) criteria described above. NONCI segments were restricted to standard carriageway road classes (e.g., primary, secondary, tertiary, residential, unclassified, and associated links) and excluded any segment explicitly tagged in OSM as carrying cycling infrastructure. 
+For validation controls, we defined a non-cycling network (NONCI) as OSM street segments that did not meet the CI tagging criteria defined above. NONCI candidates were restricted to standard `highway=*` road classes (`primary`, `secondary`, `tertiary`, `unclassified`, `residential`, their corresponding `_link` classes, and `living_street` and `pedestrian`). To avoid sampling segments that overlap or lie immediately adjacent to cycling infrastructure, we removed and clipped any NONCI segments located within a small buffer distance of the CI network in either reference year (2015 or 2023), using a buffer around the union of the cleaned CI geometries. Finally, we discarded very short residual fragments and retained only segments above a minimum length threshold.
 
 ### Stratified GSV validation
 
@@ -146,6 +146,7 @@ knitr::include_graphics(c(
   "../figs/removal-2015.png",
   "../figs/removal-2023.png"
 ))
+
 ```
 
 <!-- Validation accuracy was then assessed using standard metrics. Precision (TP/(TP+FP)) captures the share of OSM-detected changes that were real. Recall (TP/(TP+FN)) captures the share of real changes correctly detected by OSM. The F1 score is the harmonic mean of precision and recall. Ninety-five per cent Wilson confidence intervals (CI) were computed for each measure. -->
@@ -159,7 +160,24 @@ knitr::include_graphics(c(
 <!-- -   **F1 = 2 · Precision · Recall / (Precision + Recall)**\ -->
 <!--     Balanced indicator combining both metrics. -->
 
-All data processing, change detection, sampling, and validation procedures were implemented using an open-source R workflow, with full code and documentation available in the Data and code availability section.
+All data processing, change detection, sampling, and validation procedures were implemented in an open-source R workflow, with full code and documentation available in the Data and code availability section.
+
+### Workflow outputs (reproducibility)
+
+The workflow generates the following reusable research outputs:
+
+1. Baseline (2015) and follow-up (2023) cycling-infrastructure (CI) networks derived from dated OSM snapshots.
+2. OSM-inferred CI additions and removals from geometric differencing, after filtering minor realignments.
+3. A cleaned non-cycling (NONCI) street network used to define control locations.
+4. Census-tract stratification layers based on population density and centrality, and the corresponding sampled tracts.
+5. Length-weighted stratified samples of ADD, REMOVE, and NONCI segments, exported as point locations linked to Google Street View.
+6. Coder-ready validation workbooks and adjudicated validation tables identifying true positives, false positives, and false negatives.
+7. Citywide summary tables of network change and consistency checks.
+8. Validation performance metrics (precision, recall, and F1 score) with confidence intervals.
+9. Static figures and interactive maps used for validation, change visualisation, and workflow documentation, including a workflow diagram.
+
+All scripts and intermediate outputs required to reproduce the analysis are provided in the accompanying repository (see Data and code availability).
+
 
 ## Results
 
@@ -260,6 +278,10 @@ Methodologically, the study demonstrates a transparent, open-source framework fo
 Theoretically, this work supports the view of OSM as a dynamic socio-technical system rather than a static dataset. Temporal variation in OSM reflects both genuine infrastructure evolution and the rhythms of community mapping activity. By distinguishing true from apparent edits, the approach contributes to a broader framework for assessing the temporal validity of volunteered geographic information, which is essential for longitudinal research in transport, health, and environmental studies.
 
 <!-- The open-source implementation enables direct replication of the workflow in other cities and facilitates extension within the ATRAPA framework. -->
+
+## Generalisability and limitations
+
+The proposed workflow is designed to be transferable to other cities where historical OSM extracts are available and street-level imagery coverage is sufficient for validation. The main requirements are (i) consistent OSM snapshots for two reference years, (ii) a spatial sampling frame (e.g., census tracts or equivalent small areas), and (iii) imagery that allows adjudication of infrastructure presence at both time points.
 
 Several limitations should be acknowledged. The number of true removals was small, resulting in wide confidence intervals for that category. GSV imagery dates vary within each anchor year, occasionally creating minor temporal mismatches. Although inter-rater agreement was high, subtle interpretive differences—such as in deciding whether a feature should count as cycling infrastructure—remain possible. Finally, Barcelona’s large and active mapping community likely ensures relatively high data quality; replication in less-mapped cities will be required to test generalisability.
 

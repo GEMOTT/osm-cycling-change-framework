@@ -6,6 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="Eugeni Vidal-Tortosa">
+<meta name="author" content="Víctor González Parra">
+<meta name="author" content="Oriol Marquet">
 <meta name="keywords" content="OpenStreetMap (OSM), Cycling infrastructure, Active travel, Built environment change, Data validation, Reproducible workflows, Barcelona">
 
 <title>Validating OpenStreetMap for detecting cycling-infrastructure change: A Barcelona pilot using Google Street View (2015–2023)</title>
@@ -104,10 +107,42 @@ div.csl-indent {
 </div>
 
 
+<div class="quarto-title-meta-author">
+  <div class="quarto-title-meta-heading">Authors</div>
+  <div class="quarto-title-meta-heading">Affiliations</div>
+  
+    <div class="quarto-title-meta-contents">
+    <p class="author">Eugeni Vidal-Tortosa <a href="mailto:eugeni.vidal@uab.cat" class="quarto-title-author-email"><i class="bi bi-envelope"></i></a> </p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            Department of Geography, Universitat Autònoma de Barcelona (UAB)
+          </p>
+      </div>
+    <div class="quarto-title-meta-contents">
+    <p class="author">Víctor González Parra <a href="mailto:victor.gonzalez.parra@uab.cat" class="quarto-title-author-email"><i class="bi bi-envelope"></i></a> </p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            Department of Geography, Universitat Autònoma de Barcelona (UAB)
+          </p>
+      </div>
+    <div class="quarto-title-meta-contents">
+    <p class="author">Oriol Marquet <a href="mailto:oriol.marquet@uab.cat" class="quarto-title-author-email"><i class="bi bi-envelope"></i></a> </p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            Department of Geography, Universitat Autònoma de Barcelona (UAB)
+          </p>
+        <p class="affiliation">
+            Institute of Environmental Science and Technology (ICTA-UAB)
+          </p>
+      </div>
+  </div>
 
 <div class="quarto-title-meta">
 
-    
+      
   
     
   </div>
@@ -116,7 +151,7 @@ div.csl-indent {
   <div class="abstract">
     <div class="block-title">Abstract</div>
     <p>Cities are expanding their cycling networks rapidly, yet longitudinal data describing how these networks change remain limited. Volunteered Geographic Information, particularly OpenStreetMap (OSM), offers time-stamped spatial data on urban infrastructure, but its temporal reliability for detecting cycling-infrastructure change is uncertain. This study evaluates how well OSM identifies additions and removals of cycling infrastructure in Barcelona between 2015 and 2023, using Google Street View (GSV) as ground truth.</p>
-    <p>Baseline and follow-up cycling networks were derived from dated OSM snapshots representing 2016 and 2024, and geometric differencing was used to detect apparent additions and removals. Barcelona’s 1,063 census tracts were stratified by population density and centrality into nine groups, from which six tracts per stratum were selected (54 in total). Within these tracts, candidate additions, removals and non-cycling controls were sampled, yielding 105 locations, of which 86 provided usable GSV imagery. Two trained coders independently classified each site to identify true additions and removals, false positives and false negatives.</p>
+    <p>Baseline and follow-up cycling networks were derived from OSM snapshots dated 1 January 2016 and 1 January 2024, used to approximate network conditions in 2015 and 2023, and geometric differencing was used to detect apparent additions and removals. Barcelona’s 1,063 census tracts were stratified by population density and centrality into nine groups, from which six tracts per stratum were selected (54 in total). Within these tracts, candidate additions, removals and non-cycling controls were sampled, yielding 105 locations, of which 86 provided usable GSV imagery. Two trained coders independently classified each site to identify true additions and removals, false positives and false negatives.</p>
     <p>OSM indicates an 88% increase in cycling-infrastructure length, with additions distributed across the city. Validation shows that OSM detects most real changes, achieving high recall for both additions and removals, but also generates false positives, particularly for removals. Precision is 0.82 for additions and 0.20 for removals, yielding a pooled precision of 0.74 and an F1 score of 0.84. The study presents a reproducible workflow for assessing the temporal reliability of OSM data and supports broader efforts to evaluate the validity of volunteered geographic information for urban and transport research.</p>
   </div>
 </div>
@@ -158,9 +193,9 @@ Figure&nbsp;1: Main workflow steps.
 </div>
 <section id="osm-temporal-differencing" class="level3">
 <h3 class="anchored" data-anchor-id="osm-temporal-differencing">OSM temporal differencing</h3>
-<p>We constructed baseline and follow-up cycling networks from OSM extracts dated 1 January 2016 and 1 January 2024, approximating conditions in 2015 and 2023. From each extract, we derived a <em>core cycling-infrastructure (CI) network</em> intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry, while minimising double counting arising from alternative OSM representations. A segment was classified as CI if it met either of the following conditions: <code>highway = cycleway</code>; or any <code>cycleway*</code> tag (including <code>cycleway</code>, <code>cycleway:left</code>, <code>cycleway:right</code>, <code>cycleway:both</code>, and other <code>cycleway:*</code> keys where present) had a value in {<code>lane</code>, <code>track</code>, <code>opposite_lane</code>, <code>opposite_track</code>}. Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above. To reduce double counting, we applied a no-double-counting (NDC) procedure by removing on-road cycling segments whose geometry lay within a fixed spatial tolerance of a dedicated cycleway geometry.</p>
+<p>We constructed baseline and follow-up cycling networks from OSM extracts dated 1 January 2016 and 1 January 2024, approximating conditions in 2015 and 2023. We focus on 2015–2023 to align the observation window with the ATRAPA project design and relevant municipal electoral cycles, rather than using the most recent available year. From each extract, we derived a <em>core cycling-infrastructure (CI) network</em> intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry, while minimising double counting arising from alternative OSM representations. A segment was classified as CI if it met either of the following conditions: <code>highway = cycleway</code>; or any <code>cycleway*</code> tag (including <code>cycleway</code>, <code>cycleway:left</code>, <code>cycleway:right</code>, <code>cycleway:both</code>, and other <code>cycleway:*</code> keys where present) had a value in {<code>lane</code>, <code>track</code>, <code>opposite_lane</code>, <code>opposite_track</code>}. Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above. To reduce double counting, we applied a no-double-counting (NDC) procedure by removing on-road cycling segments whose geometry lay within a fixed spatial tolerance of a dedicated cycleway geometry.</p>
 <p>After cleaning and projecting the networks, the 2015 and 2023 CI layers were compared geometrically to detect network change. Segments present only in 2023 were classified as additions, and those present only in 2015 as removals. Cases where an apparent addition lay immediately adjacent to a corresponding removal were excluded, as these typically reflected minor positional realignments in OSM rather than actual physical change.</p>
-<p>For validation controls, we also defined a non-cycling network (NONCI) as the set of road segments that did not meet any of the cycling-infrastructure (CI) criteria described above. NONCI segments were restricted to standard carriageway road classes (e.g., primary, secondary, tertiary, residential, unclassified, and associated links) and excluded any segment explicitly tagged in OSM as carrying cycling infrastructure.</p>
+<p>For validation controls, we defined a non-cycling network (NONCI) as OSM street segments that did not meet the CI tagging criteria defined above. NONCI candidates were restricted to standard <code>highway=*</code> road classes (<code>primary</code>, <code>secondary</code>, <code>tertiary</code>, <code>unclassified</code>, <code>residential</code>, their corresponding <code>_link</code> classes, and <code>living_street</code> and <code>pedestrian</code>). To avoid sampling segments that overlap or lie immediately adjacent to cycling infrastructure, we removed and clipped any NONCI segments located within a small buffer distance of the CI network in either reference year (2015 or 2023), using a buffer around the union of the cleaned CI geometries. Finally, we discarded very short residual fragments and retained only segments above a minimum length threshold.</p>
 </section>
 <section id="stratified-gsv-validation" class="level3">
 <h3 class="anchored" data-anchor-id="stratified-gsv-validation">Stratified GSV validation</h3>
