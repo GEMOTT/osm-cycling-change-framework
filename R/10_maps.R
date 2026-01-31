@@ -285,81 +285,79 @@ alpha_2015    <- 0.8
 alpha_added   <- 1
 alpha_removed <- 1
 
-# prep layers
-bnd_wgs     <- get_boundary_wgs()
-cyc15_wgs   <- if (exists("cyc15_n")) as_wgs_lines(cyc15_n) else NULL
-added_wgs   <- if (!is.null(added_map)   && inherits(added_map, "sf")   && nrow(added_map))   as_wgs_lines(added_map)   else NULL
-removed_wgs <- if (!is.null(removed_map) && inherits(removed_map, "sf") && nrow(removed_map)) as_wgs_lines(removed_map) else NULL
+# 1. Prep layers with safety checks
+# Using exists() and is.null() checks to ensure sf objects are valid
+bnd_wgs   <- if (exists("get_boundary_wgs")) get_boundary_wgs() else NULL
+cyc15_wgs <- if (exists("cyc15_n")) as_wgs_lines(cyc15_n) else NULL
 
-# choose CRS for background to match the networks
+# Check if map objects exist and are valid sf objects before processing
+added_wgs <- if (exists("added_map") && !is.null(added_map) && inherits(added_map, "sf") && nrow(added_map) > 0) {
+  as_wgs_lines(added_map)
+} else { NULL }
+
+removed_wgs <- if (exists("removed_map") && !is.null(removed_map) && inherits(removed_map, "sf") && nrow(removed_map) > 0) {
+  as_wgs_lines(removed_map)
+} else { NULL }
+
+# 2. Coordinate Reference System (CRS) Selection
+# Prioritize network layers, fallback to background tracts
 bg_crs <- if (!is.null(cyc15_wgs)) {
   sf::st_crs(cyc15_wgs)
 } else if (!is.null(added_wgs)) {
   sf::st_crs(added_wgs)
-} else if (!is.null(removed_wgs)) {
-  sf::st_crs(removed_wgs)
 } else if (!is.null(bnd_wgs)) {
   sf::st_crs(bnd_wgs)
 } else {
-  sf::st_crs(barcelona_tracts)
+  sf::st_crs(4326) # Default to WGS84 if all else fails
 }
 
-bcn_bg <- barcelona_tracts |>
+bcn_bg <- barcelona_tracts |> 
   sf::st_transform(bg_crs)
 
-# bounds helper
-get_bbox <- function(obj){
-  if (!is.null(obj) && inherits(obj, "sf") && nrow(obj)) sf::st_bbox(obj) else NULL
+# 3. Robust Bounding Box Calculation
+get_bbox_safe <- function(obj) {
+  if (!is.null(obj) && inherits(obj, "sf") && nrow(obj) > 0) sf::st_bbox(obj) else NULL
 }
 
-bb <- if (!is.null(bnd_wgs) && nrow(bnd_wgs)) get_bbox(bnd_wgs) else NULL
+# Collect all available bboxes
+bboxes <- list(
+  get_bbox_safe(bnd_wgs),
+  get_bbox_safe(cyc15_wgs),
+  get_bbox_safe(added_wgs),
+  get_bbox_safe(removed_wgs)
+)
+bboxes <- Filter(Negate(is.null), bboxes)
 
-if (is.null(bb)) {
-  cands <- Filter(
-    Negate(is.null),
-    list(get_bbox(cyc15_wgs), get_bbox(added_wgs), get_bbox(removed_wgs), get_bbox(bcn_bg))
+if (length(bboxes) > 0) {
+  # Merge multiple bboxes into one global extent
+  bb <- c(
+    xmin = min(sapply(bboxes, function(x) x["xmin"])),
+    ymin = min(sapply(bboxes, function(x) x["ymin"])),
+    xmax = max(sapply(bboxes, function(x) x["xmax"])),
+    ymax = max(sapply(bboxes, function(x) x["ymax"]))
   )
-  if (length(cands)) {
-    mins <- do.call(pmin, lapply(cands, function(b) c(b["xmin"], b["ymin"])))
-    maxs <- do.call(pmax, lapply(cands, function(b) c(b["xmax"], b["ymax"])))
-    bb <- c(xmin = as.numeric(mins[1]), ymin = as.numeric(mins[2]),
-            xmax = as.numeric(maxs[1]), ymax = as.numeric(maxs[2]))
-  } else {
-    bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
-  }
+} else {
+  # Default Barcelona extents if no data is found
+  bb <- c(xmin = 2.05, ymin = 41.30, xmax = 2.25, ymax = 41.45)
 }
 
+# 4. Visualization
 p_change <- ggplot() +
   geom_sf(
     data      = bcn_bg,
-    fill      = "grey95",
+    fill      = "grey96",
     colour    = "white",
     linewidth = 0.1
   ) +
-  { if (!is.null(cyc15_wgs) && nrow(cyc15_wgs))
-    geom_sf(
-      data        = cyc15_wgs,
-      aes(colour  = "2015"),
-      alpha       = alpha_2015,
-      linewidth   = 0.2,
-      show.legend = TRUE
-    ) } +
-  { if (!is.null(removed_wgs) && nrow(removed_wgs))
-    geom_sf(
-      data        = removed_wgs,
-      aes(colour  = "Removed (15→23)"),
-      alpha       = alpha_removed,
-      linewidth   = 0.4,
-      show.legend = TRUE
-    ) } +
-  { if (!is.null(added_wgs) && nrow(added_wgs))
-    geom_sf(
-      data        = added_wgs,
-      aes(colour  = "Added (15→23)"),
-      alpha       = alpha_added,
-      linewidth   = 0.4,
-      show.legend = TRUE
-    ) } +
+  # Conditional Layers using list() syntax for cleaner ggplot flow
+  list(
+    if (!is.null(cyc15_wgs)) geom_sf(data = cyc15_wgs, aes(colour = "Baseline (2015)"), 
+                                     alpha = alpha_2015, linewidth = 0.2),
+    if (!is.null(removed_wgs)) geom_sf(data = removed_wgs, aes(colour = "Removed (2015–2023)"), 
+                                       alpha = alpha_removed, linewidth = 0.4),
+    if (!is.null(added_wgs)) geom_sf(data = added_wgs, aes(colour = "Added (2015–2023)"), 
+                                     alpha = alpha_added, linewidth = 0.4)
+  ) +
   coord_sf(
     xlim   = c(bb["xmin"], bb["xmax"]),
     ylim   = c(bb["ymin"], bb["ymax"]),
@@ -368,30 +366,30 @@ p_change <- ggplot() +
   scale_colour_manual(
     name = NULL,
     values = c(
-      "2015"                = col_2015,
-      "Added (15→23)"   = col_added,
-      "Removed (15→23)" = col_removed
-    )
+      "Baseline (2015)"      = col_2015,
+      "Added (2015–2023)"    = col_added,
+      "Removed (2015–2023)" = col_removed
+    ),
+    # Ensure legend order is logical
+    breaks = c("Baseline (2015)", "Added (2015–2023)", "Removed (2015–2023)")
   ) +
   theme_void() +
   theme(
     legend.position   = "bottom",
-    legend.title      = element_text(size = 14),
-    legend.text       = element_text(size = 13),
-    legend.key.size   = grid::unit(0.8, "cm"),
-    plot.margin       = margin(5, 5, 5, 5),
-    panel.background  = element_rect(fill = NA, colour = NA),
-    plot.background   = element_rect(fill = NA, colour = NA),
+    legend.text       = element_text(size = 11),
+    legend.key.size   = grid::unit(0.6, "cm"),
+    plot.margin       = margin(10, 10, 10, 10),
+    plot.background   = element_rect(fill = "white", colour = NA),
     legend.background = element_rect(fill = "white", colour = NA)
   )
 
+# 5. Save
 ggsave(
   filename = "../figs/infra_change_map.png",
   plot     = p_change,
   width    = 9,
   height   = 9,
-  dpi      = 300,
-  bg       = "transparent"
+  dpi      = 300
 )
 
 

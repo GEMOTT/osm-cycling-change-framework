@@ -100,13 +100,17 @@ This study addresses this gap by introducing and evaluating a reproducible open-
 
 ### Data sources
 
-Three main data sources were used:
+Three data sources were used:
 
 - **OpenStreetMap (OSM)**. Dated OSM extracts for Barcelona were retrieved for 1 January 2016 and 1 January 2024 using the osmextract R package [@gilardi_osmextract_2025]. These snapshots were used as proxies for end-of-2015 and end-of-2023 network conditions, respectively, and form the baseline and follow-up datasets for change detection.
 
 - **Google Street View (GSV)**. Historical Street View imagery was used to manually validate a sample of OSM-detected additions and removals. Each sampled location was inspected using imagery available as close as possible to the OSM reference dates.
 
 - **Census and boundary data**. Census-tract boundaries (2015) and resident population counts (2022) were obtained from official statistical sources and used to design the stratified validation sample based on population density and centrality.
+
+### Study setting: Barcelona
+
+Barcelona is a large, dense Mediterranean city (around 1.7 million inhabitants) with an extensive and evolving cycling network. It experienced substantial cycling-infrastructure expansion during the study period, making it a suitable pilot case to test OSM-based network reconstruction, change detection, and GSV validation. The 2015–2023 window was selected to align with municipal electoral cycles (2015 and 2023 elections), providing policy-relevant before-and-after snapshots while keeping the focus on methodological validation rather than policy evaluation.
 
 ### Methods (workflow overview)
 
@@ -246,7 +250,7 @@ All scripts and intermediate outputs required to reproduce the analysis are prov
 
 ### Network change detected from OSM (2015–2023)
 
-Between 2015 and 2023, the OSM-derived cycling network in Barcelona increased from 130.7 to 235.7 km, corresponding to a net growth of 105.0 km (approximately an 80% increase) (@fig-changes). Network lengths are calculated as the sum of cycling-infrastructure line geometries as represented in OSM, without collapsing parallel or separated features into a single corridor measure. Geometric differencing identified 127.1 km of added and 24.9 km of removed cycling infrastructure, yielding a net change of 102.2 km. The small discrepancy between this estimate and the change in yearly totals (–2.8 km) indicates good internal consistency between aggregate network lengths and differencing-based estimates (@tbl-consistency).
+Between 2015 and 2023, the OSM-derived cycling network in Barcelona increased from 130.7 to 235.7 km, corresponding to a net growth of 105.0 km, an 80.3 % increase (@fig-changes). Network lengths are calculated as the sum of cycling-infrastructure line geometries as represented in OSM, without collapsing parallel or separated features into a single corridor measure. Geometric differencing identified 127.1 km of added and 24.9 km of removed cycling infrastructure, yielding a net change of 102.2 km. The small discrepancy between this estimate and the change in yearly totals (–2.8 km) indicates good internal consistency between aggregate network lengths and differencing-based estimates (@tbl-consistency).
 
 ```{r}
 #| label: tbl-consistency
@@ -294,7 +298,7 @@ knitr::include_graphics("../figs/infra_change_map.png")
 
 ### Validation of OSM-detected changes using GSV
 
-Of the 105 sampled sites, 86 (82 %) provided usable GSV panoramas: 33 additions, 5 removals and 48 non-cycling controls (@tbl-summary_stratum). These validation points were distributed across all density–centrality strata in accordance with the stratified sampling design. Because points could only be selected where OSM indicated a candidate segment of the relevant class, the distribution across strata reflects the availability of additions, removals and non-cycling segments within the sampled tracts, rather than any imbalance in the sampling procedure.
+Of the 105 sampled sites (39 additions, 6 removals and 50 non-cycling control sites), 86 (82%) provided usable Google Street View (GSV) panoramas for both the baseline and follow-up periods, yielding 33 additions, 5 removals and 48 non-cycling control sites for analysis (@tbl-summary_stratum). These validation points were distributed across all density–centrality strata, reflecting the stratified sampling design and the spatial availability of candidate change segments within the sampled tracts.
 
 ```{r}
 #| label: tbl-summary_stratum
@@ -315,7 +319,9 @@ knitr::kable(
 
 ```
 
-@tbl-validation summarises the validation outcomes. For additions, OSM shows high recall (0.96, 95 % CI \[0.82–0.99\]) and good precision (0.82, 95 % CI \[0.66–0.91\]), indicating that most real additions were detected, although some false positives remain. For removals, recall is 1.00 but with a very wide confidence interval due to the small sample size (n = 5), while precision is low (0.20, 95 % CI \[0.04–0.62\]), suggesting that most OSM-detected removals do not correspond to true infrastructure loss. When pooling additions and removals, overall precision is 0.74, recall is 0.97, and the F1 score is 0.84, reflecting strong sensitivity to change but more limited specificity, particularly for removals.
+Intercoder agreement on the binary presence or absence classification was complete across usable sites for both baseline and follow-up periods (86/86). A small subset of sites was nevertheless flagged for consensus review (needs_consens = TRUE, 7/86), and reconciled adjudicated values were used for the accuracy analysis.
+
+@tbl-validation summarises the validation outcomes, and @fig-validation-metrics provides a visual comparison of precision and recall with 95% confidence intervals across change classes. For additions, OSM shows high recall (0.96, 95 % CI \[0.82–0.99\]) and good precision (0.82, 95 % CI \[0.66–0.91\]), indicating that most real additions were detected, although some false positives remain. For removals, recall is 1.00 but with a very wide confidence interval due to the small sample size (n = 5), while precision is low (0.20, 95 % CI \[0.04–0.62\]), suggesting that most OSM-detected removals do not correspond to true infrastructure loss. When pooling additions and removals, overall precision is 0.74, recall is 0.97, and the F1 score is 0.84, reflecting strong sensitivity to change but more limited specificity, particularly for removals.
 
 ```{r}
 #| label: tbl-validation
@@ -327,6 +333,66 @@ knitr::kable(
   align   = c("l","r","r","r","r","r","r","r"),
   digits  = 0
 )
+
+```
+
+```{r}
+#| label: fig-validation-metrics
+#| fig-cap: "Precision and recall for OSM-inferred cycling-infrastructure changes (1 = perfect performance). Points show estimates and horizontal bars show 95% confidence intervals. Sample sizes are shown in the class labels."
+#| echo: false
+#| warning: false
+#| message: false
+
+library(dplyr)
+library(ggplot2)
+
+m <- t_class |>
+  transmute(
+    Class,
+    n = `n (usable)`,
+    prec = `Precision (95% CI)`,
+    rec  = `Recall (95% CI)`
+  ) |>
+  mutate(
+    Class = factor(Class, levels = c("ADD", "REMOVE", "Pooled")),
+    Class_lab = paste0(as.character(Class), " (n=", n, ")"),
+    prec = gsub("\\s", "", prec),
+    rec  = gsub("\\s", "", rec),
+    prec_est = as.numeric(sub("^([0-9.]+)\\[.*$", "\\1", prec)),
+    prec_lo  = as.numeric(sub("^[0-9.]+\\[([0-9.]+)-.*$", "\\1", prec)),
+    prec_hi  = as.numeric(sub("^[0-9.]+\\[[0-9.]+-([0-9.]+)\\]$", "\\1", prec)),
+    rec_est  = as.numeric(sub("^([0-9.]+)\\[.*$", "\\1", rec)),
+    rec_lo   = as.numeric(sub("^[0-9.]+\\[([0-9.]+)-.*$", "\\1", rec)),
+    rec_hi   = as.numeric(sub("^[0-9.]+\\[[0-9.]+-([0-9.]+)\\]$", "\\1", rec))
+  ) |>
+  arrange(Class)
+
+df_plot <- bind_rows(
+  m |> transmute(Class_lab, metric = "Precision", est = prec_est, lo = prec_lo, hi = prec_hi),
+  m |> transmute(Class_lab, metric = "Recall",    est = rec_est,  lo = rec_lo,  hi = rec_hi)
+) |>
+  mutate(
+    metric = factor(metric, levels = c("Precision", "Recall")),
+    Class_lab = factor(Class_lab, levels = m$Class_lab)
+  )
+
+pd <- position_dodge(width = 0.35)
+
+col_prec <- "#0072B2"
+col_rec  <- "#D95F02"
+
+ggplot(df_plot, aes(y = Class_lab, x = est, xmin = lo, xmax = hi, colour = metric, shape = metric)) +
+  geom_errorbarh(height = 0, linewidth = 0.9, position = pd) +
+  geom_point(size = 2.8, position = pd) +
+  scale_colour_manual(values = c("Precision" = col_prec, "Recall" = col_rec)) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+  labs(x = "Metric value (1 = perfect, 0 = poor)", y = NULL, colour = NULL, shape = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor   = element_blank(),
+    legend.position    = "bottom"
+  )
 
 ```
 

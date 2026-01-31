@@ -73,6 +73,7 @@ div.csl-indent {
   <li><a href="#data-and-methods" id="toc-data-and-methods" class="nav-link" data-scroll-target="#data-and-methods">Data and methods</a>
   <ul class="collapse">
   <li><a href="#data-sources" id="toc-data-sources" class="nav-link" data-scroll-target="#data-sources">Data sources</a></li>
+  <li><a href="#study-setting-barcelona" id="toc-study-setting-barcelona" class="nav-link" data-scroll-target="#study-setting-barcelona">Study setting: Barcelona</a></li>
   <li><a href="#methods-workflow-overview" id="toc-methods-workflow-overview" class="nav-link" data-scroll-target="#methods-workflow-overview">Methods (workflow overview)</a></li>
   <li><a href="#step-by-step-workflow" id="toc-step-by-step-workflow" class="nav-link" data-scroll-target="#step-by-step-workflow">Step-by-step workflow</a></li>
   <li><a href="#workflow-outputs-reproducibility" id="toc-workflow-outputs-reproducibility" class="nav-link" data-scroll-target="#workflow-outputs-reproducibility">Workflow outputs (reproducibility)</a></li>
@@ -156,12 +157,16 @@ div.csl-indent {
 <h2 class="anchored" data-anchor-id="data-and-methods">Data and methods</h2>
 <section id="data-sources" class="level3">
 <h3 class="anchored" data-anchor-id="data-sources">Data sources</h3>
-<p>Three main data sources were used:</p>
+<p>Three data sources were used:</p>
 <ul>
 <li><p><strong>OpenStreetMap (OSM)</strong>. Dated OSM extracts for Barcelona were retrieved for 1 January 2016 and 1 January 2024 using the osmextract R package <span class="citation" data-cites="gilardi_osmextract_2025">(<a href="#ref-gilardi_osmextract_2025" role="doc-biblioref">Gilardi et al. 2025</a>)</span>. These snapshots were used as proxies for end-of-2015 and end-of-2023 network conditions, respectively, and form the baseline and follow-up datasets for change detection.</p></li>
 <li><p><strong>Google Street View (GSV)</strong>. Historical Street View imagery was used to manually validate a sample of OSM-detected additions and removals. Each sampled location was inspected using imagery available as close as possible to the OSM reference dates.</p></li>
 <li><p><strong>Census and boundary data</strong>. Census-tract boundaries (2015) and resident population counts (2022) were obtained from official statistical sources and used to design the stratified validation sample based on population density and centrality.</p></li>
 </ul>
+</section>
+<section id="study-setting-barcelona" class="level3">
+<h3 class="anchored" data-anchor-id="study-setting-barcelona">Study setting: Barcelona</h3>
+<p>Barcelona is a large, dense Mediterranean city (around 1.7 million inhabitants) with an extensive and evolving cycling network. It experienced substantial cycling-infrastructure expansion during the study period, making it a suitable pilot case to test OSM-based network reconstruction, change detection, and GSV validation. The 2015–2023 window was selected to align with municipal electoral cycles (2015 and 2023 elections), providing policy-relevant before-and-after snapshots while keeping the focus on methodological validation rather than policy evaluation.</p>
 </section>
 <section id="methods-workflow-overview" class="level3">
 <h3 class="anchored" data-anchor-id="methods-workflow-overview">Methods (workflow overview)</h3>
@@ -334,7 +339,7 @@ Figure&nbsp;3: Examples of True Positive changes observed during GSV validation:
 <h2 class="anchored" data-anchor-id="results">Results</h2>
 <section id="network-change-detected-from-osm-20152023" class="level3">
 <h3 class="anchored" data-anchor-id="network-change-detected-from-osm-20152023">Network change detected from OSM (2015–2023)</h3>
-<p>Between 2015 and 2023, the OSM-derived cycling network in Barcelona increased from 130.7 to 235.7 km, corresponding to a net growth of 105.0 km (approximately an 80% increase) (<a href="#fig-changes" class="quarto-xref">Figure&nbsp;4</a>). Network lengths are calculated as the sum of cycling-infrastructure line geometries as represented in OSM, without collapsing parallel or separated features into a single corridor measure. Geometric differencing identified 127.1 km of added and 24.9 km of removed cycling infrastructure, yielding a net change of 102.2 km. The small discrepancy between this estimate and the change in yearly totals (–2.8 km) indicates good internal consistency between aggregate network lengths and differencing-based estimates (<a href="#tbl-consistency" class="quarto-xref">Table&nbsp;1</a>).</p>
+<p>Between 2015 and 2023, the OSM-derived cycling network in Barcelona increased from 130.7 to 235.7 km, corresponding to a net growth of 105.0 km, an 80.3 % increase (<a href="#fig-changes" class="quarto-xref">Figure&nbsp;4</a>). Network lengths are calculated as the sum of cycling-infrastructure line geometries as represented in OSM, without collapsing parallel or separated features into a single corridor measure. Geometric differencing identified 127.1 km of added and 24.9 km of removed cycling infrastructure, yielding a net change of 102.2 km. The small discrepancy between this estimate and the change in yearly totals (–2.8 km) indicates good internal consistency between aggregate network lengths and differencing-based estimates (<a href="#tbl-consistency" class="quarto-xref">Table&nbsp;1</a>).</p>
 <div class="cell">
 <div id="tbl-consistency" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
@@ -519,7 +524,7 @@ Figure&nbsp;4: OSM-detected cycling-infrastructure changes in Barcelona, 2015–
 </section>
 <section id="validation-of-osm-detected-changes-using-gsv" class="level3">
 <h3 class="anchored" data-anchor-id="validation-of-osm-detected-changes-using-gsv">Validation of OSM-detected changes using GSV</h3>
-<p>Of the 105 sampled sites, 86 (82 %) provided usable GSV panoramas: 33 additions, 5 removals and 48 non-cycling controls (<a href="#tbl-summary_stratum" class="quarto-xref">Table&nbsp;3</a>). These validation points were distributed across all density–centrality strata in accordance with the stratified sampling design. Because points could only be selected where OSM indicated a candidate segment of the relevant class, the distribution across strata reflects the availability of additions, removals and non-cycling segments within the sampled tracts, rather than any imbalance in the sampling procedure.</p>
+<p>Of the 105 sampled sites (39 additions, 6 removals and 50 non-cycling control sites), 86 (82%) provided usable Google Street View (GSV) panoramas for both the baseline and follow-up periods, yielding 33 additions, 5 removals and 48 non-cycling control sites for analysis (<a href="#tbl-summary_stratum" class="quarto-xref">Table&nbsp;3</a>). These validation points were distributed across all density–centrality strata, reflecting the stratified sampling design and the spatial availability of candidate change segments within the sampled tracts.</p>
 <div class="cell">
 <div id="tbl-summary_stratum" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
@@ -627,7 +632,8 @@ Table&nbsp;3: Validation points by class and stratum (usable points only)
 </figure>
 </div>
 </div>
-<p><a href="#tbl-validation" class="quarto-xref">Table&nbsp;4</a> summarises the validation outcomes. For additions, OSM shows high recall (0.96, 95 % CI [0.82–0.99]) and good precision (0.82, 95 % CI [0.66–0.91]), indicating that most real additions were detected, although some false positives remain. For removals, recall is 1.00 but with a very wide confidence interval due to the small sample size (n = 5), while precision is low (0.20, 95 % CI [0.04–0.62]), suggesting that most OSM-detected removals do not correspond to true infrastructure loss. When pooling additions and removals, overall precision is 0.74, recall is 0.97, and the F1 score is 0.84, reflecting strong sensitivity to change but more limited specificity, particularly for removals.</p>
+<p>Intercoder agreement on the binary presence or absence classification was complete across usable sites for both baseline and follow-up periods (86/86). A small subset of sites was nevertheless flagged for consensus review (needs_consens = TRUE, 7/86), and reconciled adjudicated values were used for the accuracy analysis.</p>
+<p><a href="#tbl-validation" class="quarto-xref">Table&nbsp;4</a> summarises the validation outcomes, and <a href="#fig-validation-metrics" class="quarto-xref">Figure&nbsp;5</a> provides a visual comparison of precision and recall with 95% confidence intervals across change classes. For additions, OSM shows high recall (0.96, 95 % CI [0.82–0.99]) and good precision (0.82, 95 % CI [0.66–0.91]), indicating that most real additions were detected, although some false positives remain. For removals, recall is 1.00 but with a very wide confidence interval due to the small sample size (n = 5), while precision is low (0.20, 95 % CI [0.04–0.62]), suggesting that most OSM-detected removals do not correspond to true infrastructure loss. When pooling additions and removals, overall precision is 0.74, recall is 0.97, and the F1 score is 0.84, reflecting strong sensitivity to change but more limited specificity, particularly for removals.</p>
 <div class="cell">
 <div id="tbl-validation" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
@@ -695,6 +701,20 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 </div>
 </div>
 </figure>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-validation-metrics" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-validation-metrics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="paper_files/figure-html/fig-validation-metrics-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-validation-metrics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5: Precision and recall for OSM-inferred cycling-infrastructure changes (1 = perfect performance). Points show estimates and horizontal bars show 95% confidence intervals. Sample sizes are shown in the class labels.
+</figcaption>
+</figure>
+</div>
 </div>
 </div>
 </section>
