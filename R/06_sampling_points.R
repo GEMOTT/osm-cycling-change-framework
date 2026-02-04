@@ -1,6 +1,6 @@
 # ================================================================
 # 06_sampling_points.R
-# Sample lines per tract (ADD/REMOVE/NONCI) and convert to one point per line.
+# Sample lines per tract (ADD/REMOVE/NONCYC) and convert to one point per line.
 #
 # Inputs:  added, removed, general1523_n, sampled_tracts, crs_work
 # Outputs: samples_tbl (for Excel export), plus QC summaries
@@ -66,7 +66,7 @@ stopifnot("tract_id" %in% names(sampled_tracts))
 
 PERTRACT_ADD    <- 2
 PERTRACT_REM    <- 2
-PERTRACT_NONCI  <- 1
+PERTRACT_NONCYC  <- 1
 FORCE_QUOTA     <- FALSE
 MIN_LEN_M       <- 15
 
@@ -78,18 +78,18 @@ if (!"stratum" %in% names(tracts)) {
   tracts$stratum <- droplevels(as.factor(tracts$stratum))
 }
 
-# GENERAL pool (NONCI lines created upstream)
+# GENERAL pool (NONCYC lines created upstream)
 noncycle23 <- sf::st_transform(general1523_n, crs_work)
 
 # --- picks: strictly per-tract caps; no top-ups ------------------------------
 added_by_tr   <- sample_lines_by_tract(added_eval,      tracts, PERTRACT_ADD,   replace = FORCE_QUOTA, min_len = MIN_LEN_M)
 removed_by_tr <- sample_lines_by_tract(removed_eval,    tracts, PERTRACT_REM,   replace = FORCE_QUOTA, min_len = MIN_LEN_M)
-general_by_tr <- sample_lines_by_tract(noncycle23, tracts, PERTRACT_NONCI, replace = FORCE_QUOTA, min_len = MIN_LEN_M)
+general_by_tr <- sample_lines_by_tract(noncycle23, tracts, PERTRACT_NONCYC, replace = FORCE_QUOTA, min_len = MIN_LEN_M)
 
 # convert to points (1 per line)
 added_pts   <- points_on_lines(added_by_tr)   |> dplyr::mutate(class = "ADD")
 removed_pts <- points_on_lines(removed_by_tr) |> dplyr::mutate(class = "REMOVE")
-nonci_pts   <- points_on_lines(general_by_tr) |> dplyr::mutate(class = "NONCI")
+noncyc_pts   <- points_on_lines(general_by_tr) |> dplyr::mutate(class = "NONCYC")
 
 # keep only points within tract boundaries
 keep_in <- function(pts, tracts, eps = 0.5){
@@ -100,19 +100,19 @@ keep_in <- function(pts, tracts, eps = 0.5){
 }
 added_pts   <- keep_in(added_pts,   tracts)
 removed_pts <- keep_in(removed_pts, tracts)
-nonci_pts   <- keep_in(nonci_pts,   tracts)
+noncyc_pts   <- keep_in(noncyc_pts,   tracts)
 
 # sanity: one point per selected line
 stopifnot(
   nrow(added_pts)   == nrow(added_by_tr),
   nrow(removed_pts) == nrow(removed_by_tr),
-  nrow(nonci_pts)   == nrow(general_by_tr)
+  nrow(noncyc_pts)   == nrow(general_by_tr)
 )
 
 # tables for export
 add_tbl <- to_lonlat_tbl(added_pts)   |> dplyr::mutate(interval="2015→2023", source="ADD_FLAG",    class="ADD")    |> add_validation_cols() |> coerce_for_bind()
 rem_tbl <- to_lonlat_tbl(removed_pts) |> dplyr::mutate(interval="2015→2023", source="REMOVE_FLAG", class="REMOVE") |> add_validation_cols() |> coerce_for_bind()
-gen_tbl <- to_lonlat_tbl(nonci_pts)   |> dplyr::mutate(interval="2015→2023", source="NONCI_2023",  class="NONCI")  |> add_validation_cols() |> coerce_for_bind()
+gen_tbl <- to_lonlat_tbl(noncyc_pts)   |> dplyr::mutate(interval="2015→2023", source="NONCYC_2023",  class="NONCYC")  |> add_validation_cols() |> coerce_for_bind()
 
 # final stack
 samples_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, gen_tbl)
@@ -130,7 +130,7 @@ cat("\nCounts (lines → points):\n")
 print(rbind(
   ADD     = c(lines = nrow(added_by_tr),   pts = nrow(added_pts)),
   REMOVE  = c(lines = nrow(removed_by_tr), pts = nrow(removed_pts)),
-  NONCI   = c(lines = nrow(general_by_tr), pts = nrow(nonci_pts))
+  NONCYC   = c(lines = nrow(general_by_tr), pts = nrow(noncyc_pts))
 ))
 
 # --- Stratum sanity ----------------------------------------------------------
@@ -141,13 +141,13 @@ attach_stratum_to_pts <- function(pts, tracts){
   sf::st_join(p, tracts[, c("tract_id","stratum")], left = TRUE, join = sf::st_within)
 }
 
-nonci_pts_s <- attach_stratum_to_pts(nonci_pts, tracts)
+noncyc_pts_s <- attach_stratum_to_pts(noncyc_pts, tracts)
 add_pts_s   <- attach_stratum_to_pts(added_pts,  tracts)
 rem_pts_s   <- attach_stratum_to_pts(removed_pts, tracts)
 
 by_stratum <- data.frame(
   STRATUM = levels(tracts$stratum),
-  NONCI   = as.integer(table(factor(nonci_pts_s$stratum, levels(tracts$stratum)))),
+  NONCYC   = as.integer(table(factor(noncyc_pts_s$stratum, levels(tracts$stratum)))),
   ADD     = as.integer(table(factor(add_pts_s$stratum,   levels(tracts$stratum)))),
   REMOVE  = as.integer(table(factor(rem_pts_s$stratum,  levels(tracts$stratum))))
 )
@@ -155,12 +155,12 @@ by_stratum <- data.frame(
 cat("\nBy-stratum counts (POINTS):\n")
 print(by_stratum)
 
-# feasibility_diagnostic call (use the actual NONCI pool sampled from)
+# feasibility_diagnostic call (use the actual NONCYC pool sampled from)
 # feas <- feasibility_diagnostic(
 #   sampled_tracts  = sampled_tracts,
 #   added           = added,
 #   removed         = removed,
-#   nonci_lines     = noncycle23,
+#   noncyc_lines     = noncycle23,
 #   crs_work        = crs_work
 # )
 # 

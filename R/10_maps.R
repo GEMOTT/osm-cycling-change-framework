@@ -168,7 +168,7 @@ make_validation_points_static_map <- function() {
   # colours copied from leaflet map
   col_add_pt <- "#0072B2"  # ADD
   col_rem_pt <- "#D95F02"  # REMOVE
-  col_gen_pt <- "#E6AB02"  # NONCI
+  col_gen_pt <- "#E6AB02"  # NONCYC
   
   # target CRS: use tracts / bivariate map CRS
   target_crs <- sf::st_crs(barcelona_tracts)
@@ -188,10 +188,10 @@ make_validation_points_static_map <- function() {
       dplyr::mutate(type = "REMOVE")
   }
   
-  if (exists("nonci_pts") && inherits(nonci_pts, "sf") && nrow(nonci_pts)) {
-    pts_list$NONCI <- nonci_pts |>
+  if (exists("noncyc_pts") && inherits(noncyc_pts, "sf") && nrow(noncyc_pts)) {
+    pts_list$NONCYC <- noncyc_pts |>
       sf::st_transform(target_crs) |>
-      dplyr::mutate(type = "NONCI")
+      dplyr::mutate(type = "NONCYC")
   }
   
   pts_all <- dplyr::bind_rows(pts_list)
@@ -210,9 +210,9 @@ make_validation_points_static_map <- function() {
   ylim <- c(bb_pts["ymin"] - y_pad, bb_pts["ymax"] + y_pad)
   
   # optional: non-CI network for context (reproject to target CRS)
-  nonci_net <- NULL
-  if (exists("nonci1523") && inherits(nonci1523, "sf") && nrow(nonci1523)) {
-    nonci_net <- sf::st_transform(nonci1523, target_crs)
+  noncyc_net <- NULL
+  if (exists("noncyc1523") && inherits(noncyc1523, "sf") && nrow(noncyc1523)) {
+    noncyc_net <- sf::st_transform(noncyc1523, target_crs)
   }
   
   gg <- ggplot() +
@@ -222,8 +222,8 @@ make_validation_points_static_map <- function() {
       colour    = "white",
       linewidth = 0.1
     ) +
-    { if (!is.null(nonci_net))
-      geom_sf(data = nonci_net, colour = "grey80", linewidth = 0.1)
+    { if (!is.null(noncyc_net))
+      geom_sf(data = noncyc_net, colour = "grey80", linewidth = 0.1)
       else NULL } +
     { if (exists("sampled_tracts") && inherits(sampled_tracts, "sf") && nrow(sampled_tracts))
       geom_sf(
@@ -245,8 +245,8 @@ make_validation_points_static_map <- function() {
     ) +
     scale_colour_manual(
       name   = NULL,
-      values = c("ADD" = col_add_pt, "REMOVE" = col_rem_pt, "NONCI" = col_gen_pt),
-      breaks = c("ADD", "REMOVE", "NONCI"),
+      values = c("ADD" = col_add_pt, "REMOVE" = col_rem_pt, "NONCYC" = col_gen_pt),
+      breaks = c("ADD", "REMOVE", "NONCYC"),
       labels = c("ADD", "REMOVE", "NON-CI")
     ) +
     guides(colour = guide_legend(override.aes = list(size = 4, stroke = 0.6))) +
@@ -431,13 +431,13 @@ make_validation_points_interactive_map <- function() {
   # points (tolerate missing objects)
   add_wgs <- if (exists("added_pts"))   prep_pts(added_pts)   else NULL
   rem_wgs <- if (exists("removed_pts")) prep_pts(removed_pts) else NULL
-  gen_wgs <- if (exists("nonci_pts"))   prep_pts(nonci_pts)   else NULL
+  gen_wgs <- if (exists("noncyc_pts"))   prep_pts(noncyc_pts)   else NULL
   
   bnd_wgs <- get_boundary_wgs()
   
   # non-CI network
-  stopifnot(exists("nonci1523"), inherits(nonci1523, "sf"))
-  gnet_wgs <- nonci1523 |>
+  stopifnot(exists("noncyc1523"), inherits(noncyc1523, "sf"))
+  gnet_wgs <- noncyc1523 |>
     sf::st_make_valid() |>
     sf::st_transform(crs_wgs)
   
@@ -491,7 +491,7 @@ make_validation_points_interactive_map <- function() {
   
   tract_stroke <- "#000000"
   tract_fill   <- "#FFFFFF"
-  col_nonci    <- "#A6761D"
+  col_noncyc    <- "#A6761D"
   
   # base map and panes
   m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE)) %>%
@@ -569,7 +569,7 @@ make_validation_points_interactive_map <- function() {
       data    = gnet_wgs,
       group   = "General (non-CI) 2023",
       weight  = 1,
-      color   = col_nonci,
+      color   = col_noncyc,
       opacity = 1,
       options = leaflet::pathOptions(pane = "nets")
     )
@@ -660,7 +660,7 @@ make_validation_points_interactive_map <- function() {
       data        = gen_wgs,
       lng         = ~lon,
       lat         = ~lat,
-      group       = "NONCI pts",
+      group       = "NONCYC pts",
       radius      = 4,
       weight      = 1,
       color       = stroke,
@@ -703,7 +703,7 @@ make_validation_points_interactive_map <- function() {
   m <- m |>
     add_id_layer(add_wgs, "ADD IDs",    "#0072B2") |>
     add_id_layer(rem_wgs, "REMOVE IDs", "#D95F02") |>
-    add_id_layer(gen_wgs, "NONCI IDs",  "#E6AB02")
+    add_id_layer(gen_wgs, "NONCYC IDs",  "#E6AB02")
   
   # controls
   m <- m %>%
@@ -713,15 +713,15 @@ make_validation_points_interactive_map <- function() {
         "Barcelona boundary", "Tracts", "Area labels",
         "2015 CI", "Added (15→23)", "Removed (15→23)", "2023 CI",
         "General (non-CI) 2023",
-        "ADD pts", "REMOVE pts", "NONCI pts",
-        "ADD IDs", "REMOVE IDs", "NONCI IDs"
+        "ADD pts", "REMOVE pts", "NONCYC pts",
+        "ADD IDs", "REMOVE IDs", "NONCYC IDs"
       ),
       options = leaflet::layersControlOptions(collapsed = TRUE)
     ) %>%
     leaflet::hideGroup(c(
       "2015 CI", "Area labels", "Added (15→23)", "Removed (15→23)", "2023 CI",
       "General (non-CI) 2023",
-      "ADD IDs", "REMOVE IDs", "NONCI IDs"
+      "ADD IDs", "REMOVE IDs", "NONCYC IDs"
     )) %>%
     leaflet::fitBounds(bounds[1], bounds[2], bounds[3], bounds[4])
   
@@ -759,7 +759,7 @@ function(el, x){
     <div style='width:10px; height:10px; border-radius:50%;
                 border:1px solid #666666; background:#E6AB02;
                 margin-right:6px;'></div>
-    NONCI
+    NONCYC
   </div>
 </div>
 "
@@ -782,12 +782,12 @@ make_infra_change_interactive_map <- function() {
   col_added   <- "#0072B2"
   col_removed <- "#D95F02"
   col_2023    <- "#1B9E77"
-  col_nonci   <- "#A6761D"
+  col_noncyc   <- "#A6761D"
   
   alpha_2015  <- 0.65
   alpha_added <- 0.95
   alpha_2023  <- 0.60
-  alpha_nonci <- 0.40
+  alpha_noncyc <- 0.40
   
   # prep layers (use consistent map layers with fallback)
   bnd_wgs     <- get_boundary_wgs()
@@ -795,10 +795,10 @@ make_infra_change_interactive_map <- function() {
   added_wgs   <- if (!is.null(added_map)   && inherits(added_map, "sf")   && nrow(added_map))   as_wgs_lines(added_map)   else NULL
   removed_wgs <- if (!is.null(removed_map) && inherits(removed_map, "sf") && nrow(removed_map)) as_wgs_lines(removed_map) else NULL
   cyc23_wgs   <- if (exists("cyc23_n")) as_wgs_lines(cyc23_n) else NULL
-  nonci_wgs <- if (exists("nonci1523_n") && inherits(nonci1523_n, "sf") && nrow(nonci1523_n)) {
-    as_wgs_lines(nonci1523_n)
-  } else if (exists("nonci1523") && inherits(nonci1523, "sf") && nrow(nonci1523)) {
-    as_wgs_lines(nonci1523)
+  noncyc_wgs <- if (exists("noncyc1523_n") && inherits(noncyc1523_n, "sf") && nrow(noncyc1523_n)) {
+    as_wgs_lines(noncyc1523_n)
+  } else if (exists("noncyc1523") && inherits(noncyc1523, "sf") && nrow(noncyc1523)) {
+    as_wgs_lines(noncyc1523)
   } else {
     NULL
   }
@@ -814,7 +814,7 @@ make_infra_change_interactive_map <- function() {
   } else {
     cands <- Filter(
       Negate(is.null),
-      lapply(list(cyc15_wgs, added_wgs, removed_wgs, cyc23_wgs, nonci_wgs), get_bbox)
+      lapply(list(cyc15_wgs, added_wgs, removed_wgs, cyc23_wgs, noncyc_wgs), get_bbox)
     )
     if (length(cands)) {
       mins <- do.call(pmin, lapply(cands, function(b) c(b["xmin"], b["ymin"])))
@@ -895,13 +895,13 @@ make_infra_change_interactive_map <- function() {
     )
   }
   
-  if (!is.null(nonci_wgs)) {
+  if (!is.null(noncyc_wgs)) {
     m <- m %>% leaflet::addPolylines(
-      data         = nonci_wgs,
+      data         = noncyc_wgs,
       group        = "General (non-CI) 2023",
       weight       = 1,
-      color        = col_nonci,
-      opacity      = alpha_nonci,
+      color        = col_noncyc,
+      opacity      = alpha_noncyc,
       options      = leaflet::pathOptions(pane = "nets"),
       smoothFactor = 0.5
     )

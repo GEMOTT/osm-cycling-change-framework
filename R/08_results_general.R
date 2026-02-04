@@ -227,13 +227,13 @@ km_removed <- len_km(removed_use)
 
 consistency <- tibble::tibble(
   Metric   = c(
-    "Total 2015",
-    "Total 2023",
-    "Net growth",
-    "Added",
-    "Removed",
-    "Added − Removed",
-    "Gap: (Added − Removed) − Net"
+    "Total network length (2015)",
+    "Total network length (2023)",
+    "Net growth (2023 − 2015)",
+    "Additions",
+    "Removals",
+    "Additions − removals",
+    "Gap: (Additions − removals) − Net"
   ),
   `Value (km)` = c(
     round(tot_2015, 1),

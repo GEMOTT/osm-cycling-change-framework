@@ -37,7 +37,7 @@ digraph {
       <TR><TD><B>3) Design stratified GSV sample</B></TD></TR>
       <TR><TD>Stratify tracts by density x centrality (3x3);<BR/>
               sample 6 tracts per stratum;<BR/>
-              length weighted ADD / REMOVE / NONCI segments</TD></TR>
+              length weighted ADD / REMOVE / NONCYC segments</TD></TR>
     </TABLE>
   >]
 

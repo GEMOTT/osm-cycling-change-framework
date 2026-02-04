@@ -164,7 +164,7 @@ add_match_col <- function(wb, sheet, df, n_rows, header_row = 2) {
     'IF(OR(IFERROR(VALUE(', c_fu, '%d),-1)=-1,IFERROR(VALUE(', c_bl, '%d),-1)=-1),"",',
     'IF(', c_class, '%d="ADD",AND(IFERROR(VALUE(', c_fu, '%d),-1)=1,IFERROR(VALUE(', c_bl, '%d),-1)=0),',
     'IF(', c_class, '%d="REMOVE",AND(IFERROR(VALUE(', c_fu, '%d),-1)=0,IFERROR(VALUE(', c_bl, '%d),-1)=1),',
-    'IF(', c_class, '%d="NONCI",AND(IFERROR(VALUE(', c_fu, '%d),-1)=0,IFERROR(VALUE(', c_bl, '%d),-1)=0),"")',
+    'IF(', c_class, '%d="NONCYC",AND(IFERROR(VALUE(', c_fu, '%d),-1)=0,IFERROR(VALUE(', c_bl, '%d),-1)=0),"")',
     ')',
     ')',
     ')',
@@ -197,7 +197,7 @@ write_one <- function(wb, df, sheet){
   
   openxlsx::addWorksheet(
     wb, sheet, gridLines = TRUE,
-    tabColour = switch(sheet, "ADD"="green","REMOVE"="red","NONCI"="orange","CI_STATIC"="blue","grey")
+    tabColour = switch(sheet, "ADD"="green","REMOVE"="red","NONCYC"="orange","CI_STATIC"="blue","grey")
   )
   
   # headers at row 2, data from row 3
@@ -342,7 +342,7 @@ canon_id_stratum <- function(p, tr){
 # --- rebuild export tables AFTER the joins -----------------------------------
 added_pts   <- canon_id_stratum(add_id_if_missing(added_pts,   tracts), tracts)
 removed_pts <- canon_id_stratum(add_id_if_missing(removed_pts, tracts), tracts)
-nonci_pts   <- canon_id_stratum(add_id_if_missing(nonci_pts,   tracts), tracts)
+noncyc_pts   <- canon_id_stratum(add_id_if_missing(noncyc_pts,   tracts), tracts)
 
 # You already have these helpers in your project:
 # - to_lonlat_tbl()
@@ -358,7 +358,7 @@ mk_tbl <- function(p, src, cls){
 
 add_tbl <- mk_tbl(added_pts,   "ADD",    "ADD")
 rem_tbl <- mk_tbl(removed_pts, "REMOVE", "REMOVE")
-gen_tbl <- mk_tbl(nonci_pts,   "NONCI",  "NONCI")
+gen_tbl <- mk_tbl(noncyc_pts,   "NONCYC",  "NONCYC")
 
 # --- write workbooks: one per coder -----------------------------------------
 for (cd in coders) {
@@ -372,7 +372,7 @@ for (cd in coders) {
     
     write_one(wb, add_tbl, "ADD")
     write_one(wb, rem_tbl, "REMOVE")
-    write_one(wb, gen_tbl, "NONCI")
+    write_one(wb, gen_tbl, "NONCYC")
     
     # Optional: add a tiny info sheet with coder id
     openxlsx::addWorksheet(wb, "INFO")

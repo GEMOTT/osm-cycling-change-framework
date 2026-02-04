@@ -197,7 +197,7 @@ build_joined_results <- function(city_tag,
                           paste0(city_tag, "_samples_2015_2023_joined_results.xlsx"))
   }
   
-  sheets <- c("ADD", "REMOVE", "NONCI")
+  sheets <- c("ADD", "REMOVE", "NONCYC")
   joined_list <- lapply(sheets, function(sh) {
     build_joined_sheet_for_class(sh, coder1_file, coder2_file)
   })
@@ -253,7 +253,7 @@ build_joined_results <- function(city_tag,
             'IF(OR(ISBLANK(%s%d),ISBLANK(%s%d)),"",',
             'IF(%s%d="ADD",AND(%s%d=1,%s%d=0),',
             'IF(%s%d="REMOVE",AND(%s%d=0,%s%d=1),',
-            'IF(%s%d="NONCI",AND(%s%d=0,%s%d=0),"" )',
+            'IF(%s%d="NONCYC",AND(%s%d=0,%s%d=0),"" )',
             ')',
             ')',
             ')'
@@ -440,30 +440,30 @@ fill_stratum <- function(df) {
 # read three sheets, fill stratum, build summary
 add_tbl   <- safe_read_exact(FILE, "ADD")    %>% fill_stratum() %>% dplyr::mutate(class = "ADD")
 rem_tbl   <- safe_read_exact(FILE, "REMOVE") %>% fill_stratum() %>% dplyr::mutate(class = "REMOVE")
-nonci_tbl <- safe_read_exact(FILE, "NONCI")  %>% fill_stratum() %>% dplyr::mutate(class = "NONCI")
+noncyc_tbl <- safe_read_exact(FILE, "NONCYC")  %>% fill_stratum() %>% dplyr::mutate(class = "NONCYC")
 
-all_strata <- sort(unique(c(add_tbl$stratum, rem_tbl$stratum, nonci_tbl$stratum)))
+all_strata <- sort(unique(c(add_tbl$stratum, rem_tbl$stratum, noncyc_tbl$stratum)))
 if (!length(all_strata)) all_strata <- "All"
 
-usable_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, nonci_tbl)
+usable_tbl <- dplyr::bind_rows(add_tbl, rem_tbl, noncyc_tbl)
 
 summary_stratum_class <- usable_tbl %>%
   dplyr::count(stratum, class, name = "n") %>%
   tidyr::complete(
     stratum = all_strata,
-    class   = c("ADD", "REMOVE", "NONCI"),
+    class   = c("ADD", "REMOVE", "NONCYC"),
     fill    = list(n = 0L)
   ) %>%
   tidyr::pivot_wider(names_from = class, values_from = n, values_fill = 0L)
 
-wanted_cols <- c("stratum", "ADD", "REMOVE", "NONCI")
+wanted_cols <- c("stratum", "ADD", "REMOVE", "NONCYC")
 for (cc in setdiff(wanted_cols, names(summary_stratum_class))) {
   summary_stratum_class[[cc]] <- 0L
 }
 
 summary_stratum_class <- summary_stratum_class %>%
   dplyr::select(dplyr::all_of(wanted_cols)) %>%
-  dplyr::mutate(Total = REMOVE + ADD + NONCI) %>%
+  dplyr::mutate(Total = REMOVE + ADD + NONCYC) %>%
   dplyr::arrange(stratum) %>%
   # split "D1_C2" into "D" and "C"
   tidyr::separate(stratum, into = c("D", "C"), sep = "_", remove = FALSE, fill = "right")
@@ -485,7 +485,7 @@ summary_stratum_class_full <- summary_stratum_class %>%
     )
   ) %>%
   dplyr::select(
-    stratum, Description, ADD, REMOVE, NONCI, Total
+    stratum, Description, ADD, REMOVE, NONCYC, Total
   )
 
 # Add TOTAL row (with Description)
@@ -497,7 +497,7 @@ summary_stratum_class_full <- dplyr::bind_rows(
     Description = "All strata combined",
     ADD         = sum(ADD,     na.rm = TRUE),
     REMOVE      = sum(REMOVE,  na.rm = TRUE),
-    NONCI       = sum(NONCI,   na.rm = TRUE),
+    NONCYC       = sum(NONCYC,   na.rm = TRUE),
     Total       = sum(Total,   na.rm = TRUE)
   )
 )
@@ -552,9 +552,9 @@ read_validation_sheet <- function(path, sheet_name) {
 
 add_df   <- read_validation_sheet(FILE, "ADD")
 rem_df   <- read_validation_sheet(FILE, "REMOVE")
-nonci_df <- read_validation_sheet(FILE, "NONCI")
+noncyc_df <- read_validation_sheet(FILE, "NONCYC")
 
-all_df <- dplyr::bind_rows(add_df, rem_df, nonci_df)
+all_df <- dplyr::bind_rows(add_df, rem_df, noncyc_df)
 
 # ---  build ground truth: ONLY consens --------------------------
 
@@ -592,7 +592,7 @@ FN_rem <- count_(all_df$class != "REMOVE" & all_df$real_change == "REMOVE")
 TP_T <- TP_add + TP_rem
 FP_T <- count_(all_df$class %in% c("ADD","REMOVE") &
                  all_df$real_change == "NO_CHANGE")
-FN_T <- count_(all_df$class == "NONCI" &
+FN_T <- count_(all_df$class == "NONCYC" &
                  all_df$real_change %in% c("ADD","REMOVE"))
 
 n_add_usable <- count_(all_df$class == "ADD")
@@ -612,9 +612,15 @@ metric <- function(tp, fp, fn){
   list(precision = precision, recall = recall, f1 = f1)
 }
 
-p_ci <- function(x, n){
+# Wilson score CI for a proportion x/n
+p_ci <- function(x, n, conf.level = 0.95){
   if (is.na(x) || is.na(n) || n == 0) return(c(NA_real_, NA_real_))
-  suppressWarnings(stats::prop.test(x, n, correct = FALSE)$conf.int)
+  z <- stats::qnorm(1 - (1 - conf.level) / 2)
+  p <- x / n
+  den <- 1 + z^2 / n
+  ctr <- (p + z^2 / (2 * n)) / den
+  half <- (z / den) * sqrt((p * (1 - p) + z^2 / (4 * n)) / n)
+  c(max(0, ctr - half), min(1, ctr + half))
 }
 
 m_add <- metric(TP_add, FP_add, FN_add)
@@ -655,5 +661,61 @@ t_class <- tibble::tibble(
     fmt_ci(m_tot$recall, tot_rec_ci)
   ),
   F1 = sprintf("%.2f", c(m_add$f1, m_rem$f1, m_tot$f1))
+)
+
+# -------------------------------------------------------------------
+# 5) Validation metrics plot (built from TP/FP/FN + Wilson CIs)
+# -------------------------------------------------------------------
+
+plot_df <- tibble::tibble(
+  Class = factor(c("ADD","REMOVE","Pooled"), levels = c("ADD","REMOVE","Pooled")),
+  n = c(n_add_usable, n_rem_usable, n_tot_usable),
+  prec_est = c(m_add$precision, m_rem$precision, m_tot$precision),
+  prec_lo  = c(add_prec_ci[1], rem_prec_ci[1], tot_prec_ci[1]),
+  prec_hi  = c(add_prec_ci[2], rem_prec_ci[2], tot_prec_ci[2]),
+  rec_est  = c(m_add$recall,    m_rem$recall,   m_tot$recall),
+  rec_lo   = c(add_rec_ci[1],   rem_rec_ci[1],  tot_rec_ci[1]),
+  rec_hi   = c(add_rec_ci[2],   rem_rec_ci[2],  tot_rec_ci[2])
+) |>
+  dplyr::mutate(Class_lab = paste0(Class, " (n=", n, ")"))
+
+df_plot <- dplyr::bind_rows(
+  plot_df |> dplyr::transmute(Class_lab, metric = "Precision", est = prec_est, lo = prec_lo, hi = prec_hi),
+  plot_df |> dplyr::transmute(Class_lab, metric = "Recall",    est = rec_est,  lo = rec_lo,  hi = rec_hi)
+) |>
+  dplyr::mutate(
+    metric = factor(metric, levels = c("Precision", "Recall")),
+    Class_lab = factor(Class_lab, levels = rev(plot_df$Class_lab)) # top-to-bottom: ADD, REMOVE, Pooled
+  )
+
+pd <- ggplot2::position_dodge(width = 0.35)
+
+col_prec <- "#0072B2"
+col_rec  <- "#D95F02"
+
+p_validation_metrics <-
+  ggplot2::ggplot(
+    df_plot,
+    ggplot2::aes(y = Class_lab, x = est, xmin = lo, xmax = hi, colour = metric, shape = metric)
+  ) +
+  ggplot2::geom_errorbarh(height = 0.18, linewidth = 0.9, position = pd) +
+  ggplot2::geom_point(size = 2.8, position = pd) +
+  ggplot2::scale_colour_manual(values = c("Precision" = col_prec, "Recall" = col_rec)) +
+  ggplot2::scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+  ggplot2::labs(x = "Metric value (1 = perfect, 0 = poor)", y = NULL, colour = NULL, shape = NULL) +
+  ggplot2::theme_minimal(base_size = 12) +
+  ggplot2::theme(
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor   = ggplot2::element_blank(),
+    legend.position    = "bottom"
+  )
+
+figdir <- file.path(outdir, "..", "figs")
+dir.create(figdir, showWarnings = FALSE, recursive = TRUE)
+
+ggplot2::ggsave(
+  file.path(figdir, "validation-metrics.png"),
+  p_validation_metrics,
+  width = 7, height = 3.2, dpi = 300
 )
 
