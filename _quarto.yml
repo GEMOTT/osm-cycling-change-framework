@@ -9,8 +9,9 @@ format:
     css: templates/styles.css
   pdf:
     documentclass: article
+    number-sections: true
     include-in-header:
-      text: |
+       text: |
         \usepackage{xcolor}
         \usepackage{lscape}
         \newcommand{\blandscape}{\begin{landscape}}
