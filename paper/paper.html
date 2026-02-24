@@ -147,9 +147,8 @@ window.Quarto = {
 <div>
   <div class="abstract">
     <div class="block-title">Abstract</div>
-    <p>Cities are expanding their cycling networks rapidly, yet longitudinal data describing how these networks evolve remain limited. Volunteered Geographic Information, particularly OpenStreetMap (OSM), offers time-stamped spatial data on urban infrastructure, but its temporal reliability for detecting cycling-infrastructure change is uncertain. This study evaluates OSM’s accuracy in identifying additions and removals of cycling infrastructure in Barcelona between 2015 and 2023, using Google Street View (GSV) imagery as reference data.</p>
-    <p>Baseline and follow-up cycling networks were reconstructed from dated OSM snapshots and compared using geometric differencing to detect apparent additions and removals. A stratified sample of locations across Barcelona was independently verified to estimate precision, recall and F1 scores. Without such validation, OSM-based change estimates may conflate real infrastructure interventions with routine database edits, potentially biasing longitudinal analyses.</p>
-    <p>OSM-derived estimates indicate an 80.3% increase in cycling-infrastructure length between 2015 and 2023. Validation shows high recall for both additions (0.96) and removals (1.00). Precision was strong for additions (0.82) but very low for removals (0.20), suggesting that many apparent losses do not correspond to observed physical infrastructure change. Pooled precision was 0.74 and the F1 score was 0.84. The study introduces a reproducible workflow to assess and calibrate OSM-based measures of cycling-infrastructure change for longitudinal urban research.</p>
+    <p>Cities are expanding their cycling networks rapidly, yet longitudinal data describing how these networks evolve remain limited. Volunteered Geographic Information, particularly OpenStreetMap (OSM), offers time-stamped spatial data on urban infrastructure, but its temporal reliability for detecting cycling-infrastructure change is uncertain. Therefore, independent validation is required to ensure that OSM-based estimates do not misrepresent the magnitude of change or bias longitudinal urban analyses. This study evaluates OSM’s accuracy in identifying additions and removals of cycling infrastructure in Barcelona between 2015 and 2023, using Google Street View (GSV) imagery as reference data within a reproducible, open-source workflow.</p>
+    <p>Baseline and follow-up cycling networks were reconstructed from dated OSM snapshots and compared using geometric differencing to detect apparent additions and removals. A stratified sample of locations was independently verified using GSV to estimate precision, recall, and F1 scores. OSM-derived estimates indicate an 80.3% increase in cycling-infrastructure length (130.7 km to 235.7 km). Validation showed high recall for both additions (0.96) and removals (1.00), suggesting that OSM successfully captures most real-world changes. However, precision was strong for additions (0.82) but very low for removals (0.20), indicating that many apparent losses do not correspond to observed physical infrastructure change but rather to mapping updates. By quantifying precision and recall, this study provides a transferable framework for calibrating OSM-based measures of cycling-infrastructure change in longitudinal urban research.</p>
   </div>
 </div>
 
@@ -221,7 +220,7 @@ Figure&nbsp;1: Main workflow steps.
 <section id="osm-temporal-differencing" class="level4">
 <h4 class="anchored" data-anchor-id="osm-temporal-differencing">OSM temporal differencing</h4>
 <p><strong>Step 1. Build OSM cycling networks</strong></p>
-<p>We constructed baseline and follow-up cycling-infrastructure networks from OSM extracts dated 1 January 2016 and 1 January 2024, used to approximate network conditions in 2015 and 2023, respectively. We focus on 2015–2023 to align the observation window with relevant municipal electoral cycles, rather than using the most recent available year.</p>
+<p>We constructed baseline and follow-up cycling-infrastructure networks from OSM extracts dated 1 January 2016 and 1 January 2024, used as proxy networks for conditions in 2015 and 2023, respectively. We focus on 2015–2023 to align the observation window with relevant municipal electoral cycles, consistent with the broader ATRAPA research design, rather than simply using the most recent available year.</p>
 <p>From each extract, we derived a core cycling-infrastructure network intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry, while reducing duplication arising from alternative OSM representations. A segment was classified as cycling infrastructure if either (i) it was mapped as a dedicated cycleway (<code>highway = cycleway</code>), or (ii) it was a street segment carrying explicit cycleway tags indicating a lane or track. In the second case, we searched <code>cycleway</code>-related keys (e.g., <code>cycleway</code>, <code>cycleway:left</code>, <code>cycleway:right</code>, <code>cycleway:both</code>, and other <code>cycleway:*</code> variants) and retained segments where any value matched {<code>lane</code>, <code>track</code>, <code>opposite_lane</code>, <code>opposite_track</code>} (“Bicycle - OpenStreetMap Wiki” n.d.). Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above.</p>
 <p>To further reduce duplication from parallel OSM representations of the same facility (e.g., a dedicated cycle track mapped as a separate geometry while a cycle lane is also tagged on the adjacent carriageway), we applied a no-double-counting (NDC) rule. Specifically, on-road cycle-lane segments were excluded when they overlapped with nearby dedicated cycling infrastructure, defined as cases where at least 20 m of the lane segment and at least 50% of its length fell within a 15 m buffer around dedicated cycling geometries.</p>
 <p><strong>Step 2. Detect OSM network change</strong></p>
@@ -232,7 +231,7 @@ Figure&nbsp;1: Main workflow steps.
 <section id="stratified-gsv-validation" class="level4">
 <h4 class="anchored" data-anchor-id="stratified-gsv-validation">Stratified GSV validation</h4>
 <p><strong>Step 3. Design stratified GSV sample</strong></p>
-<p>To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we designed a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; <a href="#fig-strata-validation" class="quarto-xref">Figure&nbsp;2</a> a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was operationalised as Euclidean distance to Plaça Catalunya as a simple, reproducible proxy for inner vs outer areas. Each variable was divided into terciles, and their combination produced nine density–centrality strata (D1_C1 to D3_C3). From each stratum, six tracts were randomly selected (total <span class="math inline">\(n = 54\)</span>).</p>
+<p>To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we designed a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; <a href="#fig-strata-validation" class="quarto-xref">Figure&nbsp;2</a> a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was operationalised as a simple, reproducible proxy for inner vs outer areas, measured via Euclidean distance to Plaça Catalunya. Each variable was divided into terciles, and their combination produced nine density–centrality strata (D1_C1 to D3_C3). From each stratum, six tracts were randomly selected (total <span class="math inline">\(n = 54\)</span>).</p>
 <p>Within each sampled tract, we attempted to sample up to two OSM-detected additions, two removals, and one NONCYC control segment. Segments were sampled with probability proportional to their length, so longer segments were more likely to be selected than shorter fragments. Candidate segments were split at census-tract boundaries before sampling so that segment length (and therefore sampling probability) was calculated only within each tract.</p>
 <p>Each sampled segment was converted to a single validation point located at its mid-length position (<a href="#fig-strata-validation" class="quarto-xref">Figure&nbsp;2</a> b). Points were linked to the nearest available GSV panorama and exported to coder workbooks (one per coder; <a href="#s1-workbook">Supplement S1</a>). The same points were also provided in an interactive map with direct Street View links (<a href="#s2-interactive-maps">Supplement S2</a>). When needed to obtain an interpretable view for the target year, coders were allowed to move the peg slightly along the same street while keeping the original location visible.</p>
 <div id="fig-strata-validation" class="quarto-layout-panel">
@@ -333,7 +332,7 @@ Figure&nbsp;2: Outputs used in the validation design: (a) Bivariate tract strati
 </div>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gsv-examples-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;3: Examples of True Positive changes observed during GSV validation: (a) 2015 baseline with no cycling infrastructure; (b) 2023 follow-up showing a new segregated track (0→1); (c) 2015 baseline with a cycle track; (d) 2023 follow-up showing its removal during a street redesign (1→0).
+Figure&nbsp;3: Examples of true positive changes identified during GSV validation: (a) 2015 baseline without cycling infrastructure; (b) 2023 follow-up showing a newly implemented segregated cycle track (0 → 1); (c) 2015 baseline with a cycle track; (d) 2023 follow-up showing its removal following street redesign (1 → 0).
 </figcaption>
 </figure>
 </div>
@@ -562,80 +561,80 @@ Table&nbsp;3: Validation points by class and stratum (usable points only)
 <td style="text-align: left;">Low density, peripheral</td>
 <td style="text-align: right;">5</td>
 <td style="text-align: right;">1</td>
-<td style="text-align: right;">0</td>
 <td style="text-align: right;">6</td>
+<td style="text-align: right;">12</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">D1_C2</td>
 <td style="text-align: left;">Low density, intermediate</td>
 <td style="text-align: right;">5</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">5</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">9</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D1_C3</td>
 <td style="text-align: left;">Low density, central</td>
 <td style="text-align: right;">6</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">6</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">11</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">D2_C1</td>
 <td style="text-align: left;">Medium density, peripheral</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">10</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D2_C2</td>
 <td style="text-align: left;">Medium density, intermediate</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">10</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">D2_C3</td>
 <td style="text-align: left;">Medium density, central</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">1</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">9</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D3_C1</td>
 <td style="text-align: left;">High density, peripheral</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">1</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">7</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">D3_C2</td>
 <td style="text-align: left;">High density, intermediate</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">1</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">9</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D3_C3</td>
 <td style="text-align: left;">High density, central</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">9</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">TOTAL</td>
 <td style="text-align: left;">All strata combined</td>
 <td style="text-align: right;">33</td>
 <td style="text-align: right;">5</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">38</td>
+<td style="text-align: right;">48</td>
+<td style="text-align: right;">86</td>
 </tr>
 </tbody>
 </table>
@@ -683,10 +682,10 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 <td style="text-align: right;">33</td>
 <td style="text-align: right;">27</td>
 <td style="text-align: right;">6</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">0.82 [0.66-0.91]</td>
-<td style="text-align: right;">1.00 [0.88-1.00]</td>
-<td style="text-align: right;">0.90</td>
+<td style="text-align: right;">0.96 [0.82-0.99]</td>
+<td style="text-align: right;">0.89</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">REMOVE</td>
@@ -703,10 +702,10 @@ Table&nbsp;4: Validation metrics for OSM inferred cycling-infrastructure changes
 <td style="text-align: right;">38</td>
 <td style="text-align: right;">28</td>
 <td style="text-align: right;">10</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">0.74 [0.58-0.85]</td>
-<td style="text-align: right;">1.00 [0.88-1.00]</td>
-<td style="text-align: right;">0.85</td>
+<td style="text-align: right;">0.97 [0.83-0.99]</td>
+<td style="text-align: right;">0.84</td>
 </tr>
 </tbody>
 </table>

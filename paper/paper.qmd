@@ -137,7 +137,7 @@ knitr::include_graphics("../figs/flowchart.png")
 
 **Step 1. Build OSM cycling networks**
 
-We constructed baseline and follow-up cycling-infrastructure networks from OSM extracts dated 1 January 2016 and 1 January 2024, used to approximate network conditions in 2015 and 2023, respectively. We focus on 2015--2023 to align the observation window with relevant municipal electoral cycles, rather than using the most recent available year.
+We constructed baseline and follow-up cycling-infrastructure networks from OSM extracts dated 1 January 2016 and 1 January 2024, used as proxy networks for conditions in 2015 and 2023, respectively. We focus on 2015–2023 to align the observation window with relevant municipal electoral cycles, consistent with the broader ATRAPA research design, rather than simply using the most recent available year.
 
 From each extract, we derived a core cycling-infrastructure network intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry, while reducing duplication arising from alternative OSM representations. A segment was classified as cycling infrastructure if either (i) it was mapped as a dedicated cycleway (`highway = cycleway`), or (ii) it was a street segment carrying explicit cycleway tags indicating a lane or track. In the second case, we searched `cycleway`-related keys (e.g., `cycleway`, `cycleway:left`, `cycleway:right`, `cycleway:both`, and other `cycleway:*` variants) and retained segments where any value matched {`lane`, `track`, `opposite_lane`, `opposite_track`} (“Bicycle - OpenStreetMap Wiki” n.d.). Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above.
 
@@ -155,7 +155,7 @@ To define control locations and support the identification of false negatives, w
 
 **Step 3. Design stratified GSV sample**
 
-To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we designed a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; @fig-strata-validation a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was operationalised as Euclidean distance to Plaça Catalunya as a simple, reproducible proxy for inner vs outer areas. Each variable was divided into terciles, and their combination produced nine density--centrality strata (D1\_C1 to D3\_C3). From each stratum, six tracts were randomly selected (total $n = 54$).
+To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we designed a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; @fig-strata-validation a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was operationalised as a simple, reproducible proxy for inner vs outer areas, measured via Euclidean distance to Plaça Catalunya. Each variable was divided into terciles, and their combination produced nine density--centrality strata (D1\_C1 to D3\_C3). From each stratum, six tracts were randomly selected (total $n = 54$).
 
 Within each sampled tract, we attempted to sample up to two OSM-detected additions, two removals, and one NONCYC control segment. Segments were sampled with probability proportional to their length, so longer segments were more likely to be selected than shorter fragments. Candidate segments were split at census-tract boundaries before sampling so that segment length (and therefore sampling probability) was calculated only within each tract.
 
@@ -197,11 +197,9 @@ Using the adjudicated baseline and follow-up GSV codes, we evaluated whether OSM
 #| label: fig-gsv-examples
 #| echo: false
 #| fig-align: center
-#| fig-width: 8
-#| fig-height: 4
-#| out-width: 100%
 #| layout-ncol: 2
-#| fig-cap: "Examples of True Positive changes observed during GSV validation: (a) 2015 baseline with no cycling infrastructure; (b) 2023 follow-up showing a new segregated track (0→1); (c) 2015 baseline with a cycle track; (d) 2023 follow-up showing its removal during a street redesign (1→0)."
+#| out-width: "100%"
+#| fig-cap: "Examples of true positive changes identified during GSV validation: (a) 2015 baseline without cycling infrastructure; (b) 2023 follow-up showing a newly implemented segregated cycle track (0 → 1); (c) 2015 baseline with a cycle track; (d) 2023 follow-up showing its removal following street redesign (1 → 0)."
 #| fig-subcap:
 #| - ""
 #| - ""
@@ -214,7 +212,6 @@ knitr::include_graphics(c(
   "../figs/removal-2015.png",
   "../figs/removal-2023.png"
 ))
-
 ```
 
 Validation performance was summarised using standard classification metrics based on the final reconciled validation dataset ([Supplement S4](#s4-joined-results)). Precision, recall and the F1 score were computed as:
