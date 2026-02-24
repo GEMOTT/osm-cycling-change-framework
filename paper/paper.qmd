@@ -1,5 +1,5 @@
 ---
-title: "Validating OpenStreetMap for detecting cycling-infrastructure change: A reproducible workflow in Barcelona using Google Street View (2015–2023)"
+title: "Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change: A reproducible validation framework using Google Street View"
 # author:
 #   - name: "Eugeni Vidal-Tortosa"
 #     email: "eugeni.vidal@uab.cat"
@@ -22,18 +22,18 @@ title: "Validating OpenStreetMap for detecting cycling-infrastructure change: A 
 #         address: "Building ICTA-ICP, Carrer de les Columnes s/n, UAB Campus, 08193, Cerdanyola del Vallès, Barcelona, Spain"
 
 abstract: |
- Cities are expanding their cycling networks rapidly, yet longitudinal data describing how these networks evolve remain limited. Volunteered Geographic Information, particularly OpenStreetMap (OSM), offers time-stamped spatial data on urban infrastructure, but its temporal reliability for detecting cycling-infrastructure change is uncertain. Therefore, independent validation is required to ensure that OSM-based estimates do not misrepresent the magnitude of change or bias longitudinal urban analyses. This study evaluates OSM’s accuracy in identifying additions and removals of cycling infrastructure in Barcelona between 2015 and 2023, using Google Street View (GSV) imagery as reference data within a reproducible, open-source workflow.
+ Cities are expanding their cycling networks rapidly, yet longitudinal data describing how these networks evolve remain limited. Volunteered Geographic Information (VGI), particularly OpenStreetMap (OSM), offers time-stamped spatial data on urban infrastructure, but its temporal reliability for detecting infrastructure change is uncertain. This study evaluates OSM’s accuracy in identifying additions and removals of cycling infrastructure in Barcelona (2015–2023). Using Google Street View (GSV) as a longitudinal reference within an open-source workflow, we validate whether OSM-based estimates reflect real-world changes or mapping artifacts.
 
- Baseline and follow-up cycling networks were reconstructed from dated OSM snapshots and compared using geometric differencing to detect apparent additions and removals. A stratified sample of locations was independently verified using GSV to estimate precision, recall, and F1 scores. OSM-derived estimates indicate an 80.3% increase in cycling-infrastructure length (130.7 km to 235.7 km). Validation showed high recall for both additions (0.96) and removals (1.00), suggesting that OSM successfully captures most real-world changes. However, precision was strong for additions (0.82) but very low for removals (0.20), indicating that many apparent losses do not correspond to observed physical infrastructure change but rather to mapping updates. By quantifying precision and recall, this study provides a transferable framework for calibrating OSM-based measures of cycling-infrastructure change in longitudinal urban research.
+ Baseline and follow-up cycling networks were reconstructed from dated OSM snapshots and compared using geometric differencing. A stratified sample of locations was independently verified using GSV to estimate precision, recall, and F1 scores. OSM-derived estimates indicate an 80.3% increase in cycling-infrastructure length (130.7 km to 235.7 km). Validation revealed high recall for both additions (0.96) and removals (1.00), suggesting that OSM successfully captures most real-world changes. However, while precision was strong for additions (0.82), it was notably low for removals (0.20), indicating that most apparent losses are attributable to mapping dynamics rather than physical infrastructure removal. By quantifying these metrics, this study provides a transferable framework to calibrate OSM-based measures of infrastructure change, thereby reducing exposure misclassification in longitudinal urban research.
   
 keywords:
   - OpenStreetMap (OSM)
+  - Volunteered geographic information (VGI)
   - Cycling infrastructure
-  - Active travel
-  - Built environment change
-  - Data validation
+  - Urban data science
+  - Change detection
+  - Spatial validation
   - Reproducible workflows
-  - Barcelona
 format: 
   # pdf 
   # docx: default
@@ -66,7 +66,7 @@ source("../R/10_maps.R")
 
 <!-- 1) Motivation + data problem -->
 
-In recent years, many cities worldwide have expanded their cycling networks in pursuit of cleaner, healthier and more equitable mobility [@szell_growing_2022; @buehler_cycling_2021]. Reliable data on how these networks evolve are essential for evidence-based planning and robust longitudinal research[@hirsch_obtaining_2016]. Yet longitudinal information is often missing: official inventories are rarely maintained consistently, while local field audits, though accurate, are costly, time-consuming and may suffer from inter-auditor inconsistencies, making them difficult to reproduce at scale [@winters_mapping_2025; @dai_street_2024]. As a result, longitudinally comparable data on cycling-infrastructure change remain limited and fragmented.
+In recent years, many cities worldwide have expanded their cycling networks in pursuit of cleaner, healthier and more equitable mobility [@szell_growing_2022; @buehler_cycling_2021]. Reliable data on how these networks evolve are essential for evidence-based planning and robust longitudinal research [@hirsch_obtaining_2016]. Yet longitudinal information is often missing: official inventories are rarely maintained consistently, while local field audits, though accurate, are costly, time-consuming and may suffer from inter-auditor inconsistencies, making them difficult to reproduce at scale [@winters_mapping_2025; @dai_street_2024]. As a result, longitudinally comparable data on cycling-infrastructure change remain limited and fragmented.
 
 <!-- 2) Why longitudinal measurement quality matters -->
 
@@ -98,7 +98,7 @@ Taken together, these limitations indicate that OSM-derived changes require inde
 
 <!-- 7) This study’s contribution -->
 
-This study addresses this gap by introducing a reproducible, open-source workflow implemented in R to (i) construct historical cycling-infrastructure networks from dated OSM snapshots, (ii) detect additions and removals through geometric differencing, and (iii) validate OSM-inferred changes using a stratified GSV protocol in Barcelona (2015–2023). This work was conducted within the ERC-funded ATRAPA project (The Active Travel Backlash Paradox), which examines public responses to built-environment sustainable-travel interventions across European cities. [@gemott_research_group_atrapa_2025].
+This study addresses this gap by introducing a reproducible, open-source workflow implemented in R to (i) construct historical cycling-infrastructure networks from dated OSM snapshots, (ii) detect additions and removals through geometric differencing, and (iii) validate OSM-inferred changes using a stratified GSV protocol in Barcelona (2015–2023). By operationalising longitudinal change detection and validation within a transparent computational pipeline, the study contributes a transferable urban data science framework for monitoring infrastructure transformation using volunteered geographic information. This work was conducted within a broader project examining public responses to built-environment sustainable-travel interventions across European cities.
 
 ## Data and methods
 
@@ -118,7 +118,7 @@ Barcelona is a large, dense Mediterranean city (around 1.7 million inhabitants) 
 
 ### Methods (workflow overview)
 
-The analysis followed a five-step reproducible workflow (Figure 1) with two main components: temporal differencing of dated OSM extracts to detect additions and removals of cycling infrastructure, and stratified GSV validation to check a sample of these detected changes. 
+The analysis followed a five-step reproducible workflow (@fig-workflow) with two main components: (i) temporal differencing of dated OSM extracts to detect additions and removals of cycling infrastructure, and (ii) stratified GSV validation to check a sample of these detected changes. 
 
 ```{r}
 #| label: fig-workflow
@@ -137,19 +137,19 @@ knitr::include_graphics("../figs/flowchart.png")
 
 **Step 1. Build OSM cycling networks**
 
-We constructed baseline and follow-up cycling-infrastructure networks from OSM extracts dated 1 January 2016 and 1 January 2024, used as proxy networks for conditions in 2015 and 2023, respectively. We focus on 2015–2023 to align the observation window with relevant municipal electoral cycles, consistent with the broader ATRAPA research design, rather than simply using the most recent available year.
+We constructed baseline and follow-up cycling-infrastructure networks from OSM extracts dated 1 January 2016 and 1 January 2024, used as proxy networks for conditions in 2015 and 2023, respectively. The 2015–2023 window was selected to align with relevant municipal electoral cycles and to reflect a policy-relevant period of cycling-network expansion.
 
-From each extract, we derived a core cycling-infrastructure network intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry, while reducing duplication arising from alternative OSM representations. A segment was classified as cycling infrastructure if either (i) it was mapped as a dedicated cycleway (`highway = cycleway`), or (ii) it was a street segment carrying explicit cycleway tags indicating a lane or track. In the second case, we searched `cycleway`-related keys (e.g., `cycleway`, `cycleway:left`, `cycleway:right`, `cycleway:both`, and other `cycleway:*` variants) and retained segments where any value matched {`lane`, `track`, `opposite_lane`, `opposite_track`} (“Bicycle - OpenStreetMap Wiki” n.d.). Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above.
+From each extract, we derived a core cycling-infrastructure network intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry, while reducing duplication arising from alternative OSM representations. A segment was classified as cycling infrastructure if either (i) it was mapped as a dedicated cycleway (`highway = cycleway`), or (ii) it was a street segment carrying explicit cycleway tags indicating a lane or track. In the second case, we searched `cycleway`-related keys (e.g., `cycleway`, `cycleway:left`, `cycleway:right`, `cycleway:both`, and other `cycleway:*` variants) and retained segments where any value matched {`lane`, `track`, `opposite_lane`, `opposite_track`} [@openstreetmap_contributors_bicycle_nodate]. Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above.
 
-To further reduce duplication from parallel OSM representations of the same facility (e.g., a dedicated cycle track mapped as a separate geometry while a cycle lane is also tagged on the adjacent carriageway), we applied a no-double-counting (NDC) rule. Specifically, on-road cycle-lane segments were excluded when they overlapped with nearby dedicated cycling infrastructure, defined as cases where at least 20 m of the lane segment and at least 50% of its length fell within a 15 m buffer around dedicated cycling geometries.
+To reduce duplication from parallel OSM representations of the same facility (e.g., a dedicated cycle track mapped as a separate geometry while a cycle lane is also tagged on the adjacent carriageway), we applied a no-double-counting (NDC) rule. Specifically, on-road cycle-lane segments were excluded when they overlapped with nearby dedicated cycling infrastructure, defined as cases where at least 20 m of the lane segment and at least 50% of its length fell within a 15 m buffer around dedicated cycling geometries. The 15 m proximity threshold reflects typical spatial offsets between carriageway-centreline representations and adjacent segregated cycle tracks in dense urban settings, while remaining conservative enough to avoid conflating distinct facilities on opposite sides of wide corridors. The additional requirements of a minimum 20 m overlap and at least 50% segment inclusion ensure that exclusions reflect substantive parallel representation rather than incidental geometric proximity.
 
 **Step 2. Detect OSM network change**
 
-Cycling-infrastructure change between the baseline and follow-up networks was detected using geometric differencing in a projected CRS. First, each network was dissolved and buffered by 10 m to accommodate minor geometric misalignments. Additions were defined as segments present in the 2023 proxy network but absent from the buffered 2015 proxy network; removals were defined analogously as segments present in the 2015 proxy network but absent from the buffered 2023 proxy network. Resulting fragments shorter than 10 m were discarded.
+Cycling-infrastructure change between the baseline and follow-up networks was detected using geometric differencing in a projected CRS. First, each network was dissolved and buffered by 10 m to accommodate minor geometric misalignments and small positional edits in OSM. This tolerance absorbs small positional shifts introduced by re-digitisation or geometry refinement, while remaining conservative relative to typical urban carriageway widths. Additions were defined as segments present in the 2023 proxy network but absent from the buffered 2015 proxy network; removals were defined analogously as segments present in the 2015 proxy network but absent from the buffered 2023 proxy network. Resulting fragments shorter than 10 m were discarded.
 
-To avoid counting positional edits in OSM as real infrastructure change, we flagged likely realignments as cases where an added segment lay within 15 m of a corresponding removed segment, and excluded these from the validation evaluation pool.
+To avoid counting positional edits in OSM as real infrastructure change, we flagged likely realignments as cases where an added segment lay within 15 m of a corresponding removed segment, reflecting small shifts in mapped geometry rather than substantive infrastructure modification. These cases were excluded from the validation evaluation pool. The 15 m proximity threshold serves a distinct purpose from the differencing buffer: it is intended to capture cases where added and removed fragments likely represent the same infrastructure feature that has been re-drawn, split, or slightly shifted in OSM rather than physically removed and rebuilt. The slightly larger distance allows for modest offsets between historical and updated geometries without conflating spatially distinct facilities.
 
-To define control locations and support the identification of false negatives, we constructed a non-cycling comparison pool (NONCYC) consisting of general street segments that did not meet the cycling-infrastructure tagging criteria. NONCYC candidates were restricted to standard road classes (`highway` $\in$ {`primary`, `secondary`, `tertiary`, `unclassified`, `residential` and corresponding link classes, `living_street`, `pedestrian`}). To avoid sampling road segments that overlap or lie immediately adjacent to cycling infrastructure, we removed any NONCYC candidate geometries located within a proximity buffer of cycling infrastructure in either reference year (2015 proxy or 2023 proxy). Resulting fragments shorter than 10 m were discarded.
+To define control locations and support the identification of false negatives, we constructed a non-cycling comparison pool (NONCYC) consisting of general street segments that did not meet the cycling-infrastructure tagging criteria. NONCYC candidates were restricted to standard road classes (`highway` $\in$ {`primary`, `secondary`, `tertiary`, `unclassified`, `residential` and corresponding link classes, `living_street`, `pedestrian`}). To avoid sampling road segments that overlap or lie immediately adjacent to cycling infrastructure, we removed any NONCYC candidate geometries located within 10 m of cycling infrastructure in either reference year (2015 proxy or 2023 proxy). Resulting fragments shorter than 10 m were discarded.
 
 #### Stratified GSV validation
 
@@ -186,7 +186,7 @@ Each validation site was independently coded by two trained coders following a s
 
 Because GSV imagery availability varies across locations and years, coders prioritised imagery as close as possible to the reference dates. For the baseline period, coders attempted 2016 and 2015 first (using 2014 only as a fallback when required); for the follow-up period, coders attempted 2024 and 2023 first (using 2022 only as a fallback when required). When multiple candidate years were available, the observation closest in time to the reference date was selected to define adjudicated baseline and follow-up values.
 
-Sites were coded as missing when available imagery did not allow a clear determination of cycling-infrastructure presence for the reference period (e.g., obscured views, roadworks, or  or ambiguous visual evidence). Missing observations were excluded from accuracy analyses requiring adjudicated baseline and follow-up values. Intercoder agreement was assessed on usable sites, and any discrepancies were resolved through reconciliation to produce a final adjudicated dataset for analysis.
+Sites were coded as missing when available imagery did not allow a clear determination of cycling-infrastructure presence for the reference period (e.g., obscured views, roadworks, or ambiguous visual evidence). Missing observations were excluded from accuracy analyses requiring adjudicated baseline and follow-up values. Intercoder agreement was assessed on usable sites, and any discrepancies were resolved through reconciliation to produce a final adjudicated dataset for analysis.
 
 **Step 5. Evaluate OSM performance**
 
@@ -229,7 +229,7 @@ All data processing, change detection, sampling, and validation procedures were 
 
 ### Network change detected from OSM (2015–2023)
 
-Between 2015 and 2023, the OSM-derived cycling network in Barcelona increased from 130.7 to 235.7 km, corresponding to a net growth of 105.0 km, an 80.3 % increase (@fig-changes). Network lengths were calculated as the summed length of cycling-infrastructure line geometries in OSM, without collapsing parallel or spatially separated facilities into a single corridor-level measure (e.g., cycle tracks on both sides of a street). Geometric differencing identified 127.1 km of added and 24.9 km of removed cycling infrastructure, yielding a net change of 102.2 km. The small discrepancy between this estimate and the change in yearly totals (–2.8 km) indicates good internal consistency between aggregate network lengths and differencing-based estimates (@tbl-consistency).
+Between 2015 and 2023, the OSM-derived cycling network in Barcelona increased from 130.7 to 235.7 km, corresponding to a net growth of 105.0 km, an 80.3 % increase (@fig-changes). Network lengths were calculated as the summed length of cycling-infrastructure line geometries in OSM, without collapsing parallel or spatially separated facilities into a single corridor-level measure (e.g., cycle tracks on both sides of a street). Geometric differencing identified 127.1 km of added and 24.9 km of removed cycling infrastructure, yielding a net change of 102.2 km. The small discrepancy (−2.8 km) reflects minor geometric artefacts introduced by the buffering, dissolving, and fragment-filtering steps used in the differencing procedure, and indicates good internal consistency between aggregate network totals and change estimates (@tbl-consistency).
 
 ```{r}
 #| label: tbl-consistency
@@ -337,7 +337,7 @@ Studies that evaluate cycling interventions often rely on the timing and locatio
 
 From an applied perspective, these results show that comparing OSM snapshots over time is a scalable way to identify likely additions to cycling infrastructure, although apparent removals should be treated with caution. Previous studies have shown that OSM can provide useful inventories of cycling infrastructure across different contexts, although results may vary depending on feature definitions and mapping practices [@hochmair_assessing_2015; @ferster_using_2020]. To improve accuracy, a small number of OSM-flagged changes can be checked using GSV, allowing us to estimate which changes are real and adjust overall counts accordingly.
 
-In particular, the observed precision values could be used to calibrate snapshot-differenced OSM estimates of cycling-network change. For example, scaling raw OSM counts by the change-specific precision values (approximately 0.8 for additions and 0.2 for removals in this study) can reduce bias when estimating net growth from OSM alone. Because validation was stratified by centrality and population density, these calibration factors could also be estimated separately for different urban contexts (i.e., strata) and then applied to OSM change counts aggregated across census tracts within each stratum. However, calibration of removals remains uncertain due to the small number of validated removal cases and should be interpreted as an indicative adjustment rather than a definitive correction.
+In particular, validation metrics can be used to calibrate snapshot-differenced OSM estimates of cycling-network change. Precision corrects for false positives, while recall reflects potential under-detection of real changes. A simple adjustment multiplies raw OSM counts by the change-specific precision values and, where recall is meaningfully below one, divides by recall to account for missed changes. In the Barcelona case, recall was high, so the dominant bias stemmed from false positives. Because validation was stratified by centrality and population density, these calibration factors could also be estimated separately for different urban contexts (i.e., strata) and then applied to OSM change counts aggregated across census tracts within each stratum. However, calibration of removals remains uncertain due to the small number of validated removal cases and should be interpreted as an indicative adjustment rather than a definitive correction.
 
 Methodologically, this study demonstrates a transparent, reproducible workflow combining historical cycling-infrastructure reconstruction, geometric differencing, stratified spatial sampling, and independent visual verification. GSV-based virtual audits have been widely used as an efficient alternative to in-person field audits for built-environment measurement [@rundle_using_2011; @hanibuchi_virtual_2019], and our results extend this approach to the validation of longitudinal cycling-infrastructure change. By releasing an open-source implementation and documenting the workflow, this work provides a transferable framework that can be applied in other settings with sufficient street-level imagery coverage.
 
@@ -355,41 +355,56 @@ Several limitations should be acknowledged. First, the number of validated remov
 
 This study evaluated the temporal reliability of OpenStreetMap (OSM) for detecting cycling-infrastructure change in Barcelona between 2015 and 2023. Using dated OSM snapshots, geometric differencing, and a stratified Google Street View validation protocol, we quantified the precision and recall of OSM-detected additions and removals within a reproducible open-source workflow. 
 
-The results show that OSM can reliably detect additions to cycling infrastructure but struggles to capture removals. Overall, OSM slightly overstates network growth. Despite these limitations, OSM remains a valuable, low-cost resource for longitudinal analysis of cycling infrastructure when accompanied by empirical calibration.
+The results show that OSM can reliably detect additions to cycling infrastructure but struggles to capture removals. Overall, OSM-derived snapshot differencing slightly overestimates net growth relative to validated change. Despite these limitations, OSM remains a valuable, low-cost resource for longitudinal analysis of cycling infrastructure when accompanied by empirical calibration.
 
-The study introduces a transparent validation framework that combines OSM historical data, stratified sampling, and GSV-based inspection to generate quantitative precision and recall metrics. These can be used to correct OSM-derived measures of change and to support comparisons within the ATRAPA framework. More broadly, the findings strengthen confidence in using VGI for temporal urban analysis while highlighting the need to understand the community and temporal dynamics behind its production.
+The study introduces a transparent validation framework that combines OSM historical data, stratified sampling, and GSV-based inspection to generate quantitative precision and recall metrics. These can be used to calibrate OSM-derived measures of change and to support comparative analyses across policy contexts. By explicitly quantifying detection accuracy, the framework enables researchers to better account for measurement error and potential exposure misclassification in subsequent longitudinal impact evaluations. More broadly, the findings support the responsible use of VGI in longitudinal urban analysis, while underscoring the importance of validating temporal change signals before drawing substantive policy or behavioural inferences.
 
 ## Data and code availability {.unnumbered}
 
-All code used to extract, process, and analyse OpenStreetMap data, generate validation samples, and compute validation metrics is openly available in a publicly archived GitHub repository:\
-<https://github.com/GEMOTT/active-travel-infras-changes>
+All code used to extract, process, and analyse OSM data, generate validation samples, and compute validation metrics is provided as supplementary material for peer review. The materials include fully documented R scripts, configuration files, and instructions required to reproduce all figures and tables in the paper. Analyses were conducted in R (version 4.3.3). Code and interactive materials will be made publicly available upon acceptance.
 
-The repository includes fully documented R scripts, configuration files, and instructions required to reproduce all figures and tables in the paper. Analyses were run in R (version 4.3.3).
+<!-- ## Acknowledgements {.unnumbered} -->
 
-## Acknowledgements {.unnumbered}
-
-This research forms part of the ATRAPA project and is funded by the European Research Council (grant 101117700). We thank members of the GEMOTT research group for helpful comments and discussions, and the OpenStreetMap community for their contributions.
+<!-- This research forms part of the ATRAPA project and is funded by the European Research Council (grant 101117700). We thank members of the GEMOTT research group for helpful comments and discussions, and the OpenStreetMap community for their contributions. -->
 
 ## Supplements {.unnumbered}
 
-### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered}
+The following supplementary materials are provided as separate files for peer review and will be made publicly available upon acceptance:
 
-[Download: here](../supplements/barcelona_samples_2015_2023_coder1.xlsx)\
+#### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered} 
 
-### S2. Google Street View validation protocol (PDF) {#s2-gsv-protocol .unnumbered}
+Contains the sampled segments and coding sheets used by the two independent coders.
 
-[Download: here](../supplements/GSV_validation_protocol.pdf)
+#### S2. Interactive maps (HTML)  {#s2-interactive-maps .unnumbered} 
+Includes two standalone interactive HTML visualisations:
+(i) validation points with direct GSV links;
+(ii) OSM change-detection map showing additions and removals.
+The maps support zooming, panning, layer toggling, and inspection of individual validation points and network segments, and can be opened locally in any modern web browser (an internet connection is required to load the basemap tiles).
 
-### S3. Interactive maps (HTML) {#s3-interactive-maps .unnumbered}
+#### S3. Google Street View validation protocol (PDF)  {#s3-gsv-protocol .unnumbered} 
+Details the standardised coding procedure, imagery selection rules, and reconciliation process.
 
-[View: Interactive validation points map (with GSV links)](../supplements/validation_points_map.html)\
-[View: Interactive OSM change-detection map](../supplements/infra_change_map.html)
+#### S4. Final adjudicated validation results (XLSX)   {#s4-joined-results .unnumbered}
+Provides the reconciled validation dataset used to compute precision, recall, and F1 scores.
 
-These maps allow zooming, panning and inspection of individual validation points and network segments.
+<!-- ### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered} -->
 
-### S4. Final adjudicated validation results (XLSX) {#s4-joined-results .unnumbered}
+<!-- [Download: here](../supplements/barcelona_samples_2015_2023_coder1.xlsx)\ -->
 
-[Download: here](../supplements/barcelona_samples_2015_2023_joined_results.xlsx)
+<!-- ### S2. Google Street View validation protocol (PDF) {#s2-gsv-protocol .unnumbered} -->
+
+<!-- [Download: here](../supplements/GSV_validation_protocol.pdf) -->
+
+<!-- ### S3. Interactive maps (HTML) {#s3-interactive-maps .unnumbered} -->
+
+<!-- [View: Interactive validation points map (with GSV links)](../supplements/validation_points_map.html)\ -->
+<!-- [View: Interactive OSM change-detection map](../supplements/infra_change_map.html) -->
+
+<!-- These maps allow zooming, panning and inspection of individual validation points and network segments. -->
+
+<!-- ### S4. Final adjudicated validation results (XLSX) {#s4-joined-results .unnumbered} -->
+
+<!-- [Download: here](../supplements/barcelona_samples_2015_2023_joined_results.xlsx) -->
 
 ## Declaration of Generative AI and AI-assisted technologies in the writing process {.unnumbered}
 
