@@ -37,9 +37,9 @@ keywords:
   - Spatial validation
   - Reproducible workflows
 format: 
-  # pdf 
-  # docx: default
-   html
+  pdf: 
+   keep-tex: true
+#   html
 bibliography: ../refs/references.bib 
 ---
 
@@ -80,9 +80,7 @@ The growing availability of Volunteered Geographic Information (VGI) offers new 
 
 <!-- 4) Some issues in OSM (general, especially temporal uncertainty) -->
 
-Early comparisons with authoritative datasets suggest that OSM can achieve good positional accuracy and substantial agreement in mapped features [@haklay_how_2010; @girres_quality_2010]. However, its use for longitudinal change analysis remains more uncertain. OSM data quality varies across space and time, and edits may reflect not only real-world changes but also evolving mapping practices, including delayed or retrospective updates [@barron_comprehensive_2014; @senaratne_review_2017; @minghini_openstreetmap_2019].
-In addition, tagging practices and compliance can vary across local contexts, introducing further heterogeneity in how features are represented [@almendros-jimenez_analyzing_2018].
-This uncertainty in timing can influence analytical results when historical OSM snapshots are used as proxies for real-world change [@schmidl_approach_2021; @juhasz_towards_2021].
+Early comparisons with authoritative datasets suggest that OSM can achieve good positional accuracy and substantial agreement in mapped features [@haklay_how_2010; @girres_quality_2010]. However, its use for longitudinal change analysis remains more uncertain. OSM data quality varies across space and time, and edits may reflect not only real-world changes but also evolving mapping practices, including delayed or retrospective updates [@barron_comprehensive_2014; @senaratne_review_2017; @minghini_openstreetmap_2019]. In addition, tagging practices and compliance can vary across local contexts, introducing further heterogeneity in how features are represented [@almendros-jimenez_analyzing_2018]. This uncertainty in timing can influence analytical results when historical OSM snapshots are used as proxies for real-world change [@schmidl_approach_2021; @juhasz_towards_2021].
 
 <!-- 5) Cycling-specific issues -->
 
@@ -108,11 +106,11 @@ This study addresses this gap by quantifying the temporal accuracy of OSM-derive
 
 Three data sources were used:
 
-- **OpenStreetMap (OSM).** Dated OSM extracts for Barcelona were retrieved for 1 January 2016 and 1 January 2024 using the `osmextract` R package [@gilardi_osmextract_2025]. These annual 1 January Geofabrik snapshots were used as proxies for end-of-2015 and end-of-2023 network conditions.
+-   **OpenStreetMap (OSM).** Dated OSM extracts for Barcelona were retrieved for 1 January 2016 and 1 January 2024 using the `osmextract` R package [@gilardi_osmextract_2025]. These annual 1 January Geofabrik snapshots were used as proxies for end-of-2015 and end-of-2023 network conditions.
 
-- **Google Street View (GSV).** Historical Street View panoramas were used to manually validate a sample of OSM-detected cycling-infrastructure additions and removals. Validation locations were linked to the nearest available Street View panoramas and inspected using the GSV interface.
+-   **Google Street View (GSV).** Historical Street View panoramas were used to manually validate a sample of OSM-detected cycling-infrastructure additions and removals. Validation locations were linked to the nearest available Street View panoramas and inspected using the GSV interface.
 
-- **Census and boundary data.** Census-tract boundaries (2015) and resident population counts (2022) were obtained from official statistical sources and used to design the stratified validation sample based on population density and centrality.
+-   **Census and boundary data.** Census-tract boundaries (2015) and resident population counts (2022) were obtained from official statistical sources and used to design the stratified validation sample based on population density and centrality.
 
 ### Study setting: Barcelona
 
@@ -120,7 +118,7 @@ Barcelona is a large, dense Mediterranean city (around 1.7 million inhabitants) 
 
 ### Methods (workflow overview)
 
-The analysis followed a five-step reproducible workflow (@fig-workflow) with two main components: (i) temporal differencing of dated OSM extracts to detect additions and removals of cycling infrastructure, and (ii) stratified GSV validation to check a sample of these detected changes. 
+The analysis followed a five-step reproducible workflow (@fig-workflow) with two main components: (i) temporal differencing of dated OSM extracts to detect additions and removals of cycling infrastructure, and (ii) stratified GSV validation to check a sample of these detected changes.
 
 ```{r}
 #| label: fig-workflow
@@ -147,7 +145,7 @@ To reduce duplication from parallel OSM representations of the same facility (e.
 
 Cycling-infrastructure change between the baseline and follow-up networks was detected using geometric differencing in a projected CRS. First, each network was dissolved and buffered by 10 m to accommodate minor geometric misalignments and small positional edits in OSM. This tolerance absorbs small positional shifts introduced by re-digitisation or geometry refinement, while remaining conservative relative to typical urban carriageway widths. Additions were defined as segments present in the 2023 proxy network but absent from the buffered 2015 proxy network; removals were defined analogously as segments present in the 2015 proxy network but absent from the buffered 2023 proxy network. Resulting fragments shorter than 10 m were discarded.
 
-To avoid counting positional edits in OSM as real infrastructure change, we flagged likely realignments as cases where an added segment lay within 15 m of a corresponding removed segment, reflecting small shifts in mapped geometry rather than substantive infrastructure modification. These cases were excluded from the validation evaluation pool. The 15 m proximity threshold serves a distinct purpose from the differencing buffer: it is intended to capture cases where added and removed fragments likely represent the same infrastructure feature that has been re-drawn, split, or slightly shifted in OSM rather than physically removed and rebuilt. 
+To avoid counting positional edits in OSM as real infrastructure change, we flagged likely realignments as cases where an added segment lay within 15 m of a corresponding removed segment, reflecting small shifts in mapped geometry rather than substantive infrastructure modification. These cases were excluded from the validation evaluation pool. The 15 m proximity threshold serves a distinct purpose from the differencing buffer: it is intended to capture cases where added and removed fragments likely represent the same infrastructure feature that has been re-drawn, split, or slightly shifted in OSM rather than physically removed and rebuilt.
 
 To define control locations and support the identification of false negatives, we constructed a non-cycling comparison pool (NONCYC) consisting of general street segments that did not meet the cycling-infrastructure tagging criteria. NONCYC candidates were restricted to standard road classes (`highway` $\in$ {`primary`, `secondary`, `tertiary`, `unclassified`, `residential` and corresponding link classes, `living_street`, `pedestrian`}). To avoid sampling road segments that overlap or lie immediately adjacent to cycling infrastructure, we removed any NONCYC candidate geometries located within 10 m of cycling infrastructure in either reference year (2015 proxy or 2023 proxy). Resulting fragments shorter than 10 m were discarded.
 
@@ -155,7 +153,7 @@ To define control locations and support the identification of false negatives, w
 
 **Step 3. Design stratified GSV sample**
 
-To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we designed a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; @fig-strata-validation a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was operationalised as a simple, reproducible proxy for inner vs outer areas, measured via Euclidean distance to Plaça Catalunya. Each variable was divided into terciles, and their combination produced nine density--centrality strata (D1\_C1 to D3\_C3). From each stratum, six tracts were randomly selected (total $n = 54$).
+To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we designed a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; @fig-strata-validation a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was operationalised as a simple, reproducible proxy for inner vs outer areas, measured via Euclidean distance to Plaça Catalunya. Each variable was divided into terciles, and their combination produced nine density--centrality strata (D1_C1 to D3_C3). From each stratum, six tracts were randomly selected (total $n = 54$).
 
 Within each sampled tract, we attempted to sample up to two OSM-detected additions, two removals, and one NONCYC control segment. Segments were sampled with probability proportional to their length, so longer segments were more likely to be selected than shorter fragments. Candidate segments were split at census-tract boundaries before sampling so that segment length (and therefore sampling probability) was calculated only within each tract.
 
@@ -192,7 +190,6 @@ Sites were coded as missing when available imagery did not allow a clear determi
 
 Using the adjudicated baseline and follow-up GSV codes, we evaluated whether OSM snapshot differencing correctly identified additions and removals of cycling infrastructure. For segments flagged as additions, a true positive (TP) corresponded to a 0→1 transition between baseline and follow-up, whereas a false positive (FP) corresponded to no change (0→0) or persistence of cycling infrastructure (1→1). For segments flagged as removals, a TP corresponded to a 1→0 transition, whereas an FP corresponded to no change (1→1) or no cycling infrastructure in either period (0→0). NONCYC control locations were used to identify false negatives (FN), defined as cycling-infrastructure changes visible in GSV but not detected by OSM differencing. Examples of TP additions and removals are shown in @fig-gsv-examples.
 
-
 ```{r}
 #| label: fig-gsv-examples
 #| echo: false
@@ -205,6 +202,9 @@ Using the adjudicated baseline and follow-up GSV codes, we evaluated whether OSM
 #| - ""
 #| - ""
 #| - ""
+#| fig-pos: "htbp"
+#| fig-cap-location: bottom
+#| fig-asp: 1
 
 knitr::include_graphics(c(
   "../figs/addition-2015.png",
@@ -220,8 +220,7 @@ $$
 \text{Precision}=\frac{TP}{TP+FP},\quad
 \text{Recall}=\frac{TP}{TP+FN},\quad
 F_1=\frac{2\cdot \text{Precision}\cdot \text{Recall}}{\text{Precision}+\text{Recall}}.
-$$
-Pooled metrics were computed by first aggregating TP, FP and FN across addition and removal events, and then calculating precision, recall and the F1 score from these pooled counts. For precision and recall, 95% confidence intervals were computed using Wilson score intervals for the corresponding numerators and denominators, which provide stable coverage for proportions, particularly with small sample sizes or extreme values. 
+$$ Pooled metrics were computed by first aggregating TP, FP and FN across addition and removal events, and then calculating precision, recall and the F1 score from these pooled counts. For precision and recall, 95% confidence intervals were computed using Wilson score intervals for the corresponding numerators and denominators, which provide stable coverage for proportions, particularly with small sample sizes or extreme values.
 
 All data processing, change detection, sampling, and validation procedures were implemented in an open-source R workflow, with full code and documentation available in the Data and code availability section.
 
@@ -360,7 +359,7 @@ Finally, this study contributes to broader efforts to assess the temporal validi
 
 ## Generalisability and limitations
 
-The proposed workflow is designed to be transferable to other cities where historical OSM extracts are available and street-level imagery coverage is sufficient for validation. The main requirements are (i) consistent OSM snapshots for two reference years, (ii) a spatial sampling frame (e.g., census tracts or equivalent small areas), and (iii) imagery that allows adjudication of infrastructure presence at both time points. 
+The proposed workflow is designed to be transferable to other cities where historical OSM extracts are available and street-level imagery coverage is sufficient for validation. The main requirements are (i) consistent OSM snapshots for two reference years, (ii) a spatial sampling frame (e.g., census tracts or equivalent small areas), and (iii) imagery that allows adjudication of infrastructure presence at both time points.
 
 Several limitations should be acknowledged. First, the number of validated removals was small, resulting in wide confidence intervals for removal-specific metrics. This reflects the scarcity of eligible removal candidates in the OSM-detected change pool under our cycling infrastructure definition and differencing rules, and the removal pool was further reduced by realignment filtering and incomplete GSV coverage for both reference periods. Sensitivity checks increasing the number of sampled tracts and candidate segments yielded only marginal gains in removal sites, indicating that removal sample size was constrained by event availability rather than by the sampling strategy. Second, GSV imagery dates vary within each anchor year and across locations, occasionally creating minor temporal mismatches with the OSM reference snapshots. This variability can blur the exact timing of change and may lead to a small number of misclassifications when cycling infrastructure was built, modified, or removed close to the snapshot dates. Third, although inter-rater agreement was high, subtle interpretive differences, such as deciding whether a facility meets the definition of cycling infrastructure, remain possible, especially for borderline or mixed designs. Fourth, the core cycling‑infrastructure filter is intended to be broadly applicable to other cities, but OSM’s tagging conventions are community‑driven and can vary across space and time. As a volunteer-driven folksonomy rather than a strictly enforced ontology, contributors may use different tags for similar types of cycling infrastructure, and the set of commonly used tags has evolved over the project’s history [@mocnik_openstreetmap_2017]. For example, painted or shared lanes may have been tagged differently in earlier years or in different cities. A narrow filter that only includes strictly dedicated cycleways may miss valid infrastructure such as painted lanes on streets (`cycleway=shared_lane`), while a broader filter that includes such tags could also count streets without proper cycleways, resulting in minor under- or overestimation of infrastructure. These temporal and spatial tagging differences introduce some uncertainty in how well a universal filter captures all relevant cycling infrastructure across different urban contexts. Finally, Barcelona likely represents a relatively well-mapped OSM context, given the concentration of OSM contributors and higher mapped completeness in many European and high-income urban areas; future research should assess how this workflow performs in lower-activity contexts and where mapping practices and tag usage may evolve differently [@herfort_spatio-temporal_2023].
 
@@ -384,20 +383,20 @@ All code used to extract, process, and analyse OSM data, generate validation sam
 
 The following supplementary materials are provided as separate files for peer review and will be made publicly available upon acceptance:
 
-#### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered} 
+#### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered}
 
 Contains the sampled segments and coding sheets used by the two independent coders.
 
-#### S2. Interactive maps (HTML)  {#s2-interactive-maps .unnumbered} 
-Includes two standalone interactive HTML visualisations:
-(i) validation points with direct GSV links;
-(ii) OSM change-detection map showing additions and removals.
-The maps support zooming, panning, layer toggling, and inspection of individual validation points and network segments, and can be opened locally in any modern web browser (an internet connection is required to load the basemap tiles).
+#### S2. Interactive maps (HTML) {#s2-interactive-maps .unnumbered}
 
-#### S3. Google Street View validation protocol (PDF)  {#s3-gsv-protocol .unnumbered} 
+Includes two standalone interactive HTML visualisations: (i) validation points with direct GSV links; (ii) OSM change-detection map showing additions and removals. The maps support zooming, panning, layer toggling, and inspection of individual validation points and network segments, and can be opened locally in any modern web browser (an internet connection is required to load the basemap tiles).
+
+#### S3. Google Street View validation protocol (PDF) {#s3-gsv-protocol .unnumbered}
+
 Details the standardised coding procedure, imagery selection rules, and reconciliation process.
 
-#### S4. Final adjudicated validation results (XLSX)   {#s4-joined-results .unnumbered}
+#### S4. Final adjudicated validation results (XLSX) {#s4-joined-results .unnumbered}
+
 Provides the reconciled validation dataset used to compute precision, recall, and F1 scores.
 
 <!-- ### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered} -->
@@ -411,6 +410,7 @@ Provides the reconciled validation dataset used to compute precision, recall, an
 <!-- ### S3. Interactive maps (HTML) {#s3-interactive-maps .unnumbered} -->
 
 <!-- [View: Interactive validation points map (with GSV links)](../supplements/validation_points_map.html)\ -->
+
 <!-- [View: Interactive OSM change-detection map](../supplements/infra_change_map.html) -->
 
 <!-- These maps allow zooming, panning and inspection of individual validation points and network segments. -->

@@ -1,0 +1,38 @@
+---
+title: "Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change: A reproducible validation framework using Google Street View"
+author:
+  - name: "Eugeni Vidal-Tortosa"
+    email: "eugeni.vidal@uab.cat"
+    affiliation:
+      - name: "Department of Geography, Universitat Autònoma de Barcelona (UAB)"
+        address: "Bellaterra Campus, Building B, Carrer de la Fortuna, s/n, 08193, Bellaterra, Barcelona, Spain"
+        corresponding: true
+  - name: "Víctor González Parra"
+    email: "victor.gonzalez.parra@uab.cat"
+    affiliation:
+      - name: "Department of Geography, Universitat Autònoma de Barcelona (UAB)"
+        address: "Bellaterra Campus, Building B, Carrer de la Fortuna, s/n, 08193, Bellaterra, Barcelona, Spain"
+
+  - name: "Oriol Marquet"
+    email: "oriol.marquet@uab.cat"
+    affiliation:
+      - name: "Department of Geography, Universitat Autònoma de Barcelona (UAB)"
+        address: "Bellaterra Campus, Building B, Carrer de la Fortuna, s/n, 08193, Bellaterra, Barcelona, Spain"
+      - name: "Institute of Environmental Science and Technology (ICTA-UAB)"
+        address: "Building ICTA-ICP, Carrer de les Columnes s/n, UAB Campus, 08193, Cerdanyola del Vallès, Barcelona, Spain"
+format:
+  pdf: 
+   keep-tex: true
+   # docx:
+   #  preview: false
+   #  reference-doc: archive/templates/custom-reference-doc-no-page-numbers.docx
+   #  number-sections: false
+---
+
+# Acknowledgements {.unnumbered}
+
+This research forms part of the ATRAPA project and is funded by the European Research Council (grant 101117700). We thank members of the GEMOTT research group for helpful comments and discussions, and the OpenStreetMap community for their contributions.
+
+# Declaration of competing interest {.unnumbered}
+
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
