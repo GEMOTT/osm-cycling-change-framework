@@ -390,22 +390,24 @@ By producing quantitative accuracy estimates within a transparent, transferable 
 
 All code used to extract, process, and analyse OSM data, generate validation samples, and compute validation metrics is provided as supplementary material for peer review (Supplementary Code Archive). Upon acceptance, the code and accompanying documentation will be deposited in a permanent public repository. Analyses were conducted in R (version 4.3.3).
 
-## Data and code availability {#s1-code .unnumbered}
+## Data and code availability {.unnumbered}
 
 The full reproducible workflow (R scripts and documentation) used to extract, process, and analyse OSM data, perform snapshot differencing, design the stratified sample, and compute validation metrics is publicly available at: **https://github.com/GEMOTT/osm-cycling-change-framework**. The repository is released under an open-source licence (e.g., MIT) and will be permanently archived (e.g., Zenodo DOI) upon acceptance. Analyses were conducted in R (version 4.3.3).
 
 ## Supplements {.unnumbered}
 
+The supplementary materials (S1–S4) are provided as separate files in the repository under `supplements/` and are included with the peer-review submission.
+
 ### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered}
 
-[S1_raw_validation_workbook.xlsx](supplements/S1_raw_validation_workbook.xlsx)
+[S1_raw_validation_workbook.xlsx](../supplements/S1_raw_validation_workbook.xlsx)
 
 Contains the sampled segments and coding sheets completed independently by the two coders prior to reconciliation.
 
 ### S2. Interactive maps (HTML) {#s2-interactive-maps .unnumbered}
 
-[S2_infra_change_map.html](supplements/S2_infra_change_map.html)  
-[S2_validation_points_map.html](supplements/S2_validation_points_map.html)
+[S2_infra_change_map.html](../supplements/S2_infra_change_map.html)\
+[S2_validation_points_map.html](../supplements/S2_validation_points_map.html)
 
 Two standalone interactive HTML visualisations:  
 (i) validation points with direct Google Street View links;  
@@ -415,13 +417,13 @@ The maps support zooming, panning, layer toggling, and inspection of individual 
 
 ### S3. Google Street View validation protocol (PDF) {#s3-gsv-protocol .unnumbered}
 
-[S3_GSV_validation_protocol.pdf](supplements/S3_GSV_validation_protocol.pdf)
+[S3_GSV_validation_protocol.pdf](../supplements/S3_GSV_validation_protocol.pdf)
 
 Details the standardised coding procedure, imagery selection rules, and reconciliation process.
 
 ### S4. Final adjudicated validation results (XLSX) {#s4-joined-results .unnumbered}
 
-[S4_adjudicated_validation_results.xlsx](supplements/S4_adjudicated_validation_results.xlsx)
+[S4_adjudicated_validation_results.xlsx](../supplements/S4_adjudicated_validation_results.xlsx)
 
 Provides the reconciled validation dataset used to compute precision, recall, and F1 scores.
 
