@@ -11,3 +11,6 @@ archive/
 wstlur/
 submission/
 
+
+/.quarto/
+**/*.quarto_ipynb

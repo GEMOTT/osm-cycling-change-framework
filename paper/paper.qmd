@@ -396,21 +396,32 @@ The full reproducible workflow (R scripts and documentation) used to extract, pr
 
 ## Supplements {.unnumbered}
 
-The following supplementary materials are provided as separate files for peer review and will be made publicly available upon acceptance:
-
 ### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered}
 
-Contains the sampled segments and coding sheets used by the two independent coders.
+[S1_raw_validation_workbook.xlsx](supplements/S1_raw_validation_workbook.xlsx)
+
+Contains the sampled segments and coding sheets completed independently by the two coders prior to reconciliation.
 
 ### S2. Interactive maps (HTML) {#s2-interactive-maps .unnumbered}
 
-Includes two standalone interactive HTML visualisations: (i) validation points with direct GSV links; (ii) OSM change-detection map showing additions and removals. The maps support zooming, panning, layer toggling, and inspection of individual validation points and network segments, and can be opened locally in any modern web browser (an internet connection is required to load the basemap tiles).
+[S2_infra_change_map.html](supplements/S2_infra_change_map.html)  
+[S2_validation_points_map.html](supplements/S2_validation_points_map.html)
+
+Two standalone interactive HTML visualisations:  
+(i) validation points with direct Google Street View links;  
+(ii) OSM change-detection map showing additions and removals.
+
+The maps support zooming, panning, layer toggling, and inspection of individual validation points and network segments. They can be opened locally in any modern web browser (an internet connection is required to load basemap tiles).
 
 ### S3. Google Street View validation protocol (PDF) {#s3-gsv-protocol .unnumbered}
+
+[S3_GSV_validation_protocol.pdf](supplements/S3_GSV_validation_protocol.pdf)
 
 Details the standardised coding procedure, imagery selection rules, and reconciliation process.
 
 ### S4. Final adjudicated validation results (XLSX) {#s4-joined-results .unnumbered}
+
+[S4_adjudicated_validation_results.xlsx](supplements/S4_adjudicated_validation_results.xlsx)
 
 Provides the reconciled validation dataset used to compute precision, recall, and F1 scores.
 
