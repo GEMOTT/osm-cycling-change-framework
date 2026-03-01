@@ -26,7 +26,6 @@ Although demonstrated for Barcelona (2015–2023), the framework is designed to 
 - `paper/` – Quarto manuscript source files  
 - `refs/` – Bibliography files  
 - `supplements/` – Supplementary materials (validation protocol, workbooks, additional outputs)  
-- `templates/` – Supporting document templates  
 - `_quarto.yml` – Quarto project configuration  
 - `osm-cycling-change-framework.Rproj` – RStudio project file  
 
