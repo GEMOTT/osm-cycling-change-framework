@@ -959,7 +959,7 @@ val_map_widget <- make_validation_points_interactive_map()
 
 htmlwidgets::saveWidget(
   widget        = val_map_widget,
-  file          = "../supplements/validation_points_map.html",
+  file          = "../supplements/S2_validation_points_map.html",
   selfcontained = TRUE
 )
 
@@ -968,6 +968,6 @@ infra_map_widget <- make_infra_change_interactive_map()
 
 htmlwidgets::saveWidget(
   widget        = infra_map_widget,
-  file          = "../supplements/infra_change_map.html",
+  file          = "../supplements/S2_infra_change_map.html",
   selfcontained = TRUE
 )

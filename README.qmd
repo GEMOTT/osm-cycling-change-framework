@@ -20,11 +20,12 @@ Although demonstrated for Barcelona (2015–2023), the framework is designed to 
 # Repository Structure
 
 - `R/` – Modular R scripts implementing the full analytical pipeline  
-- `paper/` – Quarto manuscript source files  
-- `figs/` – Figures used in the manuscript  
+- `data/` – Input datasets used to derive tract-level density indicators and administrative boundaries
+- `figs/` – Figures used in the manuscript 
 - `outputs/` – Derived datasets and validation results  
-- `supplements/` – Supplementary materials (validation protocol, workbooks, additional outputs)  
+- `paper/` – Quarto manuscript source files  
 - `refs/` – Bibliography files  
+- `supplements/` – Supplementary materials (validation protocol, workbooks, additional outputs)  
 - `templates/` – Supporting document templates  
 - `_quarto.yml` – Quarto project configuration  
 - `osm-cycling-change-framework.Rproj` – RStudio project file  
