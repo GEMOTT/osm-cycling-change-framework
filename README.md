@@ -25,13 +25,14 @@ extracts and street-level imagery are available.
 # Repository Structure
 
 - `R/` – Modular R scripts implementing the full analytical pipeline  
-- `paper/` – Quarto manuscript source files  
-- `figs/` – Figures used in the manuscript  
+- `data/` – Input datasets used to derive tract-level density indicators
+  and administrative boundaries
+- `figs/` – Figures used in the manuscript
 - `outputs/` – Derived datasets and validation results  
+- `paper/` – Quarto manuscript source files  
+- `refs/` – Bibliography files  
 - `supplements/` – Supplementary materials (validation protocol,
   workbooks, additional outputs)  
-- `refs/` – Bibliography files  
-- `templates/` – Supporting document templates  
 - `_quarto.yml` – Quarto project configuration  
 - `osm-cycling-change-framework.Rproj` – RStudio project file
 
