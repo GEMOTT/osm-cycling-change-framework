@@ -685,7 +685,8 @@ df_plot <- dplyr::bind_rows(
 ) |>
   dplyr::mutate(
     metric = factor(metric, levels = c("Precision", "Recall")),
-    Class_lab = factor(Class_lab, levels = rev(plot_df$Class_lab)) # top-to-bottom: ADD, REMOVE, Pooled
+    # bottom-to-top: Pooled, REMOVE, ADD  -> top-to-bottom: ADD, REMOVE, Pooled
+    Class_lab = factor(Class_lab, levels = c(plot_df$Class_lab[3], plot_df$Class_lab[2], plot_df$Class_lab[1]))
   )
 
 pd <- ggplot2::position_dodge(width = 0.35)

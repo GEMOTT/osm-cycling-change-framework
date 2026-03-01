@@ -1,33 +1,23 @@
 ---
 title: "Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change: A reproducible validation framework using Google Street View"
-author:
-  - name: "Eugeni Vidal-Tortosa"
-    email: "eugeni.vidal@uab.cat"
-    affiliation:
-      - name: "Department of Geography, Universitat Autònoma de Barcelona (UAB)"
-        address: "Bellaterra Campus, Building B, Carrer de la Fortuna, s/n, 08193, Bellaterra, Barcelona, Spain"
-        corresponding: true
-  - name: "Víctor González Parra"
-    email: "victor.gonzalez.parra@uab.cat"
-    affiliation:
-      - name: "Department of Geography, Universitat Autònoma de Barcelona (UAB)"
-        address: "Bellaterra Campus, Building B, Carrer de la Fortuna, s/n, 08193, Bellaterra, Barcelona, Spain"
-
-  - name: "Oriol Marquet"
-    email: "oriol.marquet@uab.cat"
-    affiliation:
-      - name: "Department of Geography, Universitat Autònoma de Barcelona (UAB)"
-        address: "Bellaterra Campus, Building B, Carrer de la Fortuna, s/n, 08193, Bellaterra, Barcelona, Spain"
-      - name: "Institute of Environmental Science and Technology (ICTA-UAB)"
-        address: "Building ICTA-ICP, Carrer de les Columnes s/n, UAB Campus, 08193, Cerdanyola del Vallès, Barcelona, Spain"
 format:
-  pdf: 
-   keep-tex: true
-   # docx:
-   #  preview: false
-   #  reference-doc: archive/templates/custom-reference-doc-no-page-numbers.docx
-   #  number-sections: false
+  pdf:
+    keep-tex: true
 ---
+
+\thispagestyle{empty}
+\pagestyle{empty}
+
+\begin{center}
+{\large Eugeni Vidal-Tortosa$^{1,*}$, Víctor González-Parra$^{1}$, Oriol Marquet$^{1,2}$}\\[1.0em]
+{\small
+$^{1}$ Department of Geography, Universitat Autònoma de Barcelona (UAB),\\
+Bellaterra Campus, Building B, Carrer de la Fortuna s/n, 08193 Bellaterra, Barcelona, Spain\\[0.6em]
+$^{2}$ Institute of Environmental Science and Technology (ICTA-UAB),\\
+Building ICTA-ICP, Carrer de les Columnes s/n, UAB Campus, 08193 Cerdanyola del Vallès, Barcelona, Spain\\[1.0em]
+$^{*}$ Corresponding author: eugeni.vidal@uab.cat; Tel.: +34 644 340 850
+}
+\end{center}
 
 # Acknowledgements {.unnumbered}
 

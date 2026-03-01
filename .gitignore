@@ -5,5 +5,8 @@
 *data
 /.quarto/
 *pdf
+*archive
+*wstlur
+*submission
 
 **/*.quarto_ipynb

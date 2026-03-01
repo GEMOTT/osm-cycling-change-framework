@@ -1,49 +1,66 @@
 ---
-title: "OSM Cycling-Infrastructure Validation (Barcelona, 2015–2023)"
+title: "OSM Cycling-Infrastructure Change Validation (Barcelona, 2015–2023)"
 format: gfm
 editor: visual
 ---
 
 # Overview
 
-This repository contains the reproducible workflow for the study:
+This repository contains the reproducible workflow and materials for:
 
-**Validating OpenStreetMap for detecting cycling-infrastructure change:\
-A Barcelona pilot using Google Street View (2015–2023).**
+**Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change:  
+A reproducible validation framework using Google Street View (Barcelona, 2015–2023).**
 
-The aim is to evaluate how well OpenStreetMap (OSM) detects additions and removals of cycling infrastructure, using manual Google Street View coding as ground truth.
+The study evaluates how well OpenStreetMap (OSM) snapshot differencing detects cycling-infrastructure **additions** and **removals**, using manual coding from historical Google Street View (GSV) imagery as external validation. We estimate precision, recall, and F1 scores under a probability-based stratified sampling design.
 
-The project includes the full paper, an extended abstract, and presentation slides.
+# Contents
 
-# Structure
+- **Manuscript and outputs**
+  - `paper.qmd` – full manuscript (Quarto)
+  - `abstract.qmd` – abstract (Quarto)
+  - `slides/slides.qmd` – presentation slides (revealjs)
 
--   `paper.qmd` – full manuscript\
--   `abstract.qmd` – short abstract\
--   `slides/slides.qmd` – revealjs slides\
--   `R/` – helper functions (e.g. `utils.R`)\
--   `data/` – input data\
--   `outputs/` – derived datasets, Excel validation results, figures\
--   `figs/` – reusable figures\
--   `refs/` – bibliography files
+- **Code**
+  - `R/` – scripts for extraction, network construction, differencing, sampling, validation, and figures
+  - `R/utils_*.R` – helper functions (sampling, metrics, confidence intervals, etc.)
 
-# Workflow (summary)
+- **Data and derived products**
+  - `data/` – input data (boundaries, census data, etc.; see notes below)
+  - `outputs/` – derived datasets and validation outputs (tables, XLSX exports)
+  - `figs/` – figures used in the manuscript
+  - `refs/` – bibliography files
 
-1.  Stratified sampling of Barcelona street segments (density × centrality).\
-2.  Dual GSV coding for ≈2015 and ≈2023.\
-3.  Resolution of disagreements to obtain consensus labels.\
-4.  Evaluation of OSM performance (precision, recall, F1) for additions, removals, and non-changes.\
-5.  Export of final validation tables to `outputs/*joined_results.xlsx`.
+# Workflow (high level)
 
-# How to use
+1. Build baseline and follow-up cycling-infrastructure networks from dated OSM extracts.
+2. Detect additions and removals using geometric snapshot differencing.
+3. Design a stratified sample across Barcelona’s census tracts (density × centrality).
+4. Validate sampled sites using dual-coder GSV interpretation (≈2015 vs ≈2023), then reconcile.
+5. Compute precision, recall, and F1 (with confidence intervals) for additions, removals, and pooled change.
 
-1.  Open the RStudio project: `active-travel-infras-changes.Rproj`.\
-2.  Render:
-    -   `paper.qmd` for the full paper\
-    -   `abstract.qmd` for the short summary\
-    -   `slides/slides.qmd` for the presentation
+# Reproduce the paper
 
-<!-- # Contact -->
+## Requirements
 
-<!-- **Eugeni Vidal-Tortosa**   -->
+- R (tested on 4.3.3)
+- RStudio (recommended)
+- Quarto
 
-<!-- eugeni.vidal@uab.cat -->
+## Steps
+
+1. Open the RStudio project: `active-travel-infras-changes.Rproj`
+2. Render the manuscript:
+
+   - `paper.qmd` (main paper)
+   - `abstract.qmd` (short abstract)
+   - `slides/slides.qmd` (presentation)
+
+Most analysis steps are run via the sourced scripts in the setup chunk of `paper.qmd`.
+
+# Data notes
+
+Some inputs may be redistributed under different licences or size constraints. Where full raw inputs are not included, the repository documents how to download or recreate them (e.g., dated OSM extracts, boundary/census sources). Derived outputs used in the paper are provided in `outputs/`.
+
+# Licence
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
