@@ -390,7 +390,7 @@ The full reproducible workflow (R scripts and documentation) used to extract, pr
 
 ## Supplements {.unnumbered}
 
-The supplementary materials (S1–S4) are provided as separate files in the repository under `supplements/` and are included with the peer-review submission.
+The supplementary materials (S1–S4) are provided as separate files and are included with the peer-review submission. For transparency, they are also available in the project repository under `supplements/`.
 
 ### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered}
 
