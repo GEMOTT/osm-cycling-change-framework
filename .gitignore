@@ -1,12 +1,15 @@
-.Rproj.user
+.Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
-*data
-/.quarto/
-*pdf
-*archive
-*wstlur
-*submission
 
-**/*.quarto_ipynb
+.quarto/
+*_files/
+*_cache/
+
+data/
+archive/
+wstlur/
+submission/
+
+*.pdf
