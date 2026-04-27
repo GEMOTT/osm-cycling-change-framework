@@ -390,7 +390,7 @@ The full reproducible workflow (R scripts and documentation) used in this study 
 
 ## Supplements {.unnumbered}
 
-The supplementary materials (S1–S4) are provided as separate files and are included with the peer-review submission. 
+The supplementary materials (S1–S4) are provided as separate files and are included with the peer-review submission.
 
 ### S1. Raw validation workbook (XLSX) {#s1-workbook .unnumbered}
 
@@ -401,10 +401,11 @@ Contains the sampled segments and coding sheets completed independently by the t
 ### S2. Interactive maps (HTML) {#s2-interactive-maps .unnumbered}
 
 <!-- [S2_infra_change_map.html](../supplements/S2_infra_change_map.html)\ -->
+
 <!-- [S2_validation_points_map.html](../supplements/S2_validation_points_map.html) -->
 
-Two standalone interactive HTML visualisations:  
-(i) validation points with direct Google Street View links;  
+Two standalone interactive HTML visualisations:\
+(i) validation points with direct Google Street View links;\
 (ii) OSM change-detection map showing additions and removals.
 
 The maps support zooming, panning, layer toggling, and inspection of individual validation points and network segments. They can be opened locally in any modern web browser (an internet connection is required to load basemap tiles).

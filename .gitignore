@@ -8,9 +8,7 @@
 *_cache/
 
 archive/
-wstlur/
-submission/
-
 
 /.quarto/
 **/*.quarto_ipynb
+.positai
