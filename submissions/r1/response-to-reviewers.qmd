@@ -1,0 +1,175 @@
+---
+title: "Response to the Reviewers’ Comments"
+format:
+  docx:
+    number-sections: false
+    reference-doc: templates/custom-reference-blue.docx
+editor: visual
+---
+
+**Manuscript:** Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change: A reproducible validation framework using Google Street View\
+**Manuscript Number:** JTRG-D-26-00424
+
+------------------------------------------------------------------------
+
+Dear Dr Cao,
+
+Thank you for your decision and for the reviewers’ constructive and insightful comments on our manuscript (JTRG-D-26-00424). We have carefully revised the manuscript and addressed all comments in detail, and we believe these revisions have improved the clarity, methodological transparency, and overall contribution of the paper.
+
+A revised version of the manuscript is included, with key modifications indicated in bold.
+
+Below we provide a structured, point-by-point response to the reviewers’ comments.
+
+------------------------------------------------------------------------
+
+## Reviewer #1
+
+**Comment**
+
+The article lacks a clearly defined research objective, and it is more methodological in nature, which, of course, does not detract from its substantive and scientific value. The article analyses and validates data on the cycle route network from OSM and Google Street View. This is a new and rather innovative approach, which requires further clarification regarding:
+
+Did the authors attempt to compare information on the length of the cycle route network extracted from OSM with other data, e.g. from the city? Did the authors attempt to examine entire road sections using machine learning algorithms with the aid of GSV, or did they consider doing so? Did the authors use tools to extract data from OSM, and how did they select the road networks for each year from 2015 to 2023? Taking into account the network year by year and the changes could eliminate certain errors or even make them easier to spot. The network maps show that in 2015, the layout was more skeletal and oriented in a band-like pattern towards the sea, whilst over the following 8 years, major road networks were built across it. But the sections that have been removed stand out. Isn't it perhaps the case that they were simply misclassified or were on a cycle lane (a lane on the carriageway), making them easy to remove from the data? Finally, a very strong conclusion was drawn that the infrastructure in OSM, or the network itself, does a good job of incorporating new sections but struggles with those that have been removed. This is a very important conclusion for everyone who uses OSM data, not just linear data.
+
+**Response:**
+
+::: {custom-style="BlueResponse"}
+We agree that the research objective could be stated more clearly.
+
+In the revised manuscript, we have clarified the objective in the Introduction by explicitly formulating the aim of the study at the beginning of the contribution paragraph (“Building on this gap, this study aims to quantify the temporal accuracy of OSM-derived cycling-infrastructure change…”).
+
+We address each specific point below:
+
+1.  Comparison with official data: We have incorporated a comparison between OSM-derived network length and official municipal data for Barcelona. The results show a broadly similar temporal evolution, providing an aggregate consistency check of the OSM-derived estimates. This comparison is presented as contextual support, while the proposed workflow is designed for application in contexts where such longitudinal official data are not available.
+
+2.  Machine learning approaches: Automated approaches based on machine learning and street-level imagery offer promising opportunities to scale validation of built-environment features. However, such approaches typically require substantial training data, are sensitive to image quality and visibility conditions, and may struggle to consistently detect more subtle forms of cycling infrastructure (e.g., painted lanes or shared facilities). In this study, we adopted a manual validation approach using a stratified sample of locations to ensure high interpretability and control over classification decisions. This approach allows us to directly assess the correspondence between OSM-detected changes and observable on-street conditions, while maintaining transparency and reproducibility. We agree that integrating automated image-based methods represents an important avenue for future work and have noted this in the revised manuscript.
+
+3.  OSM extraction and yearly networks: OSM data were extracted using dated Geofabrik snapshots via the osmextract R package, as described in Section 2.2. We constructed baseline and follow-up cycling networks corresponding to 2015 and 2023 conditions, and applied snapshot differencing to detect changes between these two reference periods. We acknowledge that analysing the network year by year could provide additional insights into the evolution of cycling infrastructure and may help identify certain types of mapping artefacts. However, the objective of this study is to evaluate the temporal accuracy of change detection between two policy-relevant time points using a reproducible and scalable workflow. The use of two reference snapshots allows for a clear and interpretable validation framework aligned with the GSV-based assessment. We agree that extending this approach to multi-year temporal reconstruction represents an interesting direction for future work.
+
+4.  Potential misclassification: Need to souble check this.
+
+5.  Strength of conclusions on removals: We agree that the conclusion regarding removals should be interpreted with appropriate caution, particularly given the small number of validated removal cases and the associated uncertainty. In the revised manuscript, we have moderated the wording to emphasise that the observed asymmetry between additions and removals reflects the Barcelona case study and should be interpreted as indicative rather than definitive. We also highlight the role of mapping artefacts and representation changes in explaining apparent removals.
+:::
+
+## Reviewer #2
+
+**Comment**
+
+This study aims to evaluate the accuracy of OpenStreetMap in tracking cycling infrastructure change over time by employing a manual Google Street View verification method in Barcelona using data from 2015 and 2023. The aim of the study are pertinent to the field of cycling research and the methodological approach is sound. My comments are fairly minor as I believe the manuscript to already be in a decent place.
+
+Can the author add to table 1 (or anywhere else in the manuscript) the number of distinct cycling segments (the total sample from which the GSV sample was derived)? I am perplexed as to why did the authors reviewed such a small number of cycling segments (n = 86), what percentage of all eligible segments does that represent? While it is true that manual GSV verifications of built environment features 4 take time (I have conducted them many times for pedestrian and cycling infrastructures on hundreds of street segments each time), it is not a justification to select such a small sample. This represent my primary grievance with the paper as it is. I think the authors should expand their sampling further to cover as much as possible of the existing cycling network if they wish to be able to provide more generalizable comments on the precision of OSM for assessing changes in cycling infrastructure.
+
+As a minor comment, there are some adjective choices in text that seem a bit odd or superfluous (could be from the use of AI) and it would probably be best if they were cleaned out (e.g., "adjudicated baseline", "authoritative datasets")
+
+**Response:**
+
+::: {custom-style="BlueResponse"}
+We thank the reviewer for these comments. We address the main points below:
+
+1. Sample size and representativeness:
+
+We acknowledge the concern regarding the size of the validation sample and have clarified this point in the revised manuscript.
+
+The sampling design is based on a stratified approach, with fixed quotas applied within sampled tracts to ensure coverage across different urban contexts. Within each tract, segments are drawn from the pool of OSM-detected change candidates. Importantly, the effective sample size is constrained by the availability of eligible change segments. In many tracts, particularly for removals, few or no candidate segments are present. Additional filtering steps (e.g. minimum segment length and realignment exclusion), together with the requirement for valid GSV imagery at both reference periods, further reduce the number of segments that can be verified.
+We conducted additional sensitivity checks by expanding sampling efforts, but these yielded only marginal increases in usable validation cases, indicating that the sample size is primarily limited by the availability of verifiable change events rather than by the sampling strategy itself.
+We emphasise that the validation targets OSM-detected change events rather than the full cycling network. To improve transparency, we now explicitly report the total number of eligible change segments and the proportion included in the validation sample in Section 3.2 of the revised manuscript.
+
+2. Wording and terminology: We have revised the manuscript to simplify wording and remove terms that could appear unnecessarily technical or superfluous. In particular, we have reviewed expressions such as “adjudicated baseline” and “authoritative datasets” and replaced them where appropriate with clearer wording.
+
+“adjudicated baseline and follow-up values” → “final baseline and follow-up values”
+“authoritative datasets” → “official datasets” or “reference datasets”
+:::
+
+## Reviewer #3
+
+**Comment**
+
+This study aims to assess the temporal accuracy of the OpenStreetMap (OSM) data by using historical Google Street View (GSV). I thoroughly enjoyed reading this manuscript; it is well structured, clearly written, and supported by a solid methodological approach. I support the publication of this manuscript and recommend that it undergo only very minor revisions before being reconsidered for publication, for the following reasons:
+
+- The objectives are clearly articulated and address a significant methodological gap in the literature on longitudinal studies of cycling networks.
+
+- The methodology is particularly rigorous, relying on a careful and innovative combined use of OpenStreetMap (OSM) and Google Street View (GSV) data.
+
+- The results are robust and convincing, clearly presented, and supported by extensive and well-documented supplementary materials.
+
+Minor revisions.
+
+1.  Title of Table 4 is missing.
+
+2.  Table 4 and Figure 5 present the same results. Including both is unnecessary and redundant. I suggest retaining only the table.
+
+3.  Table 3 reports 86 observations (Add:33; Remove: 5; NonCycl: 48), whereas Table 4 reports 76 observations (Add:33; Remove: 5; Pooled: 38). Is this difference expected? Please clarify.
+
+4.  The study is based on 86 Google Street View (GSV) locations assessed at two time points. This limitation should be discussed in Section 5 entitled Generalisability and Limitations.
+
+5.  It would be useful to discuss whether this methodological approach would remain feasible if applied to a much larger number of locations (e.g., 1,000 or 10,000 sites). The limitations related to Google Street View licensing terms are not discussed, including the prohibition of web scraping and the potential need to rely on the Google Street View API, along with possible cost implications.
+
+**Response:**
+
+::: {custom-style="BlueResponse"}
+We thank the reviewer for the positive evaluation. We address the minor comments below:
+
+1.  Title of Table 4: Table 4 already included a title in the submitted manuscript. However, we agree that the caption was overly long and may have reduced clarity. In the revised version, we have shortened the table title and moved the explanatory text to a note below the table. 
+
+2.  Redundancy between Table 4 and Figure 5: We agree with this suggestion. Figure 5 has been removed to avoid redundancy, and Table 4 has been retained as the primary presentation of these results.
+
+3.  Yes, this difference is expected. Table 3 reports all usable validation observations, including non-cycling (NONCYC) control sites, whereas Table 4 reports classification metrics based on change events only (additions and removals). In Table 4, the “Pooled” category combines addition and removal observations (33 + 5 = 38), and NONCYC sites are not included as observations but contribute to the estimation of false negatives. 
+To improve clarity, we have added a brief clarification to the note of Table 4 indicating that only change events are included, while NONCYC sites are used to identify false negatives and are not counted as observations.
+
+4.  Limitation on GSV observations: We agree and have clarified this point in Section 5 (Generalisability and limitations). We now explicitly state that the overall validation sample is relatively small (n = 86 usable sites), and note that this is primarily driven by the availability of locations with suitable GSV imagery at both time points. We also highlight that this constraint particularly affects removal-specific estimates, which are based on a small number of observations and therefore exhibit wider confidence intervals.
+
+5.  Scalability and licensing: We have expanded Section 5 (Generalisability and limitations) to discuss the scalability of the proposed workflow. While the approach is conceptually scalable, applying it to much larger samples would face practical constraints. In particular, the validation relies on manual inspection of historical Google Street View imagery, which is time-intensive to scale. We also note that currently available programmatic access options do not provide equivalent access to historical Street View imagery across time points, which limits the feasibility of fully automated large-scale validation. These considerations are now acknowledged in the revised manuscript.
+:::
+
+## Reviewer #4
+
+**Comment**
+
+This paper addresses an important question: the reliability of OSM for detecting longitudinal cycling infrastructure change. The integration of OSM snapshot differencing with GSV-based validation is a clear strength, and the finding that additions are more reliable than removals is relevant. However, in its current form, the manuscript reads more like a technical report than a fully developed journal article, and several aspects of the validation design and interpretation require further clarification.
+
+In particular, the study raises a classic "proxy vs. proxy" issue in urban informatics, where one imperfect data source is used to validate another. While GSV provides a practical reference, it is itself a temporally and spatially uneven proxy. As such, it remains unclear to what extent the reported validation results reflect true agreement with ground truth, as opposed to inconsistencies between two imperfect datasets. This limitation should be more explicitly acknowledged and addressed in the manuscript.
+
+Here are my detailed comments:
+
+1.  In Section 2.3.2 and Section 5, the manuscript relies on GSV imagery as a validation reference but does not sufficiently address its limitations. GSV coverage is uneven across space and time, and the use of fallback years (e.g., 2014 and 2022) introduces temporal mismatch with the OSM snapshots. In addition, GSV is implicitly treated as ground truth, although visibility and interpretability of cycling infrastructure vary by type. The authors should clarify how these issues may bias the reported precision and recall estimates and whether the set of usable validation points is systematically skewed. The authors should also look at few papers available that have discussed the coverage and biases of the GSV image.
+
+2.  In Section 2.3.1, the authors use a specific set of OSM tags to define cycling infrastructure, focusing on dedicated cycleways and certain lane/track attributes. This may exclude other forms of infrastructure (e.g., shared lanes) and could affect completeness. The authors should clarify how this definition influences the results and discusses implications for applying the framework in other contexts.
+
+3.  In Section 2.3.1 and Section 2.3.2, false negatives are identified using a NONCYC control pool that is explicitly filtered to exclude areas near cycling infrastructure. This design likely reduces the probability of detecting missed changes and may inflate recall estimates. The very high reported recall values (0.96-1.00) should therefore be interpreted with caution. The authors should clarify the assumptions underlying this design and discuss how it may affect the validity of recall as a performance metric.
+
+4.  The workflow depends on several parameter choices, including buffer distances, proximity thresholds, and minimum segment lengths (Section 2.3.1). While these are justified conceptually, the manuscript does not assess how sensitive the results are to these values. Given the claim of a transferable framework, the authors should either provide a sensitivity analysis or further justify the robustness of these parameter choices.
+
+5.  In Section 2.3.2 and also Table 3, although the sampling strategy is described as stratified, the actual implementation involves fixed numbers of samples per tract and is constrained by GSV availability. This leads to imbalances across classes (e.g., very few removals) and potential selection bias due to missing imagery (only 82% usable points). The authors should clarify whether the resulting validation set can be considered representative of the full set of detected changes.
+
+6.  The conclusions regarding removal detection are based on only five usable cases (Table 4), which is a very small sample. While this limitation is acknowledged, the low precision of removals is emphasized throughout the manuscript, including in the Abstract and Discussion. Given the wide uncertainty associated with such a small sample, the authors should moderate these claims or provide a stronger justification for their interpretation.
+
+7.  The manuscript emphasizes a "reproducible" and "transferable" framework; however, the validation step relies on manual coding of GSV imagery and depends on external data availability. As such, reproducibility is only partial, and transferability may vary across cities with different OSM data quality and GSV coverage. The authors should refine these claims accordingly.
+
+8.  Minor issues.
+
+- There are minor inconsistencies in terminology (e.g., cycling infrastructure vs. cycleway) and some formatting/spacing issues throughout the manuscript that should be corrected.
+
+- In addition, the structure of the Methods section could be improved for clarity. First, although the workflow is described as a five-step process, these steps are split across two subsections (Sections 2.3.1 and 2.3.2), which makes the overall logic somewhat difficult to follow. Second, the relationship between the two subsections (OSM differencing vs. GSV validation) is not clearly introduced at the beginning of the Methods section. Third, the ordering of steps across subsections requires the reader to move back and forth, which reduces readability.
+
+**Response:**
+
+::: {custom-style="BlueResponse"}
+We thank the reviewer for the detailed and constructive comments. We address each point below:
+
+1.  GSV as proxy and associated limitations: We agree that GSV should not be interpreted as a perfect ground truth, but rather as a practical observational reference with its own limitations. We have clarified this distinction in Section 5 (Generalisability and limitations). Specifically, we now acknowledge that GSV coverage is uneven across space and time, and that the use of fallback years (e.g., 2014 and 2022) may introduce temporal mismatches with the OSM reference snapshots. We also note that the visibility and interpretability of cycling infrastructure vary by type, which may affect the reliability of validation for certain categories. 
+We further clarify how these factors may influence the reported validation metrics. In particular, the requirement for usable imagery at both time points may introduce selection bias, favouring locations with better GSV coverage. Accordingly, the reported precision and recall should be interpreted as agreement conditional on observable locations, rather than as a direct measure of absolute ground truth accuracy.
+
+2.  Definition of cycling infrastructure: We agree that the definition of cycling infrastructure based on a specific subset of OSM tags involves trade-offs between specificity and completeness. In Section 2.3.1, we focus on dedicated cycling infrastructure (e.g., segregated cycleways and clearly defined lane/track attributes) to ensure a consistent and interpretable definition of change across time. We acknowledge that this approach may exclude other forms of infrastructure, such as shared lanes or less consistently tagged facilities. We have clarified this point in the revised manuscript and now explicitly discuss how the chosen definition may lead to conservative estimates of infrastructure presence and change. We also note that the implications of tag selection may vary across contexts, depending on local mapping practices and tagging conventions. This is now further discussed in Section 5 (Generalisability and limitations), where we highlight how differences in tagging practices across cities and over time may affect the transferability of the framework.
+
+3.  False negatives and NONCYC design: We agree that the construction of the NONCYC control pool has implications for the interpretation of recall. In our workflow, the NONCYC pool is generated from general street segments after excluding or cutting portions located within the tolerance buffer around cycling infrastructure in either reference year. This design was intended to create a clear non-cycling comparison pool and to avoid sampling locations immediately adjacent to known cycling infrastructure, where visual interpretation and OSM representation may be ambiguous. However, this choice may reduce the likelihood of identifying some false negatives, particularly missed infrastructure located near already mapped cycling facilities. As a result, the reported recall values should be interpreted as conditional on the sampling design, rather than as a comprehensive estimate of all missed changes across the full street network. We have clarified this assumption and its implications in Section 5 (Generalisability and limitations).
+
+4.  Sensitivity to parameter choices: Consider whether conduct or not sensitivity analyses.
+
+5.  Sampling strategy and representativeness: We thank the reviewer for this insightful comment. We agree that, while the sampling strategy is described as stratified, its implementation is constrained by both the availability of OSM-detected change segments within each tract and the availability of usable GSV imagery. As a result, the final validation sample reflects a structured allocation across tracts rather than a strictly proportional or statistically representative sample of all detected changes. We acknowledge that this leads to imbalances across classes, particularly the limited number of removal cases, and that the requirement for usable imagery at both time points results in a reduced set of analysable observations. These constraints may introduce selection bias, favouring locations with better GSV coverage. We have clarified these points in the revised manuscript and now explicitly state that the validation sample should be interpreted as a feasibility-constrained stratified sample, rather than a fully representative subset of all detected changes. Accordingly, the reported metrics reflect performance within the sampled validation set and should not be interpreted as population-level estimates for the full set of OSM-detected changes.
+
+6.  Removal detection and small sample: We agree that the conclusions regarding removal detection are based on a very small number of usable cases (n = 5), which results in substantial uncertainty. In the revised manuscript, we have moderated the interpretation of removal-related results and now emphasise that these findings should be considered indicative rather than definitive. While the observed low precision suggests potential challenges in identifying removals from OSM data, we acknowledge that the limited sample size precludes strong generalisation. We have revised the Abstract and Discussion accordingly to better reflect this uncertainty and to avoid overemphasising conclusions based on a small number of observations. 
+
+7.  Reproducibility and transferability: We agree that the reproducibility and transferability of the workflow are subject to certain constraints. While the data processing and change-detection steps are fully reproducible using open-source tools and documented procedures, the validation component relies on manual interpretation of GSV imagery and on the availability of suitable imagery across time and space. We have clarified this distinction in the revised manuscript and now emphasise that the workflow is reproducible in its computational components, while the validation step requires manual implementation following a standardised and documented protocol. We have also refined the framing throughout the manuscript to reflect this distinction more clearly. In addition, we note that transferability depends on local data conditions, particularly OSM data quality and the availability of historical street-level imagery. These points are now explicitly discussed in Section 5 (Generalisability and limitations).
+
+8.  Minor issues (terminology and structure): We have carefully revised the manuscript to ensure consistent use of terminology throughout (in particular, the use of “cycling infrastructure” as the main term). We also added a clarifying definition in Section 2.3.1 to explicitly state how this term is used. Minor formatting and spacing issues have been corrected.
+We have also improved the clarity of the Methods section by explicitly introducing the two main components of the workflow (OSM differencing and GSV validation) at the beginning of Section 2.3, ensuring consistent step numbering, and adding linking text to clarify how the five steps are organised across subsections.
+:::

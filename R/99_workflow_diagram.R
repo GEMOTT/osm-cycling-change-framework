@@ -70,7 +70,7 @@ digraph {
   }
 
   subgraph cluster_gsv {
-    label = \"Stratified GSV validation\";
+    label = \"Stratified GSV validation of OSM-detected changes\";
     labelloc = \"t\";
     fontsize = 22;
     fontname = \"Helvetica, Arial\";
