@@ -22,8 +22,10 @@
 # -----------------------------
 # Cache paths (cache-bust by CRS)
 # -----------------------------
-epsg_work <- sf::st_crs(crs_work)$epsg
-if (is.na(epsg_work)) epsg_work <- "NA"
+epsg_work <- sf::st_crs(crs_work)$epsg # extract EPSG code from CRS
+if (is.na(epsg_work)) {
+  epsg_work <- "NA"
+} # use text "NA" when the CRS has no EPSG code
 
 rds_buf15 <- file.path(proc_dir, sprintf("%s_%s_buf_tol%sm_epsg%s.rds", city_tag, ver15, tol_m, epsg_work))
 rds_buf23 <- file.path(proc_dir, sprintf("%s_%s_buf_tol%sm_epsg%s.rds", city_tag, ver23, tol_m, epsg_work))
@@ -131,3 +133,22 @@ removed_raw <- removed
 # Evaluation pool (drop realignments etc.)
 added_eval   <- subset(added_raw,   !REALIGN)
 removed_eval <- subset(removed_raw, !REALIGN)
+
+# Population of eligible OSM-detected change segments
+# n_add <- nrow(added_eval)
+# n_remove <- nrow(removed_eval)
+# n_total <- n_add + n_remove
+# 
+# # Sampled change segments before GSV usability filtering
+# n_sample_add <- 39
+# n_sample_remove <- 6
+# n_sample_total <- n_sample_add + n_sample_remove
+# 
+# sample_summary <- tibble::tibble(
+#   class = c("ADD", "REMOVE", "Total"),
+#   eligible_segments = c(n_add, n_remove, n_total),
+#   sampled_segments = c(n_sample_add, n_sample_remove, n_sample_total),
+#   sampled_pct = sampled_segments / eligible_segments * 100
+# )
+# 
+# sample_summary

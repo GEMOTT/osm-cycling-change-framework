@@ -154,15 +154,3 @@ by_stratum <- data.frame(
 
 cat("\nBy-stratum counts (POINTS):\n")
 print(by_stratum)
-
-# feasibility_diagnostic call (use the actual NONCYC pool sampled from)
-# feas <- feasibility_diagnostic(
-#   sampled_tracts  = sampled_tracts,
-#   added           = added,
-#   removed         = removed,
-#   noncyc_lines     = noncycle23,
-#   crs_work        = crs_work
-# )
-# 
-# print(feas, n = Inf, width = Inf)
-

@@ -60,9 +60,9 @@ crs_wgs  <- 4326    # WGS84 for web + lon/lat
 # ----------------------------
 
 # Processed-data directory
-proc_dir <- "../data/processed"
+proc_dir <- "data/processed"
 dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
 
 # Output-data directory
-outdir <- "../outputs"
+outdir <- "outputs"
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)

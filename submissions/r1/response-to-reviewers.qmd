@@ -87,7 +87,7 @@ The network maps show that in 2015, the layout was more skeletal and oriented in
 ::: {custom-style="BlueResponse"}
 We agree that apparent removals detected from OSM may reflect changes in tagging, reclassification of infrastructure types, or other mapping artefacts rather than true removal of infrastructure. In particular, facilities such as on-street cycle lanes or other forms of low-segregation provision may be more inconsistently mapped in OSM and therefore more prone to disappearance in snapshot-based comparisons.
 
-This is precisely why the validation step is necessary. Our GSV-based assessment explicitly evaluates whether OSM-detected removals correspond to observable on-street changes, and the results indicate that many removal events do not reflect actual infrastructure removal. This supports our interpretation that removals are less reliably captured in OSM and should be treated with caution.
+This is precisely why the validation step is necessary. Our GSV-based assessment explicitly evaluates whether OSM-detected removals correspond to observable on-street changes, and the results indicate that a substantial share of removal events may not reflect actual infrastructure removal. This supports our interpretation that removals are less reliably captured in OSM and should be treated with caution.
 ::: 
 
 **Comment 1.5**
@@ -97,7 +97,7 @@ Finally, a very strong conclusion was drawn that the infrastructure in OSM, or t
 **Response**
 
 ::: {custom-style="BlueResponse"}
-We agree that the conclusion regarding removals should be interpreted with appropriate caution, particularly given the small number of validated removal cases and the associated uncertainty. In the revised manuscript, we have moderated the wording to emphasise that the observed asymmetry between additions and removals reflects the Barcelona case study and should be interpreted as indicative rather than definitive. We also highlight the role of mapping artefacts and representation changes in explaining apparent removals.
+We agree that the conclusion regarding removals should be interpreted with appropriate caution, particularly given the small number of validated removal cases and the associated uncertainty. In the revised manuscript, we have clarified this point by explicitly noting the limited sample size in the Abstract and by expanding the discussion of mapping artefacts and representation changes as explanations for apparent removals. 
 ::: 
 
 ## Reviewer #2
@@ -108,16 +108,17 @@ This study aims to evaluate the accuracy of OpenStreetMap in tracking cycling in
 **Response**
 
 ::: {custom-style="BlueResponse"}
-
+We appreciate the recognition of the relevance of the research aim and the soundness of the methodological approach. We have carefully considered the reviewer’s comments and have addressed the specific points raised below.
 :::
 
 **Comment 2.1**
 Can the author add to table 1 (or anywhere else in the manuscript) the number of distinct cycling segments (the total sample from which the GSV sample was derived)?
-
 **Response**
 
 ::: {custom-style="BlueResponse"}
-Respond this specific comment.
+We thank the reviewer for this helpful suggestion. We have now added the total number of eligible OSM-detected change segments from which the GSV validation sample was drawn to Table 1 (and clarified this in the text). The evaluation pool comprised 946 segments after excluding likely realignments, including 850 additions and 96 removals.
+
+We also clarify that eligible change segments were unevenly distributed across the density–centrality strata, particularly for removals. As a result, the final validation sample was constrained not only by the sampling design but also by the availability of candidate segments within the sampled tracts and by GSV usability.
 :::
 
 **Comment 2.2** 
@@ -126,10 +127,15 @@ I am perplexed as to why did the authors reviewed such a small number of cycling
 **Response**
 
 ::: {custom-style="BlueResponse"}
-We acknowledge the concern regarding the size of the validation sample and have clarified this point in the revised manuscript.
-The sampling design is based on a stratified approach, with fixed quotas applied within sampled tracts to ensure coverage across different urban contexts. Within each tract, segments are drawn from the pool of OSM-detected change candidates. Importantly, the effective sample size is constrained by the availability of eligible change segments. In many tracts, particularly for removals, few or no candidate segments are present. Additional filtering steps (e.g. minimum segment length and realignment exclusion), together with the requirement for valid GSV imagery at both reference periods, further reduce the number of segments that can be verified.
-We conducted additional sensitivity checks by expanding sampling efforts, but these yielded only marginal increases in usable validation cases, indicating that the sample size is primarily limited by the availability of verifiable change events rather than by the sampling strategy itself.
-We emphasise that the validation targets OSM-detected change events rather than the full cycling network. To improve transparency, we now explicitly report the total number of eligible change segments and the proportion included in the validation sample in Section 3.2 of the revised manuscript.
+We acknowledge the reviewer’s concern regarding the size of the validation sample and have clarified this point in the revised manuscript.
+
+The validation targets OSM-detected change events rather than the full cycling network. After excluding likely realignments, the evaluation pool comprised 946 eligible segments (850 additions and 96 removals), of which 86 were successfully validated using GSV, corresponding to approximately 9.1% of all eligible change segments.
+
+The sampling design follows a stratified approach, with fixed quotas applied within sampled tracts to ensure spatial coverage across different urban contexts. However, the effective sample size is constrained by the availability of eligible change segments. In many tracts, particularly for removals, few or no candidate segments are present. Additional filtering steps (e.g. minimum segment length and realignment exclusion), together with the requirement for valid GSV imagery at both reference periods, further reduce the number of segments that can be verified.
+
+We conducted sensitivity analyses increasing both the number of sampled tracts and the per-tract sampling quota. These tests showed that increasing the per-tract quota yielded no additional removal cases, while expanding the number of sampled tracts led to only modest gains and required a substantial increase in validation effort. This indicates that the sample size is primarily constrained by the scarcity and uneven spatial distribution of verifiable change events, particularly removals, rather than by the sampling strategy itself.
+
+We have revised the manuscript to explicitly report the total number of eligible segments, the proportion included in the validation sample, and the feasibility constraints affecting sample size (Section 3.2).
 :::
 
 **Comment 2.3**
