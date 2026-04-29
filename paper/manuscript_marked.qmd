@@ -135,6 +135,8 @@ To define control locations and support the identification of false negatives, w
 
 **This second component of the workflow evaluates the OSM-detected changes identified in Steps 1–2.**
 
+**The validation relies on manual inspection, as currently available programmatic access to Street View imagery does not provide systematic access to historical imagery across time points required for longitudinal analysis.**
+
 **Step 3. Design stratified GSV sample**
 
 To evaluate the accuracy of OSM-detected cycling-infrastructure changes, we designed a stratified GSV validation across Barcelona’s 1,063 census tracts (2015; @fig-strata-validation a). Population density was calculated as the 2022 resident population per square kilometre for each tract, using official census counts and tract area. Centrality was operationalised as a simple, reproducible proxy for inner vs outer areas, measured via Euclidean distance to Plaça Catalunya. Each variable was divided into terciles, and their combination produced nine density--centrality strata (D1_C1 to D3_C3). From each stratum, six tracts were randomly selected (total $n = 54$).
@@ -264,7 +266,7 @@ knitr::kable(
 
 ```
 
-**As an external consistency check, we compared OSM-derived network length over time with official municipal data for Barcelona. OSM estimated an increase from 130.7 km to 235.7 km between 2015 and 2023, while the official data show an increase from \[X\] km to \[Y\] km over the comparable period. This broadly similar temporal evolution suggests that the OSM-derived estimates capture the overall growth pattern observed in the official record. This comparison is used as an aggregate consistency check, while the GSV-based validation remains the basis for assessing whether detected additions and removals correspond to visible on-street changes.**
+**As an external consistency check, we compared OSM-derived network length over time with official municipal data for Barcelona. OSM estimates indicate an increase from 130.7 km to 235.7 km between 2015 and 2023, while the official data show a comparable increase from 133.0 km to 234.0 km over the same period. This close agreement suggests that the OSM-derived estimates capture the overall growth pattern observed in the official record. The comparison is used as an aggregate consistency check, while the GSV-based validation remains the basis for assessing whether detected additions and removals correspond to visible on-street changes. Official municipal data were obtained from the Área Metropolitana de Barcelona for 2015 and from the Barcelona Open Data portal for 2023 [@amb2015_carril_bici; @bcn2023_carril_bici].**
 
 OSM-detected additions were unevenly distributed across the city. Low-density strata (D1_C1, D1_C2 and D1_C3) accounted for 60.0 % of all added length, with particularly large gains in low-density peripheral (D1_C1) and low-density central (D1_C3) areas (@tbl-distribution-strata). Additions were also substantial in medium-density central tracts (D2_C3) and high-density central tracts (D3_C3), indicating that expansion was not confined to the urban periphery. In contrast, removals were limited in total length and were more unevenly distributed, with the largest shares observed in low-density central areas (D1_C3; 37.7 %) and low-density peripheral areas (D1_C1; 28.8 %), while all other strata each accounted for less than 12 % of removed length.
 
@@ -398,7 +400,7 @@ Sixth, the core cycling‑infrastructure filter is intended to be broadly applic
 
 Seventh, Barcelona likely represents a relatively well-mapped OSM context, given the concentration of OSM contributors and higher mapped completeness in many European and high-income urban areas; future research should assess how this workflow performs in lower-activity contexts and where mapping practices and tag usage may evolve differently [@herfort_spatio-temporal_2023].
 
-**Finally, while the proposed workflow is conceptually scalable, its application to much larger validation samples (e.g., thousands of sites) would face practical constraints. The validation relies on manual inspection of historical GSV imagery, which is time-intensive to scale. Importantly, currently available programmatic access options do not provide equivalent access to historical Street View imagery across time points, which limits the feasibility of fully automated large-scale validation. These constraints should be considered when extending the approach to larger study areas or higher-resolution validation designs.**
+**Finally, while the proposed workflow is conceptually scalable, its application to much larger validation samples (e.g., thousands of sites) would face practical limitations. The validation relies on manual inspection of historical GSV imagery, which is time-intensive to scale. Importantly, currently available programmatic access options (e.g., the Google Street View API) do not provide systematic access to historical imagery across time points, which limits the feasibility of fully automated large-scale validation. These limitations should be considered when extending the approach to larger study areas or higher-resolution validation designs.**
 
 ## Conclusions
 

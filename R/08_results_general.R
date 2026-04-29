@@ -245,3 +245,29 @@ consistency <- tibble::tibble(
     round((km_added - km_removed) - (tot_2023 - tot_2015), 1)
   )
 )
+
+
+# Official Barcelona comparison -----------------------------------------
+
+bcn_2015 <- sf::st_read(
+  here::here("data", "official", "151214_CarrilsBici", "Carril bici.shp"),
+  quiet = TRUE
+)
+
+bcn_2023 <- sf::st_read(
+  here::here("data", "official", "2023_4T_CARRIL_BICI", "2023_4T_CARRIL_BICI.shp"),
+  quiet = TRUE
+)
+
+bcn_2015 <- sf::st_transform(bcn_2015, 25831)
+bcn_2023 <- sf::st_transform(bcn_2023, 25831)
+
+len_2015 <- as.numeric(sum(sf::st_length(bcn_2015))) / 1000
+len_2023 <- as.numeric(sum(sf::st_length(bcn_2023))) / 1000
+
+official_bcn <- tibble::tibble(
+  year = c(2015, 2023),
+  official_km = c(len_2015, len_2023)
+)
+
+official_bcn
