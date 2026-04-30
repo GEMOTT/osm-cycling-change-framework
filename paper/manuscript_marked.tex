@@ -152,17 +152,9 @@
 \usepackage[normalem]{ulem}
 \usepackage{makecell}
 \usepackage{xcolor}
-\usepackage{xcolor}
-\usepackage{lscape}
-\newcommand{\blandscape}{\begin{landscape}}
-\newcommand{\elandscape}{\end{landscape}}
-\usepackage{geometry}
-\geometry{
-  top=2.5cm,
-  bottom=2.5cm,
-  left=2.5cm,
-  right=2.5cm
-}
+\usepackage[left=25mm,right=25mm,top=25mm,bottom=30mm]{geometry}
+\usepackage{lineno}
+\AtBeginDocument{\linenumbers}
 \makeatletter
 \@ifpackageloaded{caption}{}{\usepackage{caption}}
 \AtBeginDocument{%
@@ -296,7 +288,7 @@ features, making it a valuable resource for reconstructing historical
 infrastructure networks and studying urban infrastructure change over
 time (Minghini and Frassinelli 2019; Zhang and Pfoser 2019).
 
-Early comparisons with authoritative datasets suggest that OSM can
+Early comparisons with \textbf{official} datasets suggest that OSM can
 achieve good positional accuracy and substantial agreement in mapped
 features (Haklay 2010; Girres and Touya 2010). However, its use for
 longitudinal change analysis remains more uncertain. OSM data quality
@@ -325,10 +317,10 @@ outside dense urban cores (Vierø et al. 2025).
 
 Importantly, recent work has shown the value of OSM histories for
 measuring cycling-infrastructure network growth at scale, providing a
-scalable alternative when consistent historical official datasets are
-unavailable (Bres et al. 2023; Winters et al. 2025). At the same time,
-these studies highlight that observed changes can reflect both
-real-world infrastructure change and improvements in mapping and
+scalable alternative when consistent historical \textbf{official
+datasets} are unavailable (Bres et al. 2023; Winters et al. 2025). At
+the same time, these studies highlight that observed changes can reflect
+both real-world infrastructure change and improvements in mapping and
 tagging.
 
 For this reason, OSM-derived changes require independent validation. To
@@ -588,16 +580,16 @@ For the baseline period, coders attempted 2016 and 2015 first (using
 2014 only as a fallback when required); for the follow-up period, coders
 attempted 2024 and 2023 first (using 2022 only as a fallback when
 required). When multiple candidate years were available, the observation
-closest in time to the reference date was selected to define adjudicated
-baseline and follow-up values.
+closest in time to the reference date was selected to define \textbf{the
+final baseline and follow-up values}.
 
 Sites were coded as missing when available imagery did not allow a clear
 determination of cycling-infrastructure presence for the reference
 period (e.g., obscured views, roadworks, or ambiguous visual evidence).
 Missing observations were excluded from accuracy analyses requiring
-adjudicated baseline and follow-up values. Intercoder agreement was
+\textbf{final baseline and follow-up values}. Intercoder agreement was
 assessed on usable sites, and any discrepancies were resolved through
-reconciliation to produce a final adjudicated dataset for analysis.
+reconciliation to produce a \textbf{final dataset} for analysis.
 
 \textbf{Step 5. Evaluate OSM performance}
 
@@ -899,8 +891,8 @@ for removals.
 
 \begin{ThreePartTable}
 \begin{TableNotes}[para]
-\item \textit{Note: } 
-\item **ADD and REMOVE refer to segments present only in 2023 or 2015, respectively; Pooled combines both change types. Only change events are included (n = 33 + 5 = 38); NONCYC sites are used to identify false negatives and are not counted as observations. Confidence intervals are Wilson score intervals.**
+\item \textit{Note:} 
+\item ADD and REMOVE refer to segments present only in 2023 or 2015, respectively; Pooled combines both change types. Only change events are included (n = 33 + 5 = 38); NONCYC sites are used to identify false negatives and are not counted as observations. Confidence intervals are Wilson score intervals.
 \end{TableNotes}
 
 \begin{longtable}[t]{>{\raggedright\arraybackslash}p{1.8cm}rrrrrrr}
