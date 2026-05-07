@@ -239,8 +239,8 @@ in cycling-infrastructure length, from 130.7 km to 235.7 km. For
 additions, validation shows high recall (0.96) and strong precision
 (0.82), indicating that OSM captures most network expansions. For
 removals, recall is high (1.00) but precision is low (0.20; \textbf{n =
-5), with wide uncertainty given the small sample. Apparent losses may
-reflect mapping edits rather than real infrastructure change}.
+5), with wide uncertainty given the small sample}. Apparent losses may
+reflect mapping edits rather than real infrastructure change.
 
 By quantifying detection accuracy, this study provides a framework for
 calibrating OSM-based measures of infrastructure change. OSM snapshot
@@ -1035,6 +1035,13 @@ tagging conventions, some facilities may not be captured. As a result,
 the degree of under-detection may vary across urban contexts, with
 implications for completeness and cross-city comparability.}
 
+\textbf{Fifth, the validation stage becomes increasingly
+resource-intensive at larger scales, as currently available GSV APIs do
+not provide systematic programmatic access to historical panoramas
+across multiple time points. As a result, longitudinal validation still
+relies heavily on manual imagery review, and auditing effort increases
+with sample size.}
+
 Finally, Barcelona likely represents a relatively well-mapped OSM
 context, given the concentration of OSM contributors and higher mapped
 completeness in many European and high-income urban areas; future
@@ -1051,19 +1058,28 @@ Using probability-based stratified GSV validation, we estimated
 precision, recall, and F1 scores for OSM-detected additions and
 removals.
 
-The results indicate that OSM-detected additions are generally reliable,
-whereas apparent removals identified through snapshot differencing often
-do not correspond to on-street cycling-infrastructure loss. This
-asymmetry suggests that OSM histories can be informative for tracking
-network expansion, but inferred removals should not be interpreted
-without independent verification or calibration.
+The results indicate that OSM-detected additions are generally reliable
+\textbf{in this context, with high recall and good precision suggesting
+that most network expansions are captured. In contrast, apparent
+removals identified through snapshot differencing often do not
+correspond to on-street cycling-infrastructure loss; however, this
+evidence is based on a very small number of validated cases (n = 5) and
+is therefore subject to substantial uncertainty. These findings suggest
+that OSM histories can be informative for tracking network expansion,
+while inferred removals should be interpreted cautiously and, where
+possible, verified independently.}
 
-By producing quantitative accuracy estimates within a transparent,
-transferable workflow, this study provides a practical basis for
+By producing quantitative accuracy estimates within a transparent
+\textbf{workflow with reproducible computational components and
+structured manual validation}, this study provides a practical basis for
 calibrating OSM-derived measures of cycling-infrastructure change and
-for accounting for measurement error in longitudinal evaluations. More
-broadly, the findings support the responsible use of OSM and other VGI
-sources for urban change analysis, while underscoring the need to
+for accounting for measurement error in longitudinal evaluations.
+\textbf{The transferability of the framework to other settings will
+depend on local OSM data quality, tagging practices, and the
+availability of suitable street-level imagery.}
+
+More broadly, the findings support the responsible use of OSM and other
+VGI sources for urban change analysis, while underscoring the need to
 validate temporal change signals before drawing substantive policy or
 behavioural inferences.
 
