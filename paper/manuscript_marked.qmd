@@ -18,15 +18,17 @@ keywords:
   - Reproducible workflows
 
 format:
-  pdf:
-    pdf-engine: xelatex
-    keep-tex: true
-    include-in-header:
-      text: |
-        \usepackage[left=25mm,right=25mm,top=25mm,bottom=30mm]{geometry}
-        \usepackage{lineno}
-        \AtBeginDocument{\linenumbers}
-
+  # pdf:
+  #   pdf-engine: xelatex
+  #   keep-tex: true
+  #   include-in-header:
+  #     text: |
+  #       \usepackage[left=25mm,right=25mm,top=25mm,bottom=30mm]{geometry}
+  #       \usepackage{lineno}
+  #       \AtBeginDocument{\linenumbers}
+  docx:
+    number-sections: false
+    reference-doc: templates/custom-reference-blue.docx
 bibliography: ../refs/references.bib 
 ---
 
@@ -51,7 +53,6 @@ source(here::here("R/10_maps.R"))
 # Generates workflow diagram used in the manuscript
 source(here::here("R/99_workflow_diagram.R"))
 ```
-
 
 ## Introduction
 
@@ -116,19 +117,19 @@ knitr::include_graphics("../figs/flowchart.png")
 
 **Step 1. Build OSM cycling-infrastructure networks**
 
-We constructed baseline and follow-up cycling-infrastructure networks from the dated OSM extracts described above, representing 2015 and 2023 conditions. From each extract, we derived a core cycling-infrastructure network intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry. A segment was classified as cycling infrastructure if either (i) it was mapped as a dedicated cycleway (`highway = cycleway`), or (ii) it was a street segment carrying explicit cycleway tags indicating a lane or track. In the second case, we searched `cycleway`-related keys (e.g., `cycleway`, `cycleway:left`, `cycleway:right`, `cycleway:both`, and other `cycleway:*` variants) and retained segments where any value matched {`lane`, `track`, `opposite_lane`, `opposite_track`} [@openstreetmap_contributors_bicycle_nodate]. Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above. 
+We constructed baseline and follow-up cycling-infrastructure networks from the dated OSM extracts described above, representing 2015 and 2023 conditions. From each extract, we derived a core cycling-infrastructure network intended to represent bicycle-specific, physically visible infrastructure encoded by the segment geometry. A segment was classified as cycling infrastructure if either (i) it was mapped as a dedicated cycleway (`highway = cycleway`), or (ii) it was a street segment carrying explicit cycleway tags indicating a lane or track. In the second case, we searched `cycleway`-related keys (e.g., `cycleway`, `cycleway:left`, `cycleway:right`, `cycleway:both`, and other `cycleway:*` variants) and retained segments where any value matched {`lane`, `track`, `opposite_lane`, `opposite_track`} [@openstreetmap_contributors_bicycle_nodate]. Values were matched case-insensitively and, where multiple values were present, a segment was retained if any value matched the set above.
 
 To reduce duplication from parallel OSM representations of the same facility (e.g., a dedicated cycle track mapped as a separate geometry while a cycle lane is also tagged on the adjacent carriageway), we applied a no-double-counting (NDC) rule. Specifically, on-road cycle-lane segments were excluded when they overlapped with nearby dedicated cycling infrastructure, defined as cases where at least 20 m of the lane segment and at least 50% of its length fell within a 15 m buffer around dedicated cycling geometries. The 15 m proximity threshold reflects typical spatial offsets between carriageway-centreline representations and adjacent segregated cycle tracks in dense urban settings, while remaining conservative enough to avoid conflating distinct facilities on opposite sides of wide corridors. The additional requirements of a minimum 20 m overlap and at least 50% segment inclusion ensure that exclusions reflect substantive parallel representation rather than incidental geometric proximity.
 
 **Step 2. Detect OSM network change**
 
-Cycling-infrastructure change between the baseline and follow-up networks was detected using geometric differencing in a projected CRS. First, each network was dissolved and buffered by 10 m to accommodate minor geometric misalignments and small positional edits. This tolerance absorbs small positional shifts introduced by re-digitisation or geometry refinement, while remaining conservative relative to typical urban carriageway widths. Additions were defined as segments present in the 2023 proxy network but absent from the buffered 2015 proxy network; removals were defined analogously as segments present in the 2015 proxy network but absent from the buffered 2023 proxy network. Resulting fragments shorter than 10 m were discarded to remove small artefacts arising from geometric differencing. 
+Cycling-infrastructure change between the baseline and follow-up networks was detected using geometric differencing in a projected CRS. First, each network was dissolved and buffered by 10 m to accommodate minor geometric misalignments and small positional edits. This tolerance absorbs small positional shifts introduced by re-digitisation or geometry refinement, while remaining conservative relative to typical urban carriageway widths. Additions were defined as segments present in the 2023 proxy network but absent from the buffered 2015 proxy network; removals were defined analogously as segments present in the 2015 proxy network but absent from the buffered 2023 proxy network. Resulting fragments shorter than 10 m were discarded to remove small artefacts arising from geometric differencing.
 
 To avoid counting positional edits in OSM as real infrastructure change, we flagged likely realignments as cases where an added segment lay within 15 m of a corresponding removed segment, reflecting small shifts in mapped geometry rather than substantive infrastructure modification. These cases were excluded from the validation evaluation pool. The 15 m proximity threshold served a distinct purpose from the differencing buffer: it was intended to capture cases where added and removed fragments likely represent the same infrastructure feature that has been re-drawn, split, or slightly shifted in OSM rather than physically removed and rebuilt.
 
-To define control locations and support the identification of false negatives, we constructed a non-cycling comparison pool (NONCYC) consisting of general street segments that did not meet the cycling-infrastructure tagging criteria. NONCYC candidates were restricted to standard road classes (`highway` $\in$ {`primary`, `secondary`, `tertiary`, `unclassified`, `residential` and corresponding link classes, `living_street`, `pedestrian`}). To ensure a clear separation between cycling and non-cycling locations, we excluded any NONCYC candidate geometries located within 10 m of cycling infrastructure in either reference year (2015 proxy or 2023 proxy). Resulting fragments shorter than 10 m were discarded to remove small geometric artefacts. 
+To define control locations and support the identification of false negatives, we constructed a non-cycling comparison pool (NONCYC) consisting of general street segments that did not meet the cycling-infrastructure tagging criteria. NONCYC candidates were restricted to standard road classes (`highway` $\in$ {`primary`, `secondary`, `tertiary`, `unclassified`, `residential` and corresponding link classes, `living_street`, `pedestrian`}). To ensure a clear separation between cycling and non-cycling locations, we excluded any NONCYC candidate geometries located within 10 m of cycling infrastructure in either reference year (2015 proxy or 2023 proxy). Resulting fragments shorter than 10 m were discarded to remove small geometric artefacts.
 
-**The robustness of results to key geometric parameter choices (buffer distance, realignment threshold, and minimum segment length) was assessed through dedicated sensitivity analyses (see @sec-network-change and Supplement [S1](#s1-sensitivity)).** 
+**The robustness of results to key geometric parameter choices (buffer distance, realignment threshold, and minimum segment length) was assessed through dedicated sensitivity analyses (see @sec-network-change and Supplement [S1](#s1-sensitivity)).**
 
 **Step 3. Design stratified GSV sample**
 
@@ -155,6 +156,13 @@ knitr::include_graphics(c(
   "../figs/stratified_sample_bivariate_map.png",
   "../figs/validation_points_map.png"
 ))
+# 
+# magick::image_read(c(
+#   "../figs/stratified_sample_bivariate_map.png",
+#   "../figs/validation_points_map.png"
+# )) |>
+#   magick::image_append(stack = FALSE) |>
+#   magick::image_write("../figs/validation_design_combined.png")
 ```
 
 **Step 4. Inspect and code GSV**
@@ -230,13 +238,16 @@ im2 <- lapply(im, \(x)
 top <- image_append(im2[1:2])
 bot <- image_append(im2[3:4])
 fig3 <- image_append(c(top, bot), stack = TRUE)
+
+# # save combined 2x2 figure
+# image_write(fig3, "../figs/gsv_examples_combined.png")
 ```
 
 Validation performance was summarised using standard classification metrics. Precision, recall and the F1 score were computed as:
 
 $$\text{Precision}=\frac{TP}{TP+FP},\quad
 \text{Recall}=\frac{TP}{TP+FN},\quad
-F_1=\frac{2\cdot \text{Precision}\cdot \text{Recall}}{\text{Precision}+\text{Recall}}.$$ 
+F_1=\frac{2\cdot \text{Precision}\cdot \text{Recall}}{\text{Precision}+\text{Recall}}.$$
 
 Pooled metrics were computed by first aggregating TP, FP and FN across addition and removal events, and then calculating precision, recall and the F1 score from these pooled counts. For precision and recall, 95% confidence intervals were computed using Wilson score intervals for the corresponding numerators and denominators, which provide stable coverage for proportions, particularly with small sample sizes or extreme values.
 
@@ -272,26 +283,17 @@ OSM-detected additions were unevenly distributed across the city. Low-density st
 
 knitr::kable(
   stratum_out_full,
-  col.names = c("Stratum",
-                "Definition",
-                "Added (km)",
-                "Removed (km)",
-                "Added (%)",
-                "Removed (%)"),
+  col.names = c(
+    "Stratum",
+    "Definition",
+    "Added (km)",
+    "Removed (km)",
+    "Added (%)",
+    "Removed (%)"
+  ),
   align = c("l", "l", "r", "r", "r", "r"),
-  digits = 1,
-  booktabs = TRUE
-) |>
-  kableExtra::kable_styling(
-    full_width = FALSE,
-    latex_options = c("hold_position", "scale_down")
-  ) |>
-  kableExtra::footnote(
-    general = "Totals may differ slightly from the aggregate city-level estimates because change segments are split at census-tract boundaries before aggregation.",
-    general_title = "Note:",
-    footnote_as_chunk = TRUE,
-    threeparttable = TRUE
-  )
+  digits = 1
+)
 
 ```
 
@@ -343,20 +345,8 @@ Initial intercoder agreement on the binary presence/absence coding was 92% (79/8
 
 knitr::kable(
   t_class,
-  align = c("l","r","r","r","r","r","r","r"),
-  booktabs = TRUE
-) |>
-  kableExtra::kable_styling(
-    full_width = FALSE,
-    latex_options = c("hold_position", "scale_down")
-  ) |>
-  kableExtra::column_spec(1, width = "1.8cm") |>
-  kableExtra::footnote(
-    general = "ADD and REMOVE refer to segments present only in 2023 or 2015, respectively; Pooled combines both change types. Only change events are included (n = 33 + 5 = 38); NONCYC sites are used to identify false negatives and are not counted as observations. Confidence intervals are Wilson score intervals.",
-    general_title = "Note:",
-    footnote_as_chunk = TRUE,
-    threeparttable = TRUE
-  )
+  align = c("l","r","r","r","r","r","r","r")
+)
 ```
 
 ### Sensitivity to geometric parameters
@@ -399,13 +389,13 @@ The workflow developed in this study is designed to be transferable to other cit
 
 Several limitations should be acknowledged. First, the **overall validation sample was relatively small (n = 86 usable sites), particularly for removals (n = 5),** resulting in wide confidence intervals for removal-specific metrics. This small removal sample reflects the limited number of eligible removal candidates in the OSM-detected change pool under our cycling-infrastructure definition and differencing rules, further reduced by realignment filtering and incomplete GSV coverage for both reference periods. Sensitivity checks expanding the number of sampled tracts and candidate removal segments yielded only marginal gains in usable removal sites, indicating that the primary constraint was the rarity and uneven spatial distribution of OSM-detected removals across the city rather than the sampling strategy itself. **As a result, the reported removal metrics should be interpreted cautiously and treated as conditional on the sampled validation set rather than as directly generalisable estimates of detection accuracy.**
 
-Second, **the validation relies on GSV as an observational reference rather than direct ground truth, which introduces several related sources of uncertainty. Coverage is not uniform across space, and requiring imagery at both time points may introduce selection bias towards better-covered areas. Imagery dates also vary within each anchor year and across locations, occasionally creating temporal mismatches with the OSM snapshots that may cause misclassification when infrastructure was built or removed close to the reference dates. The visibility of cycling infrastructure also varies by type — segregated tracks are generally easier to identify than painted or shared facilities — which can affect both coding consistency and inter-rater agreement, particularly for borderline or mixed designs. Together, these factors mean that precision and recall should be interpreted as agreement conditional on observable locations rather than as a measure of absolute ground-truth accuracy.**
+Second, **the validation relies on GSV as an observational reference rather than direct ground truth, which introduces several related sources of uncertainty. Coverage is not uniform across space, and requiring imagery at both time points may introduce selection bias towards better-covered areas. Imagery dates also vary within each anchor year and across locations, occasionally creating temporal mismatches with the OSM snapshots that may cause misclassification when infrastructure was built or removed close to the reference dates, a known limitation of GSV-based auditing approaches [@curtis_using_2013]. In practice, fallback imagery was used rarely for the baseline period (2014 imagery for 1 of 86 usable sites) but more frequently for the follow-up period (2022 imagery for 19 of 86 usable sites). The visibility of cycling infrastructure also varies by type — segregated tracks are generally easier to identify than painted or shared facilities — which can affect both coding consistency and inter-rater agreement, particularly for borderline or mixed designs. Previous studies and reviews of GSV-based auditing have similarly noted that image resolution, spatial and temporal coverage, and feature characteristics can affect audit reliability, with lower agreement often observed for small, temporally variable, obstructed, or visually ambiguous features [@rzotkiewicz_systematic_2018; @hanibuchi_virtual_2019; @rundle_using_2011]. Together, these factors mean that precision and recall should be interpreted as agreement conditional on observable locations rather than as a measure of absolute ground-truth accuracy.**
 
 **Third, the construction of the NONCYC control pool may influence the interpretation of recall. NONCYC candidates were generated from general street segments after excluding or cutting portions located within the tolerance buffer around cycling infrastructure in either reference year. This design reduces ambiguity in the identification of non-cycling segments, but it may reduce the likelihood of identifying false negatives near already mapped cycling facilities, potentially leading to an overestimation of recall. As a result, recall estimates should be interpreted as conditional on the sampling framework rather than as a comprehensive measure of missed cycling-infrastructure changes across the full street network.**
 
 **Fourth, our definition of cycling infrastructure relies on a specific subset of OSM tags intended to represent clearly defined, physically visible infrastructure. While this approach ensures a consistent and conservative baseline, tagging practices are not globally uniform. In cities where mappers use less standardised or localised tagging conventions, some facilities may not be captured. As a result, the degree of under-detection may vary across urban contexts, with implications for completeness and cross-city comparability.**
 
-**Fifth, the validation stage becomes increasingly resource-intensive at larger scales, as currently available GSV APIs do not provide systematic programmatic access to historical panoramas across multiple time points. As a result, longitudinal validation still relies heavily on manual imagery review, and auditing effort increases with sample size.** 
+**Fifth, the validation stage becomes increasingly resource-intensive at larger scales, as currently available GSV APIs do not provide systematic programmatic access to historical panoramas across multiple time points. As a result, longitudinal validation still relies heavily on manual imagery review, and auditing effort increases with sample size.**
 
 Finally, Barcelona likely represents a relatively well-mapped OSM context, given the concentration of OSM contributors and higher mapped completeness in many European and high-income urban areas; future research should assess how this workflow performs in lower-activity contexts and where mapping practices and tag usage may evolve differently [@herfort_spatio-temporal_2023].
 
@@ -467,7 +457,6 @@ Details the standardised coding procedure, imagery selection rules, and reconcil
 <!-- [S5_reconciled_validation_results.xlsx](../supplements/S5_reconciled_validation_results.xlsx) -->
 
 Provides the reconciled validation dataset used to compute precision, recall, and F1 scores.
-
 
 ## Declaration of Generative AI and AI-assisted technologies in the writing process {.unnumbered}
 

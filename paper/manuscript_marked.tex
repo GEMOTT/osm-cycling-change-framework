@@ -1005,14 +1005,23 @@ and requiring imagery at both time points may introduce selection bias
 towards better-covered areas. Imagery dates also vary within each anchor
 year and across locations, occasionally creating temporal mismatches
 with the OSM snapshots that may cause misclassification when
-infrastructure was built or removed close to the reference dates. The
+infrastructure was built or removed close to the reference dates, a
+known limitation of GSV-based auditing approaches (Curtis et al. 2013).
+In practice, fallback imagery was used rarely for the baseline period
+(2014 imagery for 1 of 86 usable sites) but more frequently for the
+follow-up period (2022 imagery for 19 of 86 usable sites). The
 visibility of cycling infrastructure also varies by type --- segregated
 tracks are generally easier to identify than painted or shared
 facilities --- which can affect both coding consistency and inter-rater
-agreement, particularly for borderline or mixed designs. Together, these
-factors mean that precision and recall should be interpreted as
-agreement conditional on observable locations rather than as a measure
-of absolute ground-truth accuracy.}
+agreement, particularly for borderline or mixed designs. Previous
+studies and reviews of GSV-based auditing have similarly noted that
+image resolution, spatial and temporal coverage, and feature
+characteristics can affect audit reliability, with lower agreement often
+observed for small, temporally variable, obstructed, or visually
+ambiguous features (Rzotkiewicz et al. 2018; Hanibuchi et al. 2019;
+Rundle et al. 2011). Together, these factors mean that precision and
+recall should be interpreted as agreement conditional on observable
+locations rather than as a measure of absolute ground-truth accuracy.}
 
 \textbf{Third, the construction of the NONCYC control pool may influence
 the interpretation of recall. NONCYC candidates were generated from
@@ -1216,6 +1225,13 @@ Prism.''} \emph{AGILE: GIScience Series} 4 (June): 1--9.
 Buehler, Ralph, and John Pucher, eds. 2021. \emph{Cycling for
 Sustainable Cities}. Urban and {Industrial} {Environments}. MIT Press.
 
+\bibitem[\citeproctext]{ref-curtis_using_2013}
+Curtis, Jacqueline W., Andrew Curtis, Jennifer Mapes, Andrea B. Szell,
+and Adam Cinderich. 2013. {``Using Google Street View for Systematic
+Observation of the Built Environment: Analysis of Spatio-Temporal
+Instability of Imagery Dates.''} \emph{International Journal of Health
+Geographics} 12 (1): 53. \url{https://doi.org/10.1186/1476-072X-12-53}.
+
 \bibitem[\citeproctext]{ref-dai_street_2024}
 Dai, Shaoqing, Yuchen Li, Alfred Stein, Shujuan Yang, and Peng Jia.
 2024. {``Street View Imagery-Based Built Environment Auditing Tools: A
@@ -1324,6 +1340,14 @@ M. Neckerman, and Julien O. Teitler. 2011. {``Using {Google} {Street}
 {View} to {Audit} {Neighborhood} {Environments}.''} \emph{American
 Journal of Preventive Medicine} 40 (1): 94--100.
 \url{https://doi.org/10.1016/j.amepre.2010.09.034}.
+
+\bibitem[\citeproctext]{ref-rzotkiewicz_systematic_2018}
+Rzotkiewicz, Amanda, Amber L. Pearson, Benjamin V. Dougherty, Ashton
+Shortridge, and Nick Wilson. 2018. {``Systematic Review of the Use of
+Google Street View in Health Research: Major Themes, Strengths,
+Weaknesses and Possibilities for Future Research.''} \emph{Health \&
+Place} 52: 240--46.
+\url{https://doi.org/10.1016/j.healthplace.2018.07.001}.
 
 \bibitem[\citeproctext]{ref-schmidl_approach_2021}
 Schmidl, Martin, Gerhard Navratil, and Ioannis Giannopoulos. 2021. {``An
