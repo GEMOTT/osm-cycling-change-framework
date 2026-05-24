@@ -245,13 +245,13 @@ sample\color{black}. Apparent losses may reflect mapping edits rather
 than real infrastructure change.
 
 By quantifying detection accuracy, this study provides a framework for
-calibrating OSM-based measures of infrastructure change. OSM snapshot
-differencing can serve as a scalable screening approach for identifying
-infrastructure additions, while apparent removals require cautious
-interpretation and verification to avoid mapping artefacts being
-mistaken for physical infrastructure loss. This calibration strengthens
-longitudinal research by reducing exposure misclassification in public
-health, transport safety, and urban equity.
+calibrating OSM-derived measures of cycling infrastructure change. OSM
+snapshot differencing can serve as a scalable screening approach for
+identifying infrastructure additions, while apparent removals require
+cautious interpretation and independent verification to avoid mapping
+artefacts being mistaken for physical infrastructure loss. This
+framework supports more robust longitudinal use of OSM histories in
+planning and research.
 \end{abstract}
 
 
@@ -262,7 +262,7 @@ cycling-infrastructure network in pursuit of cleaner, healthier and more
 equitable mobility (Szell et al. 2022; Buehler and Pucher 2021).
 Reliable data on how these networks evolve are essential for
 evidence-based planning and robust longitudinal research (Hirsch et al.
-2016). Such data enable researchers and policymakers to examine how
+2016). Such data enable policymakers and researchers to examine how
 infrastructure change relates to mode choice, safety and equity (Houde
 et al. 2018; Prince et al. 2025).
 
@@ -270,12 +270,12 @@ Yet longitudinal infrastructure data are often incomplete or
 inconsistent. Official inventories are rarely maintained systematically
 across years, and field audits, although precise, are resource-intensive
 and difficult to replicate at scale (Winters et al. 2025; Dai et al.
-2024). In the absence of consistent data, researchers and policymakers
+2024). In the absence of consistent data, policymakers and researchers
 must rely on fragmented sources, increasing the risk of exposure
 misclassification and biased impact estimates (Batomen et al. 2026). As
 a result, comparable evidence on cycling-infrastructure change remains
-limited, constraining both robust research and informed policy
-development (Houde et al. 2018).
+limited, constraining both informed policy development and robust
+research (Houde et al. 2018).
 
 The growing availability of Volunteered Geographic Information (VGI)
 offers new opportunities to address these data gaps (Goodchild 2007).
@@ -317,8 +317,8 @@ measuring cycling-infrastructure network growth at scale, providing a
 scalable alternative when consistent historical \color{black}official
 datasets \color{black} are unavailable (Bres et al. 2023; Winters et al.
 2025). At the same time, these studies highlight that observed changes
-can reflect both real-world infrastructure change and improvements in
-mapping and tagging.
+may reflect not only real-world infrastructure change but also evolving
+mapping practices, delayed mapping, or revisions to existing OSM data.
 
 For this reason, OSM-derived changes require independent validation. To
 assess whether changes detected from historical OSM snapshots reflect
@@ -326,11 +326,9 @@ real on-street changes, an external source of evidence is needed.
 Street-level imagery, including Google Street View (GSV), has
 increasingly been used to audit and validate built-environment features
 remotely (Rundle et al. 2011; Askari et al. 2025; Hanibuchi et al.
-2019). However, to our knowledge, no study has yet provided a
-\color{black}transparent\color{black}, reproducible end-to-end workflow
-that combines OSM snapshot differencing, probability-based stratified
-sampling, and GSV-based verification to quantify precision and recall of
-cycling-infrastructure change.
+2019). However, to our knowledge, no study has yet validated
+cycling-infrastructure change detected from historical OSM snapshots
+using GSV imagery.
 
 \color{blue}Building on this gap, this study aims to quantify the
 accuracy of OSM for detecting cycling-infrastructure change.
@@ -345,7 +343,8 @@ is evaluated using precision, recall, and F1 scores. By integrating
 change detection and external validation within a transparent
 \color{blue}workflow with fully reproducible computational components
 and structured manual validation, the study provides a \color{black}
-framework for calibrating OSM-based measures of infrastructure change.
+framework for calibrating OSM-based measures of cycling-infrastructure
+change.
 
 \section{Data and methods}\label{data-and-methods}
 
@@ -361,18 +360,15 @@ detection, and validation procedures.
 
 \subsection{Data sources}\label{sec-data-sources}
 
-We used three data sources. OpenStreetMap (OSM) extracts for Barcelona
-were retrieved for 1 January 2016 and 1 January 2024 using the
-osmextract R package (Gilardi and Lovelace 2025); these Geofabrik
-snapshots were used as proxies for baseline and follow-up network
-conditions, representing infrastructure as mapped at the end of 2015 and
-2023, respectively. Historical Google Street View (GSV) panoramas were
-used to manually validate a sample of OSM-detected
-cycling-infrastructure additions and removals, selecting imagery closest
-to the baseline and follow-up reference periods. Census-tract boundaries
-(2015) and resident population counts (2022) were obtained from official
-statistical sources and used to design a stratified validation sample
-based on population density and centrality.
+We used three data sources. First, OpenStreetMap (OSM) extracts for
+Barcelona were retrieved for 1 January 2016 and 1 January 2024 using the
+osmextract R package (Gilardi and Lovelace 2025). These Geofabrik
+snapshots represented baseline and follow-up cycling-infrastructure
+networks corresponding to the end of 2015 and 2023, respectively.
+Second, historical Google Street View (GSV) panoramas were used to
+validate a sample of OSM-detected changes. Third, census-tract
+boundaries (2015) and resident population counts (2022) from official
+statistical sources were used to support the stratified sampling design.
 
 \subsection{Analytical workflow}\label{analytical-workflow}
 
@@ -482,7 +478,7 @@ infrastructure in either reference year (2015 proxy or 2023 proxy).
 Resulting fragments shorter than 10 m were discarded to remove small
 geometric artefacts.
 
-\color{blue}The robustness of results to key geometric parameter choices
+\color{blue}The robustness of key geometric parameters used in this step
 (buffer distance, realignment threshold, and minimum segment length) was
 assessed through dedicated sensitivity analyses (see
 Section~\ref{sec-network-change} and Supplement
@@ -725,12 +721,11 @@ Gap: (Additions − removals) − Net & -2.8 \\
 cycling-infrastructure network length with official municipal data for
 Barcelona (Área Metropolitana de Barcelona 2015; Ajuntament de Barcelona
 2023), one of the few cases where consistent longitudinal records are
-available. Both sources show a remarkably similar increase over the
-study period (OSM: 130.7 to 235.7 km; official: 133.0 to 234.0 km), with
-only minimal differences in aggregate network length at either time
-point. This close correspondence suggests that OSM-derived estimates
-capture the overall growth trajectory at the aggregate level.
-\color{black}
+available. Both sources show a very similar increase over the study
+period (OSM: 130.7 to 235.7 km; official: 133.0 to 234.0 km), with only
+minimal differences in aggregate network length at either time point.
+This close correspondence provides additional support that OSM-derived
+estimates broadly reflect the aggregate growth trajectory. \color{black}
 
 OSM-detected additions were unevenly distributed across the city.
 Low-density strata (D1\_C1, D1\_C2 and D1\_C3) accounted for 60.0 \% of
@@ -935,9 +930,9 @@ sampling, and independent visual verification, we produce reproducible
 \color{blue}computational outputs and validation-based accuracy
 estimates \color{black} (precision, recall, and F1 score) for
 cycling-infrastructure change detection. Our workflow therefore provides
-a practical calibration strategy for longitudinal research using OSM
-when \color{black}consistent \color{black} year-on-year inventories are
-unavailable.
+a practical calibration strategy for planning and longitudinal research
+using OSM when \color{black}consistent \color{black} year-on-year
+inventories are unavailable.
 
 \color{blue}Overall, OSM performed well in detecting
 cycling-infrastructure additions, with high recall and strong precision
@@ -1008,13 +1003,12 @@ urban studies.
 limitations}\label{generalisability-and-limitations}
 
 The workflow developed in this study is designed to be transferable to
-other cities where consistent historical OSM snapshots, a suitable
-spatial sampling framework (e.g., census tracts or equivalent small
-areas) and associated data to support stratified sampling, and
-sufficient street-level imagery are available.
-\color{blue}Reproducibility is full for the computational components,
-while the validation stage relies on structured manual interpretation of
-imagery following a standardised protocol.\color{black}
+other cities where historical OSM snapshots, a suitable spatial sampling
+framework (e.g., census tracts or equivalent small areas) and sufficient
+street-level imagery are available. \color{blue}Reproducibility is full
+for the computational components, while the validation stage relies on
+structured manual interpretation of imagery following a standardised
+protocol.\color{black}
 
 Several limitations should be acknowledged. First, the
 \color{blue}overall validation sample was relatively small (n = 86
@@ -1028,14 +1022,10 @@ reference periods. Sensitivity checks expanding the number of sampled
 tracts and candidate removal segments yielded only marginal gains in
 usable removal sites, indicating that the primary constraint was the
 rarity and uneven spatial distribution of OSM-detected removals across
-the city rather than the sampling strategy itself. \color{blue}In
-addition, the realised validation sample was constrained by the spatial
-distribution of eligible change segments and the availability of usable
-GSV imagery, and should therefore not be interpreted as a strictly
-representative sample of all detected changes. As a result, the reported
-removal metrics should be interpreted cautiously and treated as
-conditional on the sampled validation set rather than as directly
-generalisable estimates of detection accuracy.\color{black}
+the city rather than the sampling strategy itself.\color{blue} As a
+result, the reported removal metrics should be interpreted cautiously
+and treated as conditional on the sampled validation set rather than as
+directly generalisable estimates of detection accuracy. \color{black}
 
 \color{blue}Second, the construction of the NONCYC control pool may
 influence the interpretation of recall. NONCYC candidates were generated
@@ -1082,12 +1072,15 @@ relies heavily on manual review of historical panoramas through the
 Street View interface, and auditing effort increases with sample
 size.\color{black}
 
-Finally, Barcelona likely represents a relatively well-mapped OSM
-context, given the concentration of OSM contributors and higher mapped
-completeness in many European and high-income urban areas; future
-research should assess how this workflow performs in lower-activity
-contexts and where mapping practices and tag usage may evolve
-differently (Herfort et al. 2023).
+Finally, Barcelona likely represents a relatively favourable OSM
+context, given its active mapping community, extensive
+cycling-infrastructure development, and relatively high mapped
+completeness (Herfort et al. 2023). Future research should therefore
+assess how this workflow performs in cities with different levels of OSM
+completeness and mapping activity. Additional work is also needed to
+examine how validation performance varies across different tagging
+practices, infrastructure typologies, and levels of street-level imagery
+availability.
 
 \section{Conclusions}\label{conclusions}
 
@@ -1116,14 +1109,13 @@ practical basis for calibrating OSM-derived measures of
 cycling-infrastructure change and for accounting for measurement error
 in longitudinal evaluations. \color{blue}The transferability of the
 framework to other settings will depend on the availability of
-consistent historical OSM snapshots, suitable spatial units and
-associated data to support stratified sampling, and sufficient
-street-level imagery.\color{black}
+historical OSM snapshots, suitable spatial units to support stratified
+sampling, and sufficient street-level imagery.\color{black}
 
-More broadly, the findings support the responsible use of OSM and other
-VGI sources for urban change analysis, while underscoring the need to
-validate temporal change signals before drawing substantive policy or
-behavioural inferences.
+More broadly, the findings support the use of OSM and other VGI sources
+for longitudinal urban change analysis, while underscoring the
+importance of validating temporal change signals before interpreting
+mapped edits as real-world infrastructure change.
 
 \section*{Data and code availability}\label{data-and-code-availability}
 \addcontentsline{toc}{section}{Data and code availability}
