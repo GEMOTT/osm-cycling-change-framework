@@ -1,12 +1,14 @@
 # OSM Cycling Change Validation Framework
 
 
+[![](https://img.shields.io/badge/License-MIT-yellow.svg)](...)
+
 # Overview
 
 This repository contains the reproducible analytical workflow,
 validation materials, and supplementary resources supporting the study:
 
-**Vidal-Tortosa, E., González-Parra, V., & Marquet, O. (2026).**  
+**Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).**  
 *Quantifying the accuracy of OpenStreetMap for longitudinal
 cycling-infrastructure change: A reproducible validation framework using
 Google Street View.*  
@@ -121,14 +123,14 @@ the reproducibility of the reported accuracy estimates.
 
 # Data Notes
 
-- Historical OSM data are obtained from dated extracts and remain
-  subject to the OpenStreetMap licence.
-- Census, population, boundary, and official cycling-infrastructure
-  datasets originate from their respective public data providers.
-- Some original datasets cannot be redistributed because of licensing
-  conditions, file size, or external hosting arrangements.
-- Derived datasets and validation outputs supporting the published
-  analyses are provided in `outputs/` and `supplements/`.
+- Historical OpenStreetMap data are obtained from publicly available
+  dated extracts.
+- Official administrative boundaries and cycling-infrastructure datasets
+  originate from public data providers.
+- Google Street View imagery is accessed directly through Google’s
+  platform and is not redistributed in this repository.
+- The repository includes the derived datasets and validation materials
+  required to reproduce the published analyses.
 
 ------------------------------------------------------------------------
 
@@ -166,7 +168,7 @@ providers.
 
 If you use this workflow or its validation materials, please cite:
 
-Vidal-Tortosa, E., González-Parra, V., & Marquet, O. (2026).  
+Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).  
 *Quantifying the accuracy of OpenStreetMap for longitudinal
 cycling-infrastructure change: A reproducible validation framework using
 Google Street View.*  

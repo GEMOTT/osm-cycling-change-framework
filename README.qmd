@@ -4,6 +4,8 @@ format: gfm
 editor: visual
 ---
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](...)
+
 # Overview
 
 This repository contains the reproducible analytical workflow, validation materials, and supplementary resources supporting the study:
@@ -104,10 +106,10 @@ These materials document the complete validation procedure and support the repro
 
 # Data Notes
 
-- Historical OSM data are obtained from dated extracts and remain subject to the OpenStreetMap licence.
-- Census, population, boundary, and official cycling-infrastructure datasets originate from their respective public data providers.
-- Some original datasets cannot be redistributed because of licensing conditions, file size, or external hosting arrangements.
-- Derived datasets and validation outputs supporting the published analyses are provided in `outputs/` and `supplements/`.
+- Historical OpenStreetMap data are obtained from publicly available dated extracts.
+- Official administrative boundaries and cycling-infrastructure datasets originate from public data providers.
+- Google Street View imagery is accessed directly through Google's platform and is not redistributed in this repository.
+- The repository includes the derived datasets and validation materials required to reproduce the published analyses.
 
 ------------------------------------------------------------------------
 
