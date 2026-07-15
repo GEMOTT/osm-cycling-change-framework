@@ -120,7 +120,7 @@ DATA & METHODS
 
 ↓
 
-2.  Stratify census-tract sample
+2.  Stratify census-tracts
 
 ↓
 
@@ -160,7 +160,7 @@ DATA & METHODS
 
 ------------------------------------------------------------------------
 
-### 2. Stratify census-tract sample
+### 2. Stratify census-tracts
 
 ::: section-label
 DATA & METHODS
@@ -280,13 +280,13 @@ RESULTS
 DISCUSSION
 :::
 
-- GSV availability varies spatially and temporally
+- Historical GSV imagery is only a proxy for ground truth
 
-- Manual validation remains necessary
+- Validation had to be carried out manually
 
-- Removal estimates based on small sample sizes
+- Removal estimates remain uncertain
 
-- Performance may vary across cities and OSM mapping communities
+- Findings may not generalise to other cities
 
 ## Conclusions
 
@@ -294,14 +294,25 @@ DISCUSSION
 DISCUSSION
 :::
 
+**Can we trust OSM to measure cycling-infrastructure change?**
+
+It depends on the type of change being measured
+
 - Additions are detected reliably
-    - Useful for tracking cycling-network expansion
+
+  + Useful for tracking cycling-network expansion
+
 - Removal estimates remain uncertain
-    - Often reflect mapping edits rather than real infrastructure loss
-- Findings may not generalise automatically to other cities
-    - Barcelona is likely a relatively favourable case
-    - Validation remains important in other contexts
-- Reproducible framework to measure, evaluate, and calibrate OSM-based change
+
+  + Often reflect mapping edits rather than real infrastructure loss
+
+OSM accuracy should not be assumed everywhere
+
+  - Performance may differ across cities
+    
+Main contribution
+
+  - Reproducible framework to measure, evaluate, and calibrate OSM-derived change where suitable validation data are available
 
 ------------------------------------------------------------------------
 
