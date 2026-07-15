@@ -10,9 +10,8 @@
 *_files/
 *_cache/
 
-# Private working and publication material
+# Private working material
 archive/
-paper/
 slides/
 submissions/
 wstlur/
