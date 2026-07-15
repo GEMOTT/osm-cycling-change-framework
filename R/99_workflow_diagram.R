@@ -8,91 +8,90 @@
 
 dot <- grViz("
 digraph {
-  graph [rankdir=TB, splines=true, nodesep=0.6, ranksep=0.7]
-  node  [shape=box, style=\"rounded,filled\",
-         fontsize=26, fontname=\"Helvetica, Arial\",
-         color=\"#2f3b52\", fontcolor=\"#1f2937\",
-         penwidth=1.2, fillcolor=\"#f7f9fc\", margin=0.10]
-  edge  [color=\"#6b7280\", arrowsize=0.9]
+  graph [rankdir=TB, bgcolor='white', splines=ortho, nodesep=0.2, ranksep=0.28, pad=0.05]
 
-  A [width=6.5, label=<
-    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"8\">
-      <TR><TD><B>1) Build OSM cycling networks</B></TD></TR>
-      <TR><TD>Extract 2016-01-01 and 2024-01-01;<BR/>
-              classify cycling vs non-cycling segments</TD></TR>
+  node [
+    shape=box,
+    fixedsize=true,
+    width=7.4,
+    height=1.45,
+    style='rounded,filled',
+    fontname='Helvetica',
+    fontsize=16,
+    color='#1d4e89',
+    fillcolor='#f8fbff',
+    penwidth=1.6,
+    margin=0.08
+  ]
+
+  edge [color='#111827', penwidth=1.1, arrowsize=0.65]
+
+  det [
+    shape=plain,
+    fixedsize=false,
+    label=<
+      <TABLE BORDER='0' CELLBORDER='0' CELLPADDING='4'>
+        <TR><TD><FONT COLOR='#1d4e89'><I>Detection (Steps 1-2)</I></FONT></TD></TR>
+      </TABLE>
+    >
+  ]
+
+  val [
+    shape=plain,
+    fixedsize=false,
+    label=<
+      <TABLE BORDER='0' CELLBORDER='0' CELLPADDING='4'>
+        <TR><TD><FONT COLOR='#1d4e89'><I>Validation (Steps 3-5)</I></FONT></TD></TR>
+      </TABLE>
+    >
+  ]
+
+  A [label=<
+    <TABLE BORDER='0' CELLBORDER='0' CELLPADDING='4'>
+      <TR><TD><FONT POINT-SIZE='16'><B>1. Build OSM cycling-infrastructure networks</B></FONT></TD></TR>
+      <TR><TD>Extract 2016-01-01 and 2024-01-01;<BR/>representing proxy conditions for 2015 and 2023;<BR/>classify cycling vs non-cycling segments</TD></TR>
     </TABLE>
   >]
 
-  B [width=6.5, label=<
-    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"8\">
-      <TR><TD><B>2) Detect OSM network change</B></TD></TR>
-      <TR><TD>Geometric differencing 2015 to 2023;<BR/>
-              flag ADD and REMOVE;<BR/>
-              drop short segments and realignments</TD></TR>
+  B [label=<
+    <TABLE BORDER='0' CELLBORDER='0' CELLPADDING='4'>
+      <TR><TD><FONT POINT-SIZE='16'><B>2. Detect OSM network change</B></FONT></TD></TR>
+      <TR><TD>Geometric differencing 2015 to 2023;<BR/>define ADD, REMOVE and NONCYC pools;<BR/>drop short segments and realignments</TD></TR>
     </TABLE>
   >]
 
-  C [width=6.5, label=<
-    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"8\">
-      <TR><TD><B>3) Design stratified GSV sample</B></TD></TR>
-      <TR><TD>Stratify tracts by density x centrality (3x3);<BR/>
-              sample 6 tracts per stratum;<BR/>
-              length weighted ADD / REMOVE / NONCYC segments</TD></TR>
+  C [label=<
+    <TABLE BORDER='0' CELLBORDER='0' CELLPADDING='4'>
+      <TR><TD><FONT POINT-SIZE='16'><B>3. Design stratified GSV sample</B></FONT></TD></TR>
+      <TR><TD>Stratify tracts by density x centrality (3x3);<BR/>sample 6 tracts per stratum;<BR/>length-weighted ADD / REMOVE / NONCYC segments</TD></TR>
     </TABLE>
   >]
 
-  D [width=7, label=<
-    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"8\">
-      <TR><TD><B>4) Inspect and code GSV</B></TD></TR>
-      <TR><TD>Anchor years 2015 and 2023 (+/-1 year);<BR/>
-              code 1 / 0 / NA at sampled points;<BR/>
-              compare GSV patterns with OSM change</TD></TR>
+  D [label=<
+    <TABLE BORDER='0' CELLBORDER='0' CELLPADDING='4'>
+      <TR><TD><FONT POINT-SIZE='16'><B>4. Inspect and code GSV</B></FONT></TD></TR>
+      <TR><TD>Anchor years 2015 and 2023 (+/-1 year);<BR/>code 1 / 0 / NA at sampled points;<BR/>compare GSV patterns with OSM change</TD></TR>
     </TABLE>
   >]
 
-  E [width=6, label=<
-    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"8\">
-      <TR><TD><B>5) Evaluate OSM performance</B></TD></TR>
-      <TR><TD>Derive TP / FP / FN;<BR/>
-              compute precision, recall, F1<BR/>
-              with 95 percent confidence intervals</TD></TR>
+  E [label=<
+    <TABLE BORDER='0' CELLBORDER='0' CELLPADDING='4'>
+      <TR><TD><FONT POINT-SIZE='16'><B>5. Evaluate OSM performance</B></FONT></TD></TR>
+      <TR><TD>Derive TP / FP / FN;<BR/>compute precision, recall, F1<BR/>with 95 percent confidence intervals</TD></TR>
     </TABLE>
   >]
 
-  subgraph cluster_osm {
-    label = \"OSM temporal differencing\";
-    labelloc = \"t\";
-    fontsize = 22;
-    fontname = \"Helvetica, Arial\";
-    style = \"rounded,dashed\";
-    color = \"#CBD5E1\";
-    A; B;
-  }
-
-  subgraph cluster_gsv {
-    label = \"Stratified GSV validation of OSM-detected changes\";
-    labelloc = \"t\";
-    fontsize = 22;
-    fontname = \"Helvetica, Arial\";
-    style = \"rounded,dashed\";
-    color = \"#CBD5E1\";
-    C; D; E;
-  }
-
-  A -> B -> C -> D -> E
+  det -> A [style=invis, weight=20]
+  A -> B
+  B -> val [style=invis, weight=20]
+  val -> C [style=invis, weight=20]
+  C -> D
+  D -> E
 }
 ")
 
-# Ensure output folder exists
-dir.create("../figs", recursive = TRUE, showWarnings = FALSE)
+dir.create("figs", recursive = TRUE, showWarnings = FALSE)
 
-# Export to SVG/PNG
 svg_txt <- export_svg(dot)
-rsvg_svg(charToRaw(svg_txt), file = "../figs/flowchart.svg")
-rsvg_png(
-  charToRaw(svg_txt),
-  file   = "../figs/flowchart.png",
-  width  = 1400,
-  height = 2400
-)
-
+rsvg_svg(charToRaw(svg_txt), "figs/flowchart.svg")
+rsvg_png(charToRaw(svg_txt), "figs/flowchart.png", width = 1400, height = 2200)

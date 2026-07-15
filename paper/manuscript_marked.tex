@@ -413,14 +413,20 @@ case-insensitively and, where multiple values were present, a segment
 was retained if any value matched the set above.
 
 \color{blue}To maintain a conservative and visually interpretable
-definition of cycling infrastructure for subsequent GSV-based
-validation, we excluded \texttt{cycleway=shared\_lane} tags. These tags
-are often associated with less segregated or more ambiguously defined
-facilities, such as advisory lane markings or shared-traffic treatments,
-which may not be consistently identifiable in historical GSV imagery.
-Including these tags would substantially broaden the definition of
-cycling infrastructure and could reduce consistency in the manual
-validation process.\color{black}
+definition of dedicated cycling infrastructure for subsequent GSV-based
+validation, we excluded \texttt{cycleway=shared\_lane} tags. Although
+these tags may represent legitimate forms of cycling provision, they are
+often associated with more ambiguously defined facilities, such as
+advisory lane markings or shared-traffic treatments, which may not be
+consistently identifiable in historical GSV imagery. Including these
+tags would substantially broaden the operational definition of cycling
+infrastructure and could reduce consistency in the manual validation
+process. As a result, the extracted network should be interpreted as a
+conservative representation of clearly delineated cycling infrastructure
+rather than a comprehensive representation of all forms of cycling
+provision. This distinction may be particularly relevant in cities where
+cycling provision relies more heavily on shared or mixed-traffic
+facilities.\color{black}
 
 To reduce duplication from parallel OSM representations of the same
 facility (e.g., a dedicated cycle track mapped as a separate geometry
@@ -684,7 +690,7 @@ parallel or spatially separated facilities into a single corridor-level
 measure (e.g., cycle tracks on both sides of a street). Geometric
 differencing identified 127.1 km of added and 24.9 km of removed cycling
 infrastructure, yielding a net change of 102.2 km. The small discrepancy
-(−2.8 km) reflects minor geometric artefacts introduced by the
+(-2.8 km) reflects minor geometric artefacts introduced by the
 buffering, dissolving, and fragment-filtering steps used in the
 differencing procedure, and indicates good internal consistency between
 aggregate network totals and change estimates
@@ -707,11 +713,11 @@ Metric & Value (km) \\
 \endlastfoot
 Total network length (2015) & 130.7 \\
 Total network length (2023) & 235.7 \\
-Net growth (2023 − 2015) & 105.0 \\
+Net growth (2023 - 2015) & 105.0 \\
 Additions & 127.1 \\
 Removals & 24.9 \\
-Additions − removals & 102.2 \\
-Gap: (Additions − removals) − Net & -2.8 \\
+Additions - removals & 102.2 \\
+Gap: (Additions - removals) - Net & -2.8 \\
 
 \end{longtable}
 
@@ -1022,7 +1028,7 @@ reference periods. Sensitivity checks expanding the number of sampled
 tracts and candidate removal segments yielded only marginal gains in
 usable removal sites, indicating that the primary constraint was the
 rarity and uneven spatial distribution of OSM-detected removals across
-the city rather than the sampling strategy itself.\color{blue} As a
+the city rather than the sampling strategy itself. \color{blue} As a
 result, the reported removal metrics should be interpreted cautiously
 and treated as conditional on the sampled validation set rather than as
 directly generalisable estimates of detection accuracy. \color{black}
@@ -1077,10 +1083,7 @@ context, given its active mapping community, extensive
 cycling-infrastructure development, and relatively high mapped
 completeness (Herfort et al. 2023). Future research should therefore
 assess how this workflow performs in cities with different levels of OSM
-completeness and mapping activity. Additional work is also needed to
-examine how validation performance varies across different tagging
-practices, infrastructure typologies, and levels of street-level imagery
-availability.
+completeness and mapping activity.
 
 \section{Conclusions}\label{conclusions}
 
@@ -1149,7 +1152,8 @@ configuration used in the analysis (10 m differencing buffer, 15 m
 realignment threshold, and 10 m minimum segment length). Values are
 computed on the filtered evaluation dataset (after excluding short
 fragments and likely realignments) and therefore differ from the raw
-network-level change estimates reported in tbl-consistency.\color{black}
+network-level change estimates reported in
+Table~\ref{tbl-consistency}.\color{black}
 
 \subsection*{S2. Raw validation workbook (XLSX)}\label{s2-workbook}
 \addcontentsline{toc}{subsection}{S2. Raw validation workbook (XLSX)}

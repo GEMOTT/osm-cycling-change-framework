@@ -17,6 +17,7 @@ library(readxl); library(openxlsx)
 library(leaflet); library(htmlwidgets)
 library(DiagrammeR); library(biscale)
 library(DiagrammeRsvg); library(rsvg)
+library(here)
 
 # ----------------------------
 # Global options
@@ -60,9 +61,12 @@ crs_wgs  <- 4326    # WGS84 for web + lon/lat
 # ----------------------------
 
 # Processed-data directory
-proc_dir <- "data/processed"
-dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
+proc_dir <- here::here("data", "processed")
+outdir   <- here::here("outputs")
+fig_dir  <- here::here("figs")
+supp_dir <- here::here("supplements")
 
-# Output-data directory
-outdir <- "outputs"
-dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(outdir,   recursive = TRUE, showWarnings = FALSE)
+dir.create(fig_dir,  recursive = TRUE, showWarnings = FALSE)
+dir.create(supp_dir, recursive = TRUE, showWarnings = FALSE)

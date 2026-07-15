@@ -6,6 +6,9 @@
 # Outputs: sampled_tracts (sf) + optional saved files
 # ================================================================
 
+tracts_geo_file <- here::here("data", "geo", "BCN_seccion_censal_2015.rds")
+tracts_pop_file <- here::here("data", "pop", "Population_Census_tract_2015_2022.rds")
+
 # Census tracts (processed, EPSG:25831)
 rds_tracts_proc  <- file.path(proc_dir, sprintf("%s_tracts_proc_25831.rds",  city_tag))
 gpkg_tracts_proc <- file.path(proc_dir, sprintf("%s_tracts_proc_25831.gpkg", city_tag))
@@ -15,8 +18,8 @@ barcelona_tracts <- .cache(
   build = function(){
     
     # ---- load raw inputs ----
-    tracts_geo <- readRDS("../data/geo/BCN_seccion_censal_2015.rds")
-    tracts_pop <- readRDS("../data/pop/Population_Census_tract_2015_2022.rds")
+    tracts_geo <- readRDS(tracts_geo_file)
+    tracts_pop <- readRDS(tracts_pop_file)
     
     # Ensure expected ids exist
     stopifnot("CUSEC" %in% names(tracts_geo), all(c("GEOID","Year","Population") %in% names(tracts_pop)))
@@ -58,8 +61,7 @@ barcelona_tracts <- .cache(
     }
     x
   },
-  inputs = c("../data/geo/BCN_seccion_censal_2015.rds",
-             "../data/pop/Population_Census_tract_2015_2022.rds")
+  inputs = c(tracts_geo_file, tracts_pop_file)
 )
 
 # 11-tracts-stratify

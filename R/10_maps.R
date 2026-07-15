@@ -8,8 +8,8 @@
 
 # ---- 0) Housekeeping + consistent change layers -----------------------------
 
-fs::dir_create("../figs")
-fs::dir_create("../supplements")
+fs::dir_create(fig_dir)
+fs::dir_create(supp_dir)
 
 # Use evaluation pool for maps (fallback to added/removed for backwards compatibility)
 added_map <- if (exists("added_eval") && inherits(added_eval, "sf")) added_eval else
@@ -153,7 +153,7 @@ final_plot <- cowplot::ggdraw() +
   cowplot::draw_plot(bivar_legend, x = 0.73, y = 0.03, width = 0.26, height = 0.26)
 
 ggsave(
-  "../figs/stratified_sample_bivariate_map.png",
+  file.path(fig_dir, "stratified_sample_bivariate_map.png"),
   final_plot,
   width  = 8,
   height = 8,
@@ -265,8 +265,7 @@ make_validation_points_static_map <- function() {
 
 validation_points_map <- make_validation_points_static_map()
 
-ggsave(
-  "../figs/validation_points_map.png",
+ggsave(file.path(fig_dir, "validation_points_map.png"),
   validation_points_map,
   width  = 8,
   height = 8,
@@ -385,7 +384,7 @@ p_change <- ggplot() +
 
 # 5. Save
 ggsave(
-  filename = "../figs/infra_change_map.png",
+  filename = file.path(fig_dir, "infra_change_map.png"),
   plot     = p_change,
   width    = 9,
   height   = 9,
@@ -959,7 +958,7 @@ val_map_widget <- make_validation_points_interactive_map()
 
 htmlwidgets::saveWidget(
   widget        = val_map_widget,
-  file          = "../supplements/S2_validation_points_map.html",
+  file          = file.path(supp_dir, "S3_validation_points_map.html"),
   selfcontained = TRUE
 )
 
@@ -968,6 +967,6 @@ infra_map_widget <- make_infra_change_interactive_map()
 
 htmlwidgets::saveWidget(
   widget        = infra_map_widget,
-  file          = "../supplements/S2_infra_change_map.html",
+  file          = file.path(supp_dir, "S3_infra_change_map.html"),
   selfcontained = TRUE
 )

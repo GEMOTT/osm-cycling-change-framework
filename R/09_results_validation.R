@@ -193,8 +193,7 @@ build_joined_results <- function(city_tag,
                                  out_file    = NULL) {
   
   if (is.null(out_file)) {
-    out_file <- file.path("outputs",
-                          paste0(city_tag, "_samples_2015_2023_joined_results.xlsx"))
+    out_file <- file.path(outdir, paste0(city_tag, "_samples_2015_2023_joined_results.xlsx"))
   }
   
   sheets <- c("ADD", "REMOVE", "NONCYC")
@@ -662,61 +661,3 @@ t_class <- tibble::tibble(
   ),
   F1 = sprintf("%.2f", c(m_add$f1, m_rem$f1, m_tot$f1))
 )
-
-# -------------------------------------------------------------------
-# 5) Validation metrics plot (built from TP/FP/FN + Wilson CIs)
-# -------------------------------------------------------------------
-
-plot_df <- tibble::tibble(
-  Class = factor(c("ADD","REMOVE","Pooled"), levels = c("ADD","REMOVE","Pooled")),
-  n = c(n_add_usable, n_rem_usable, n_tot_usable),
-  prec_est = c(m_add$precision, m_rem$precision, m_tot$precision),
-  prec_lo  = c(add_prec_ci[1], rem_prec_ci[1], tot_prec_ci[1]),
-  prec_hi  = c(add_prec_ci[2], rem_prec_ci[2], tot_prec_ci[2]),
-  rec_est  = c(m_add$recall,    m_rem$recall,   m_tot$recall),
-  rec_lo   = c(add_rec_ci[1],   rem_rec_ci[1],  tot_rec_ci[1]),
-  rec_hi   = c(add_rec_ci[2],   rem_rec_ci[2],  tot_rec_ci[2])
-) |>
-  dplyr::mutate(Class_lab = paste0(Class, " (n=", n, ")"))
-
-df_plot <- dplyr::bind_rows(
-  plot_df |> dplyr::transmute(Class_lab, metric = "Precision", est = prec_est, lo = prec_lo, hi = prec_hi),
-  plot_df |> dplyr::transmute(Class_lab, metric = "Recall",    est = rec_est,  lo = rec_lo,  hi = rec_hi)
-) |>
-  dplyr::mutate(
-    metric = factor(metric, levels = c("Precision", "Recall")),
-    # bottom-to-top: Pooled, REMOVE, ADD  -> top-to-bottom: ADD, REMOVE, Pooled
-    Class_lab = factor(Class_lab, levels = c(plot_df$Class_lab[3], plot_df$Class_lab[2], plot_df$Class_lab[1]))
-  )
-
-pd <- ggplot2::position_dodge(width = 0.35)
-
-col_prec <- "#0072B2"
-col_rec  <- "#D95F02"
-
-p_validation_metrics <-
-  ggplot2::ggplot(
-    df_plot,
-    ggplot2::aes(y = Class_lab, x = est, xmin = lo, xmax = hi, colour = metric, shape = metric)
-  ) +
-  ggplot2::geom_errorbarh(height = 0.18, linewidth = 0.9, position = pd) +
-  ggplot2::geom_point(size = 2.8, position = pd) +
-  ggplot2::scale_colour_manual(values = c("Precision" = col_prec, "Recall" = col_rec)) +
-  ggplot2::scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
-  ggplot2::labs(x = "Metric value (1 = perfect, 0 = poor)", y = NULL, colour = NULL, shape = NULL) +
-  ggplot2::theme_minimal(base_size = 12) +
-  ggplot2::theme(
-    panel.grid.major.y = ggplot2::element_blank(),
-    panel.grid.minor   = ggplot2::element_blank(),
-    legend.position    = "bottom"
-  )
-
-figdir <- file.path(outdir, "..", "figs")
-dir.create(figdir, showWarnings = FALSE, recursive = TRUE)
-
-ggplot2::ggsave(
-  file.path(figdir, "validation-metrics.png"),
-  p_validation_metrics,
-  width = 7, height = 3.2, dpi = 300
-)
-

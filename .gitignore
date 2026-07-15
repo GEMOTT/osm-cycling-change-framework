@@ -1,14 +1,28 @@
+# R session and project-local files
 .Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
 
+# Quarto-generated files
 .quarto/
+**/.quarto_ipynb
 *_files/
 *_cache/
 
+# Private working and publication material
 archive/
+paper/
+slides/
+submissions/
+wstlur/
 
-/.quarto/
-**/*.quarto_ipynb
-.positai
+# Temporary and lock files
+.~lock.*
+~$*
+*.tmp
+*.log
+
+# OS/editor files
+.DS_Store
+Thumbs.db
