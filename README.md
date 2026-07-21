@@ -1,7 +1,9 @@
 # OSM Cycling Change Validation Framework
 
 
-[![](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License:
+MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.jtrangeo.2026.104775-blue)](https://doi.org/10.1016/j.jtrangeo.2026.104775)
 
 # Overview
 
@@ -12,7 +14,8 @@ accompanying the study:
 *Quantifying the accuracy of OpenStreetMap for longitudinal
 cycling-infrastructure change: A reproducible validation framework using
 Google Street View.*  
-*Journal of Transport Geography.*
+*Journal of Transport Geography, 136, 104775.*  
+https://doi.org/10.1016/j.jtrangeo.2026.104775
 
 The repository includes the manuscript source, analytical code,
 validation materials, derived outputs, figures, and supplementary
@@ -240,14 +243,13 @@ terms of their original providers.
 
 # Citation
 
+# Citation
+
 If you use this repository, its workflow, or its validation materials,
 please cite:
 
-Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).  
-*Quantifying the accuracy of OpenStreetMap for longitudinal
-cycling-infrastructure change: A reproducible validation framework using
-Google Street View.*  
-*Journal of Transport Geography.*
-
-The DOI will be added once the final published version becomes
-available.
+> Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).
+> *Quantifying the accuracy of OpenStreetMap for longitudinal
+> cycling-infrastructure change: A reproducible validation framework
+> using Google Street View.* *Journal of Transport Geography, 136,
+> 104775.* https://doi.org/10.1016/j.jtrangeo.2026.104775

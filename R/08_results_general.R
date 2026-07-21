@@ -186,8 +186,8 @@ stratum_out <- stratum_summary |>
     Removed_pct = if (tot_removed_strata > 0) 100 * Removed_km / tot_removed_strata else 0
   ) |>
   dplyr::mutate(
-    dplyr::across(c(Added_km, Removed_km, Added_pct, Removed_pct), ~ round(.x, 0))
-  ) |>
+    dplyr::across(c(Added_km, Removed_km), ~ round(.x, 1)),
+    dplyr::across(c(Added_pct, Removed_pct), ~ round(.x, 0))) |>
   dplyr::mutate(
     Description = dplyr::case_when(
       stratum == "D1_C1" ~ "Low density, peripheral",
@@ -271,3 +271,4 @@ official_bcn <- tibble::tibble(
 )
 
 official_bcn
+

@@ -5,14 +5,17 @@ editor: visual
 ---
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.jtrangeo.2026.104775-blue)](https://doi.org/10.1016/j.jtrangeo.2026.104775)
+
 
 # Overview
 
 This repository contains the reproducible research materials accompanying the study:
 
-**Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).**  
-*Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change: A reproducible validation framework using Google Street View.*  
-*Journal of Transport Geography.*
+**Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).**\
+*Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change: A reproducible validation framework using Google Street View.*\
+*Journal of Transport Geography, 136, 104775.*\
+https://doi.org/10.1016/j.jtrangeo.2026.104775
 
 The repository includes the manuscript source, analytical code, validation materials, derived outputs, figures, and supplementary resources used in the study.
 
@@ -42,15 +45,15 @@ Although demonstrated for Barcelona (2015–2023), the framework is designed to 
 
 Rendering the manuscript sources the following components in sequence:
 
-1. `R/00_setup.R` – packages, paths, coordinate reference systems, dates, and analytical settings
-2. `R/utils_core.R` – shared geometry, caching, and length-processing functions
-3. `R/utils_ci.R` – cycling-infrastructure classification and cleaning functions
-4. `R/utils_validation.R` – sampling and validation-table helper functions
-5. `R/01_osm_download.R` – retrieval and clipping of dated OSM snapshots
-6. `R/02_ci_networks.R` – construction of baseline and follow-up cycling networks
-7. `R/03_change_detection.R` – detection of candidate additions and removals
-8. `R/04_noncyc_network.R` – construction of the non-cycling control pool
-9. `R/05_tracts_strata.R` – tract-level density and centrality stratification
+1.  `R/00_setup.R` – packages, paths, coordinate reference systems, dates, and analytical settings
+2.  `R/utils_core.R` – shared geometry, caching, and length-processing functions
+3.  `R/utils_ci.R` – cycling-infrastructure classification and cleaning functions
+4.  `R/utils_validation.R` – sampling and validation-table helper functions
+5.  `R/01_osm_download.R` – retrieval and clipping of dated OSM snapshots
+6.  `R/02_ci_networks.R` – construction of baseline and follow-up cycling networks
+7.  `R/03_change_detection.R` – detection of candidate additions and removals
+8.  `R/04_noncyc_network.R` – construction of the non-cycling control pool
+9.  `R/05_tracts_strata.R` – tract-level density and centrality stratification
 10. `R/06_sampling_points.R` – selection of validation segments and points
 11. `R/07_export_excel.R` – preparation of coder validation workbooks
 12. `R/08_results_general.R` – descriptive summaries and general results
@@ -64,15 +67,15 @@ Additional scripts provide sensitivity analyses and sample-extension checks but 
 
 # Methodological Summary
 
-1. Construct baseline and follow-up cycling-infrastructure networks from dated OSM extracts.
-2. Detect candidate additions and removals using geometric snapshot differencing.
-3. Construct a non-cycling control pool.
-4. Stratify census tracts by population density and network centrality.
-5. Draw a probability-based validation sample across the resulting strata.
-6. Assess sampled locations using historical Google Street View imagery.
-7. Reconcile the classifications of two independent coders.
-8. Estimate precision, recall, and F1 score with confidence intervals.
-9. Compare OSM-derived network lengths with official cycling-infrastructure statistics.
+1.  Construct baseline and follow-up cycling-infrastructure networks from dated OSM extracts.
+2.  Detect candidate additions and removals using geometric snapshot differencing.
+3.  Construct a non-cycling control pool.
+4.  Stratify census tracts by population density and network centrality.
+5.  Draw a probability-based validation sample across the resulting strata.
+6.  Assess sampled locations using historical Google Street View imagery.
+7.  Reconcile the classifications of two independent coders.
+8.  Estimate precision, recall, and F1 score with confidence intervals.
+9.  Compare OSM-derived network lengths with official cycling-infrastructure statistics.
 
 ------------------------------------------------------------------------
 
@@ -91,14 +94,14 @@ Required R packages are loaded in `R/00_setup.R`.
 
 ## Rendering the Manuscript
 
-1. Clone or download this repository.
-2. Open `osm-cycling-change-framework.Rproj`.
-3. Open `paper/manuscript.qmd`.
-4. Render the document with Quarto.
+1.  Clone or download this repository.
+2.  Open `osm-cycling-change-framework.Rproj`.
+3.  Open `paper/manuscript.qmd`.
+4.  Render the document with Quarto.
 
 From the repository root, the equivalent terminal command is:
 
-```bash
+``` bash
 quarto render paper/manuscript.qmd
 ```
 
@@ -188,10 +191,11 @@ Third-party datasets and materials remain subject to the licences and terms of t
 
 # Citation
 
+# Citation
+
 If you use this repository, its workflow, or its validation materials, please cite:
 
-Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).  
-*Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change: A reproducible validation framework using Google Street View.*  
-*Journal of Transport Geography.*
-
-The DOI will be added once the final published version becomes available.
+> Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).
+> *Quantifying the accuracy of OpenStreetMap for longitudinal cycling-infrastructure change: A reproducible validation framework using Google Street View.*
+> *Journal of Transport Geography, 136, 104775.*
+> https://doi.org/10.1016/j.jtrangeo.2026.104775
