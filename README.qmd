@@ -191,8 +191,6 @@ Third-party datasets and materials remain subject to the licences and terms of t
 
 # Citation
 
-# Citation
-
 If you use this repository, its workflow, or its validation materials, please cite:
 
 > Vidal-Tortosa, E., Gonzàlez-Parra, V., & Marquet, O. (2026).
