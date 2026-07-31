@@ -243,8 +243,6 @@ terms of their original providers.
 
 # Citation
 
-# Citation
-
 If you use this repository, its workflow, or its validation materials,
 please cite:
 
